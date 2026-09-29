@@ -1,0 +1,290 @@
+# Security Guidelines
+
+> **This is Pawfolio's authoritative security document.** Security rules in other files point here; if any file conflicts
+> with this one, this file wins (see the order of precedence in `README.md`).
+
+| | |
+| --- | --- |
+| **Owner** | The whole team; changes need review like any other rule |
+| **Applies to** | `frontend/`, `backend/`, database, deployment, and any new module or feature |
+| **Version** | 1.0 · 2026-09-28 (scaffolding phase) — see the changelog at the end |
+
+## 0. Baseline and cross-references
+
+These guidelines are based on the **Senior Security Claude Skill** (`.claude/skills/senior-security/`) and must be
+cross-referenced with it. Each section below maps to one of the skill's areas:
+
+| Senior Security skill area | Where it is applied here |
+| --- | --- |
+| Security architecture patterns | §2 Principles, §4 Architecture |
+| Threat modeling | §3 Threat model |
+| Security auditing | §9 Finding vulnerabilities, §10 Feature checklist |
+| Penetration testing | §9.3 Manual security testing |
+| Cryptography implementation | §8 Cryptography and secrets |
+| Skill's security best practices: *validate all inputs, use parameterized queries, implement proper authentication, keep dependencies updated* | §5.3, §6.2, §5.1, §7.2 |
+
+**Current state of the skill (checked 2026-09-28):** its reference files are unfilled templates and its scripts
+(`threat_modeler.py`, `security_auditor.py`, `pentest_automator.py`) run but report no findings. Don't treat a clean script run as
+evidence of security. Until the skill has real content, the concrete rules here come from:
+
+- **OWASP ASVS 4.0** (Level 2 target) — verification requirements for web apps
+- **OWASP Top 10 (2021)** and **OWASP API Security Top 10 (2023)** — the most common vulnerability classes
+- **Laravel** and **Next.js** official security documentation
+- **The Pawfolio proposal** — NFR2 (security), NFR3 (data integrity), NFR4 (privacy), NFR9 (accountability), Section 5 status rules
+
+When the skill gains real content, compare it with this file and record any change in the changelog.
+
+**Wording:** **MUST** = required, a PR that breaks it is not merged. **SHOULD** = expected; skipping it needs a reason in
+the PR. **MAY** = optional. Rules have IDs (e.g. `SEC-AUTH-03`) so PRs and reviews can cite them.
+
+## 1. What we protect
+
+| Asset | Why it matters |
+| --- | --- |
+| Verification documents (ID photos, vet records) | Identity theft if leaked; admin-only by requirement (NFR4) |
+| Contact numbers and exact addresses | Physical safety of adopters and caretakers; revealed only after a confirmed Meet & Greet (NFR4) |
+| Accounts and sessions | Takeover lets an attacker act as a pet caretaker, adopter or admin |
+| Adoption status and history | Integrity of the core flow: status changes only through the system (FR27, NFR3) |
+| Admin powers and activity logs | Abuse or tampering undermines trust and accountability (NFR9) |
+| The animals themselves | The platform must not become a channel for selling or trading animals |
+
+## 2. Principles
+
+1. **Server-side enforcement.** The frontend is untrusted. Every rule is checked by the Laravel API (NFR2, NFR3).
+2. **Deny by default.** Nothing is readable or writable unless a policy explicitly allows it for that role and account status.
+3. **Least privilege.** Users, admins, database accounts, API keys and servers get only the access they need.
+4. **Privacy by default.** Collect the minimum, reveal the minimum, keep sensitive files private.
+5. **Defence in depth.** Validation, authorization, output encoding, security headers and monitoring each stop what the others miss.
+6. **Everything important is logged.** Admin actions and status changes are recorded with who, what, when and why.
+7. **Secure by design.** Security is part of the design of every feature (§10), not something bolted on after.
+
+## 3. Threat model
+
+Review this table whenever a module is added or changed. New threats get the next ID.
+
+| ID | Threat | Example in Pawfolio | Main mitigations |
+| --- | --- | --- | --- |
+| T01 | Account takeover | Password guessing on `/sign-in`; stolen session cookie | SEC-AUTH-01…08 |
+| T02 | Broken object-level authorization (IDOR) | Pet A opens `/requests/{id}` of pet B; human reads another human's thread | SEC-AUTHZ-01…04 |
+| T03 | Privilege escalation | A user sends `role=admin` or `status=adopted` in a request | SEC-AUTHZ-05, SEC-INPUT-04 |
+| T04 | Blocked accounts acting | Pending/suspended account calls the API directly | SEC-AUTHZ-06 |
+| T05 | Exposure of private data | Contact number in an API response before confirmation; ID photo served from a public URL | SEC-PRIV-01…06, SEC-FILE-04 |
+| T06 | Injection | SQL injection via search/sort parameters | SEC-INPUT-01…03 |
+| T07 | Cross-site scripting (XSS) | Script in a pet bio, cover letter, post or comment | SEC-FE-01…03, SEC-HDR-01 |
+| T08 | Cross-site request forgery (CSRF) | Another site triggers "Withdraw request" for a signed-in user | SEC-AUTH-06 |
+| T09 | Malicious file upload | Script disguised as an image; huge files; GPS data in photo EXIF | SEC-FILE-01…06 |
+| T10 | Fake or fraudulent accounts | Fake pet profiles selling animals; stolen-ID sign-ups | Verification (FR33), reports (FR35), SEC-ABUSE-01…04 |
+| T11 | Abuse and spam | Mass requests, invite spam, harassment in threads | SEC-ABUSE-01…04, SEC-API-04 |
+| T12 | Admin misuse or mistakes | Suspending without reason; editing logs | SEC-LOG-01…05, SEC-AUTHZ-07 |
+| T13 | Vulnerable dependencies | Known CVE in an npm or Composer package | SEC-DEP-01…05 |
+| T14 | Leaked secrets | `.env` or API keys committed to git | SEC-SECRET-01…05 |
+| T15 | Insecure deployment | Debug mode on in production; database open to the internet | SEC-DEPLOY-01…08 |
+
+## 4. Architecture
+
+- **SEC-ARCH-01 (MUST)** The browser talks only to the Next.js frontend and the Laravel API over **HTTPS**. The database and file storage are never reachable from the internet directly.
+- **SEC-ARCH-02 (MUST)** All business rules, authorization and validation live in the backend. The frontend only reflects them.
+- **SEC-ARCH-03 (MUST)** Trust boundaries are explicit: browser → API (untrusted input), API → database/storage (trusted, least-privilege credentials).
+- **SEC-ARCH-04 (SHOULD)** Keep external services to a minimum; each new one (email, SMS, storage, analytics) gets a `docs/decisions/` record covering what data it receives.
+
+## 5. Authentication, sessions and input
+
+### 5.1 Authentication (OWASP A07)
+
+- **SEC-AUTH-01 (MUST)** Use **Laravel Sanctum SPA** cookie-session authentication (NFR2). No tokens in `localStorage` or `sessionStorage`.
+- **SEC-AUTH-02 (MUST)** Hash passwords with Laravel's default hasher (bcrypt/argon2). Never store, log or email plain passwords.
+- **SEC-AUTH-03 (MUST)** Passwords: at least 8 characters with a letter and a number (LoFi `AU-06`); reject known-breached passwords (`Password::uncompromised()`).
+- **SEC-AUTH-04 (MUST)** Rate-limit sign-in: after 5 failed attempts, pause 15 minutes per account + IP (LoFi `AU-03`). Also rate-limit sign-up, forgot-password and verification resubmission.
+- **SEC-AUTH-05 (MUST)** Don't reveal whether an email exists: identical responses for "forgot password" (`AU-05`) and generic sign-in errors.
+- **SEC-AUTH-06 (MUST)** Session cookies are `HttpOnly`, `Secure` (in production) and `SameSite=Lax`; CSRF protection is enabled for all state-changing requests (Sanctum CSRF cookie).
+- **SEC-AUTH-07 (MUST)** Regenerate the session ID on sign-in; invalidate it on sign-out and on password change (other devices signed out, LoFi `AC-04`).
+- **SEC-AUTH-08 (MUST)** Password-reset links are single-use and expire in 30 minutes.
+- **SEC-AUTH-09 (SHOULD)** Admin accounts use two-factor authentication once available; admin sessions time out after 30 minutes of inactivity.
+- **SEC-AUTH-10 (MUST)** Admin accounts are created only by seeder/console command, never through public sign-up.
+
+### 5.2 Authorization (OWASP A01, API1, API5)
+
+- **SEC-AUTHZ-01 (MUST)** Every endpoint checks **who** (authenticated), **what role** (pet / human / admin) and **which record** (ownership or relationship) via Laravel Policies.
+- **SEC-AUTHZ-02 (MUST)** Never trust IDs from the client. Load the record, then authorize it against the current user (prevents IDOR).
+- **SEC-AUTHZ-03 (MUST)** Request details, threads and Meet & Greet data are visible only to the pet account, the human on that request, and admins.
+- **SEC-AUTHZ-04 (MUST)** Missing and forbidden records the user must not know about return `404`, not `403`, so IDs can't be probed.
+- **SEC-AUTHZ-05 (MUST)** Roles and statuses can't be set through regular endpoints (see SEC-INPUT-04). Status changes happen only in Actions (FR27).
+- **SEC-AUTHZ-06 (MUST)** Middleware blocks every member endpoint for accounts that are not **Active**; they can only reach the account-status and edit-submission endpoints (§5.1 of the proposal).
+- **SEC-AUTHZ-07 (MUST)** Admin endpoints live under `/api/v1/admin/*`, require the admin role, and require a reason for deny, suspend, reactivate, deactivate, resolve and report actions.
+- **SEC-AUTHZ-08 (MUST)** Business limits are enforced atomically in a transaction: 3 open requests, 1 in process, 1 request per pet + human, 30-day cooldown, one Furparent per pet.
+
+### 5.3 Input validation (OWASP A03)
+
+- **SEC-INPUT-01 (MUST)** Validate every input on the server with Form Requests: type, length, format, allowed values.
+- **SEC-INPUT-02 (MUST)** Use Eloquent / the query builder with bound parameters. No string-concatenated SQL; `DB::raw` only with constants.
+- **SEC-INPUT-03 (MUST)** Sorting and filtering use **allow-lists** of column names; unknown values are rejected.
+- **SEC-INPUT-04 (MUST)** Protect against mass assignment: models declare `$fillable`; `role`, `status`, `*_at` milestone fields and foreign keys to other users are never fillable from requests.
+- **SEC-INPUT-05 (MUST)** Enforce server-side the rules shown in the UI: age 18+ for humans, required reasons, text length limits (e.g. cover letter 50–600 characters).
+- **SEC-INPUT-06 (SHOULD)** Normalize input (trim whitespace, normalize emails to lowercase) before validation.
+
+## 6. Frontend (`frontend/`)
+
+- **SEC-FE-01 (MUST)** Render user content (bios, cover letters, posts, comments, messages) as plain text through React. `dangerouslySetInnerHTML` is forbidden unless the content is sanitized with a vetted library and the PR explains why.
+- **SEC-FE-02 (MUST)** Links from user content open with `rel="noopener noreferrer"`; only `http`/`https` URLs are allowed.
+- **SEC-FE-03 (MUST)** Never put secrets in frontend code or `NEXT_PUBLIC_*` variables — everything shipped to the browser is public.
+- **SEC-FE-04 (MUST)** Don't store personal data (contact numbers, addresses, documents) in `localStorage`, `sessionStorage` or URLs.
+- **SEC-FE-05 (MUST)** Hiding a button is not security. Every action hidden in the UI is also blocked by the API.
+- **SEC-FE-06 (SHOULD)** `proxy.ts` may redirect unauthenticated users early, but is never the only authorization check.
+
+## 7. Backend, API and dependencies
+
+### 7.1 API
+
+- **SEC-API-01 (MUST)** API Resources decide which fields each role sees. Never return a whole model (`toArray()`) to the client.
+- **SEC-API-02 (MUST)** Error responses never contain stack traces, SQL or file paths. `APP_DEBUG=false` outside local development.
+- **SEC-API-03 (MUST)** CORS allows only the frontend origin(s), with credentials; Sanctum `stateful` domains list only those origins.
+- **SEC-API-04 (MUST)** Rate-limit writes that can be abused (requests, invites, reports, posts, comments, messages) per user.
+- **SEC-API-05 (MUST)** Every list is paginated with a maximum page size (e.g. 50) to prevent data scraping and heavy queries.
+- **SEC-API-06 (SHOULD)** Scheduled jobs (expiry, reminders, overdue flags) run with system identity and are logged like user actions.
+
+### 7.2 Dependencies (OWASP A06)
+
+- **SEC-DEP-01 (MUST)** Commit lock files (`package-lock.json`, `composer.lock`).
+- **SEC-DEP-02 (MUST)** Run `npm audit` (frontend) and `composer audit` (backend) before each release and when adding packages. High and critical findings block the release.
+- **SEC-DEP-03 (MUST)** Before adding a package, check that it is maintained, widely used, and needed. Prefer framework features.
+- **SEC-DEP-04 (SHOULD)** Update dependencies at least monthly; apply security patches as soon as practical.
+- **SEC-DEP-05 (MUST)** Run supported versions of PHP, Node.js, Laravel and Next.js (security-patched releases only).
+
+## 8. Data, files, cryptography and secrets
+
+### 8.1 Privacy (NFR4)
+
+- **SEC-PRIV-01 (MUST)** Verification documents are admin-only, stored on the private disk, and served through an authorized admin endpoint.
+- **SEC-PRIV-02 (MUST)** Contact numbers and exact addresses are returned only to the two parties of a **confirmed** Meet & Greet, and to admins when needed.
+- **SEC-PRIV-03 (MUST)** Public profiles show only the city and a household summary (humans) or the pet's public résumé.
+- **SEC-PRIV-04 (MUST)** Collect only data the proposal requires. New personal-data fields need a documented purpose.
+- **SEC-PRIV-05 (MUST)** Deactivation hides the profile immediately; retained records (adoption history, logs) stay access-controlled.
+- **SEC-PRIV-06 (MUST)** Seed and test data are fake. Never use real people's names, IDs, photos or numbers.
+- **SEC-PRIV-07 (SHOULD)** Follow the Philippine Data Privacy Act of 2012 (RA 10173) principles: consent at sign-up, purpose limitation, access on request.
+
+### 8.2 File uploads
+
+- **SEC-FILE-01 (MUST)** Allow only JPG, PNG (photos) and PDF (documents); validate by content type and by inspecting the file, not the extension alone. No SVG or HTML uploads.
+- **SEC-FILE-02 (MUST)** Maximum 5 MB per file; limit the number of files per request.
+- **SEC-FILE-03 (MUST)** Store under random, server-generated file names; never use the uploaded name in paths.
+- **SEC-FILE-04 (MUST)** Public photos (pets, posts) may use public storage; documents never do.
+- **SEC-FILE-05 (MUST)** Re-encode uploaded images and strip EXIF metadata (it can contain the GPS location of a foster home).
+- **SEC-FILE-06 (SHOULD)** Scan uploads for malware when a scanning service is available in the hosting environment.
+
+### 8.3 Cryptography
+
+- **SEC-CRYPTO-01 (MUST)** Use framework and platform crypto only (Laravel hashing and encryption, TLS). Never write custom cryptography.
+- **SEC-CRYPTO-02 (MUST)** HTTPS/TLS everywhere outside local development, with HSTS in production.
+- **SEC-CRYPTO-03 (MUST)** `APP_KEY` is unique per environment, secret, and never committed. Rotating it is planned (it invalidates encrypted values and sessions).
+- **SEC-CRYPTO-04 (SHOULD)** Encrypt at rest (Laravel `encrypted` casts) the most sensitive columns: contact numbers, street addresses, ID numbers if ever stored.
+- **SEC-CRYPTO-05 (MUST)** Tokens for password reset, email verification and similar use Laravel's secure generators; never predictable values.
+
+### 8.4 Secrets
+
+- **SEC-SECRET-01 (MUST)** Secrets live only in `.env` files (local) or the host's secret settings (production). Commit only `.env.example` with placeholders.
+- **SEC-SECRET-02 (MUST)** Never paste secrets into code, docs, issues, PRs, chat or AI prompts.
+- **SEC-SECRET-03 (MUST)** A leaked secret is rotated immediately, then removed from history if needed, and reported to the team.
+- **SEC-SECRET-04 (SHOULD)** Run a secret scanner (e.g. `gitleaks`) before pushing, and in CI once it exists.
+- **SEC-SECRET-05 (MUST)** Use different credentials for local, staging and production.
+
+## 9. Logging, monitoring and abuse
+
+### 9.1 Logging (NFR9, OWASP A09)
+
+- **SEC-LOG-01 (MUST)** Log every admin action and every status change: actor, action, target, before, after, reason, time.
+- **SEC-LOG-02 (MUST)** Log security events: sign-ins, failed sign-ins, lockouts, password changes, permission denials on admin endpoints.
+- **SEC-LOG-03 (MUST)** Never log passwords, session cookies, tokens, full ID numbers or document contents.
+- **SEC-LOG-04 (MUST)** Activity logs are append-only: no update or delete endpoint, including for admins.
+- **SEC-LOG-05 (SHOULD)** Review security logs weekly during the pilot; alert on repeated lockouts or admin permission denials.
+
+### 9.2 Abuse prevention
+
+- **SEC-ABUSE-01 (MUST)** Every account is verified by an admin before it can act (FR1, FR18, FR33).
+- **SEC-ABUSE-02 (MUST)** Reports are available on profiles, posts, comments and accounts (FR16, FR32); "Selling or trading animals" is a report reason.
+- **SEC-ABUSE-03 (SHOULD)** Flag posts and messages that mention prices or payment (e.g. "₱", "reservation fee") for admin review.
+- **SEC-ABUSE-04 (MUST)** Suspension immediately ends the account's sessions and hides its profile.
+
+## 10. Finding and fixing vulnerabilities
+
+### 10.1 Security checklist for every new feature or module
+
+Copy into the PR description for any feature that touches data, auth or files:
+
+- [ ] Threats reviewed against §3; new threats added to the table
+- [ ] Every endpoint has a Policy check (role, account status, ownership) — SEC-AUTHZ-01…06
+- [ ] All inputs validated server-side with Form Requests; sort/filter allow-listed — SEC-INPUT-01…05
+- [ ] No mass-assignable `role`, `status` or milestone fields — SEC-INPUT-04
+- [ ] API Resources expose only fields this role may see; private data hidden until allowed — SEC-API-01, SEC-PRIV-02
+- [ ] User content rendered as text; no `dangerouslySetInnerHTML` — SEC-FE-01
+- [ ] Uploads validated, renamed, stripped, stored in the right disk — SEC-FILE-01…05
+- [ ] Abusable writes rate-limited — SEC-API-04
+- [ ] Admin actions require a reason and are logged — SEC-AUTHZ-07, SEC-LOG-01
+- [ ] Feature tests for: unauthenticated, wrong role, non-Active account, another user's record, invalid input
+- [ ] No secrets or real personal data in the change — SEC-SECRET-01, SEC-PRIV-06
+
+### 10.2 Automated checks
+
+| Check | Tool | When |
+| --- | --- | --- |
+| Dependency vulnerabilities | `npm audit`, `composer audit` | Adding packages, before release, CI |
+| Secrets in code | `gitleaks` (or similar) | Before push, CI |
+| Static analysis | ESLint (frontend); Larastan/PHPStan (backend, when adopted) | Every PR |
+| Security tests | Laravel Feature tests for authz, validation, limits | Every PR |
+| Senior Security skill scripts | `threat_modeler.py`, `security_auditor.py`, `pentest_automator.py` | Only once they contain real checks (currently templates) |
+
+### 10.3 Manual security testing (before each release / demo)
+
+Follow the skill's penetration-testing area, using OWASP WSTG as the method:
+
+1. Try each role against another role's endpoints and against other users' records (IDOR).
+2. Try every action as a Pending, Denied and Suspended account.
+3. Send forbidden fields (`role`, `status`) and out-of-order state changes (adopt before the meeting, book before approval).
+4. Put script tags and long strings in every text field; upload wrong file types and oversized files.
+5. Check that contact details and documents never appear in responses where they shouldn't.
+6. Check security headers and cookie flags in the browser dev tools.
+
+Record results in `docs/architecture/security-test-log.md` (create it at the first test run).
+
+### 10.4 Handling a vulnerability
+
+1. **Report** it privately to the team lead — not in a public issue or channel.
+2. **Rate** its severity:
+
+   | Severity | Examples | Fix target |
+   | --- | --- | --- |
+   | Critical | Account takeover, access to ID documents, admin access | Immediately; block release |
+   | High | IDOR on requests/threads, stored XSS, contact data leak | Within 2 days; block release |
+   | Medium | Missing rate limit, verbose errors, weak header config | Within 1 week |
+   | Low | Hardening improvements | Next planned cycle |
+
+3. **Fix** it on a `fix/security-<short-desc>` branch with a test that proves the fix (commit scope `security`).
+4. **Check** for the same flaw elsewhere in the codebase.
+5. **Record** it in §12 and, if it teaches a new rule, add the rule here.
+
+## 11. Deployment and configuration
+
+- **SEC-DEPLOY-01 (MUST)** Production: `APP_ENV=production`, `APP_DEBUG=false`, HTTPS enforced, `SESSION_SECURE_COOKIE=true`.
+- **SEC-DEPLOY-02 (MUST)** Security headers: `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `frame-ancestors 'none'` (or `X-Frame-Options: DENY`), a restrictive `Permissions-Policy`.
+- **SEC-DEPLOY-03 (MUST)** The database accepts connections only from the backend; its user has only the privileges the app needs (no superuser).
+- **SEC-DEPLOY-04 (MUST)** Production secrets are set in the host's environment settings, not in files in the repository.
+- **SEC-DEPLOY-05 (MUST)** Back up the database regularly; backups are access-controlled and restorable (test a restore at least once).
+- **SEC-DEPLOY-06 (MUST)** Don't expose development tools in production (Telescope, debug bars, `phpinfo`, directory listings).
+- **SEC-DEPLOY-07 (SHOULD)** Deploy only from `main` after the release checklist (audit, tests, manual checks §10.3) passes.
+- **SEC-DEPLOY-08 (MUST)** Keep the server OS, PHP and Node.js on security-patched versions.
+
+## 12. Known risks and security decisions
+
+Update this table as risks are found, accepted or fixed.
+
+| Date | Item | Decision / status |
+| --- | --- | --- |
+| 2026-09-28 | Senior Security skill references and scripts are unfilled templates | Rules sourced from OWASP ASVS/Top 10 + framework docs; revisit when the skill is updated |
+| 2026-09-28 | Verification is manual (no automatic ID checks) | Accepted for the pilot; automatic checks are future scope (proposal §10) |
+| 2026-09-28 | No two-factor authentication yet | Accepted for the pilot; SEC-AUTH-09 recommends it for admins |
+| 2026-09-28 | Production database and hosting not chosen | Apply §11 when the ADR is written |
+
+## Changelog
+
+| Version | Date | Change |
+| --- | --- | --- |
+| 1.0 | 2026-09-28 | First version, written during scaffolding |

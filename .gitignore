@@ -1,0 +1,17 @@
+# OS / editor files (each app has its own .gitignore for build output and dependencies)
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Environment files and secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output anywhere in the repo
+node_modules/
+lofi-prototype/dist/

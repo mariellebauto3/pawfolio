@@ -1,0 +1,58 @@
+/* Small-screen (phone, 390 × 844) layout for the mobile design book.
+   Scoped to .m-frame so the desktop book and the prototype are unaffected. */
+.frame-content.m-frame { width: 390px; min-height: 844px; }
+.frame-content.m-frame.viewport { height: 844px; }
+.m-frame .admin { grid-template-columns: 1fr; min-height: 844px; }
+.m-frame .container { padding: 14px 12px 40px; }
+.m-frame h1 { font-size: 21px; }
+
+/* single-column layouts */
+.m-frame .grid3, .m-frame .grid2, .m-frame .grid-side, .m-frame .grid-half, .m-frame .type-pick, .m-frame .form-grid, .m-frame .cards { grid-template-columns: 1fr; }
+.m-frame .grid3 > :first-child, .m-frame .grid3 > :last-child { display: none; } /* feed side rails */
+.m-frame .grid2:has(.attach) > :last-child { order: -1; } /* request detail: action panel first */
+.m-frame .cards.four, .m-frame .photo-grid, .m-frame .kpis { grid-template-columns: 1fr 1fr; }
+.m-frame .kv { grid-template-columns: 110px 1fr; }
+.m-frame .score-row { grid-template-columns: 1fr 70px 44px; }
+.m-frame .hero { grid-template-columns: 1fr; gap: 20px; padding: 16px 0; }
+.m-frame .hero h1 { font-size: 28px; }
+.m-frame .center-card { margin: 16px auto; }
+.m-frame .list-row, .m-frame .result, .m-frame .banner, .m-frame .alumni { flex-wrap: wrap !important; }
+.m-frame .stepper li { min-width: 0; font-size: 10px; }
+.m-frame table { font-size: 12px; }
+.m-frame th, .m-frame td { padding: 8px 5px; }
+.m-frame .footer .inner { flex-wrap: wrap; gap: 10px; }
+
+/* top bar: logo + icon tabs, search on its own row */
+.m-frame .topnav .inner { position: relative; padding: 0 8px; height: auto; flex-wrap: wrap; gap: 0 6px; }
+.m-frame .topnav .logo span, .m-frame .guest-links { display: none; }
+.m-frame .search-form { display: block; order: 3; flex: 1 1 100%; padding: 0 0 8px; }
+.m-frame .navlinks { height: 54px; margin-left: auto; }
+.m-frame .navlinks > a, .m-frame .navlinks summary { padding: 0 5px; font-size: 9.5px; }
+.m-frame .navlinks .lbl { display: inline; }
+.m-frame .navlinks > a:nth-child(2) .lbl { font-size: 0; }
+.m-frame .navlinks > a:nth-child(2) .lbl::after { content: 'Matches'; font-size: 9.5px; }
+.m-frame .dot { top: 5px; right: 0; }
+.m-frame .navlinks details.menu { position: static; }
+.m-frame .navlinks details.menu .drop { left: 8px; right: 8px; width: auto; }
+
+/* admin: sidebar becomes a wrapped tab strip */
+.m-frame .sidebar { flex-direction: row; flex-wrap: wrap; align-items: center; border-right: 0; border-bottom: 1px solid var(--line); padding: 8px; gap: 4px; }
+.m-frame .sidebar .logo { padding: 0 6px 0 0 !important; font-size: 0; }
+.m-frame .sidebar > a { white-space: nowrap; padding: 5px 8px; font-size: 12.5px; }
+.m-frame .sidebar-user { display: none; }
+.m-frame .admin main { padding: 14px 12px; }
+
+/* overlays */
+.m-frame .modal-backdrop { padding: 12px; }
+.m-frame .modal { width: 100% !important; }
+.m-frame .modal-head, .m-frame .modal-body, .m-frame .modal-foot { padding-left: 14px; padding-right: 14px; }
+.m-frame .modal-foot { flex-wrap: wrap; }
+.m-frame .modal .row { flex-wrap: wrap !important; }
+.m-frame .modal .ph { max-width: 100%; }
+.m-frame .drawer { width: 100%; }
+.m-frame .toast { left: 12px; right: 12px; bottom: 16px; }
+.m-frame .viewer { width: 100%; }
+.m-frame .viewer .ph { width: 100% !important; height: 300px !important; }
+.m-frame .viewer .row { flex-wrap: wrap !important; }
+.m-frame .viewer .row .ph[style*='76px'] { width: 64px !important; height: 48px !important; }
+.m-frame .nav-arrow { display: none; }
