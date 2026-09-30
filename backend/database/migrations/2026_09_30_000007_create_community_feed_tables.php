@@ -19,7 +19,7 @@ return new class extends Migration
     {
         Schema::create('posts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('author_user_id')->constrained()->cascadeOnDelete()->comment('pet or human account (FR17, FR29)');
+            $table->foreignId('author_user_id')->constrained('users')->cascadeOnDelete()->comment('pet or human account (FR17, FR29)');
             $table->enum('type', ['for_hire', 'hired', 'update', 'post', 'adoption_story'])->comment('post type badge (FD-01)');
             $table->string('title')->nullable()->comment('adoption story only (FD-04)');
             $table->text('body')->comment('FD-03, FD-04');

@@ -36,18 +36,18 @@ return new class extends Migration
 
         Schema::create('reports', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('reporter_user_id')->constrained()->cascadeOnDelete()->comment('FR16, FR32');
+            $table->foreignId('reporter_user_id')->constrained('users')->cascadeOnDelete()->comment('FR16, FR32');
             $table->enum('target_type', ['profile', 'post', 'comment', 'account'])->comment('RP-01');
             $table->foreignId('reported_user_id')->constrained('users')->cascadeOnDelete()->comment('owner of the reported item (RP-04)');
-            $table->foreignId('post_id')->nullable()->constrained()->cascadeOnDelete()->comment('set when target_type is post');
-            $table->foreignId('comment_id')->nullable()->constrained()->cascadeOnDelete()->comment('set when target_type is comment');
+            $table->foreignId('post_id')->nullable()->constrained('posts')->cascadeOnDelete()->comment('set when target_type is post');
+            $table->foreignId('comment_id')->nullable()->constrained('comments')->cascadeOnDelete()->comment('set when target_type is comment');
             $table->enum('reason', [
                 'fake_or_misleading_profile', 'selling_or_trading_animals', 'harassment_or_hate',
                 'animal_welfare_concern', 'spam_or_scam', 'something_else',
             ])->comment('RP-01');
             $table->text('details')->nullable()->comment('RP-01');
             $table->enum('status', ['open', 'resolved'])->default('open')->comment('RP-03');
-            $table->foreignId('report_action_id')->nullable()->constrained()->nullOnDelete()->comment('set when resolved');
+            $table->foreignId('report_action_id')->nullable()->constrained('report_actions')->nullOnDelete()->comment('set when resolved');
             $table->timestamps();
 
             // One open report per reporter per item; resolved reports allow reporting again.
