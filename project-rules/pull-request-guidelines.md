@@ -1,5 +1,11 @@
 # Pull Request Guidelines
 
+## Branches
+
+- Every PR comes from **its own new branch**, created from the latest `develop` and named `<type>/<scope>-<short-desc>`
+  (format and exceptions: `git-guidelines.md` §3).
+- Compare your branch with `develop` (base: `develop`). `develop` → `main` happens only through a release PR.
+
 ## Title
 
 Same format as a commit: `<type>(<scope>): <summary>` — e.g. `feat(requests): request detail screen for humans (RQ-11)`.
