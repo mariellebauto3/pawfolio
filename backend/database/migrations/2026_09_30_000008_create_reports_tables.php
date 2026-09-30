@@ -63,9 +63,9 @@ return new class extends Migration
             // account reports, and nulls are never equal, so it could not
             // guard those rows.
             $table->index(['reporter_user_id', 'target_type']); // open-report check
-            $table->index('status');
-            $table->index(['status', 'created_at']); // admin queue, most reported first (RP-03)
+            $table->index(['status', 'created_at']); // admin queue, most reported first (RP-03); leading column also covers status-only filters
             $table->index('reported_user_id');
+            $table->index('report_action_id'); // reports resolved by one action (RP-05); FK
         });
     }
 

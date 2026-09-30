@@ -63,8 +63,13 @@ return new class extends Migration
             $table->timestamps();
 
             // One bookmark per saver and target; check exactly one target set in the model layer.
+            // (Nulls-are-distinct is the right tool here: each unique fires only
+            // when that target column is set.) The two indexes below cover the
+            // FK columns, which Postgres does not index automatically.
             $table->unique(['user_id', 'pet_id']);
             $table->unique(['user_id', 'home_profile_id']);
+            $table->index('pet_id'); // who saved this pet
+            $table->index('home_profile_id'); // a pet's saved homes (FR23)
         });
 
         // Résumé and Home Profile view counts for analytics (AN-01).
@@ -78,6 +83,7 @@ return new class extends Migration
 
             $table->index(['pet_id', 'created_at']); // views chart per day (AN-01)
             $table->index(['home_profile_id', 'created_at']);
+            $table->index('viewer_user_id'); // FK; a viewer's view history
         });
     }
 
