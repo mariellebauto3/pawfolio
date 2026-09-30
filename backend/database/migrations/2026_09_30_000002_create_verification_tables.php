@@ -11,6 +11,11 @@ use Illuminate\Support\Facades\Schema;
  * submission (AU-19, AU-20, AU-24). The submitted details themselves live in
  * pets (pet sign-up) or home_profiles (human sign-up); a submission only
  * records the review round and its documents.
+ *
+ * History rows (submissions, documents, change requests, account actions)
+ * stay even if the account row is removed (database guidelines §2–3);
+ * admin "reviewed by" links are nullable so the record stays and shows
+ * "System" instead of being erased with the admin.
  */
 return new class extends Migration
 {
@@ -73,8 +78,8 @@ return new class extends Migration
         // Owner self-deactivation or admin suspend/reactivate/deactivate (FR34, AC-05, AC-08–10).
         Schema::create('account_actions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete()->comment('account acted on');
-            $table->foreignId('performed_by_user_id')->constrained('users')->cascadeOnDelete()->comment('admin, or the owner for self-deactivation');
+            $table->foreignId('user_id')->constrained()->restrictOnDelete()->comment('account acted on');
+            $table->foreignId('performed_by_user_id')->nullable()->constrained('users')->nullOnDelete()->comment('admin, or the owner for self-deactivation; null keeps the record if the actor row is removed');
             $table->enum('action', ['suspend', 'reactivate', 'deactivate'])->comment('FR34');
             $table->text('reason')->nullable()->comment('only for owner deactivation (AC-05); required for admins (AC-08 to AC-10)');
             $table->timestamps();
