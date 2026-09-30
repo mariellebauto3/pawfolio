@@ -14,9 +14,11 @@ use Illuminate\Support\Facades\Schema;
  * request is active (booked or confirmed) at a time.
  *
  * Status enums follow proposal §5.3 (requests) and §5.4 (Meet & Greet).
- * Business limits (3 open, 1 in process, one per pair, 30-day cooldown,
- * exactly one Furparent per pet) are enforced atomically in Actions
- * (SEC-AUTHZ-08); unique constraints here back up what the database can hold.
+ * Business limits (3 open, 1 in process, one open request per pair,
+ * 30-day cooldown, one active booking per request, exactly one Furparent
+ * per pet) are enforced atomically in Actions, in a transaction
+ * (SEC-AUTHZ-08). A status or nullable column inside a unique key either
+ * blocks normal repeats or never fires, so no unique key carries them.
  */
 return new class extends Migration
 {
@@ -49,12 +51,11 @@ return new class extends Migration
             $table->timestamp('closed_at')->nullable()->comment('reached a final status (RQ-08)');
             $table->timestamps();
 
-            // History: keep rows even if an account is removed (database guidelines §2).
-            // The FKs above use restrict by default (no onDelete = restrict in Laravel).
-
-            // Business rule: only one request per pet + human at a time (§5.5, SEC-AUTHZ-08).
-            // Re-sends after a cooldown create a new row once the old one is closed.
-            $table->unique(['pet_id', 'home_profile_id', 'status'], 'adoption_requests_pair_one_open_unique');
+            // Business rule: only one OPEN request per pet + human at a time
+            // (§5.3, §5.5, SEC-AUTHZ-08), checked in the send-request Action.
+            // No unique key: one carrying status allows a status only once per
+            // pair forever, so a second Decline after the cooldown would fail.
+            $table->index(['pet_id', 'home_profile_id']); // pair lookups
             $table->index('status'); // request lists and open-request counts
             $table->index(['pet_id', 'status']);
             $table->index(['home_profile_id', 'status']);
@@ -95,8 +96,12 @@ return new class extends Migration
             $table->foreignId('proposed_slot_id')->nullable()->constrained('meet_greet_slots')->nullOnDelete()->comment('slot the human proposed instead (MG-06)');
             $table->timestamps();
 
-            // At most one active (booked or confirmed) booking per request; ended rows stay.
-            $table->unique(['adoption_request_id', 'status'], 'meet_and_greets_one_active_per_request_unique');
+            // At most one active (booked or confirmed) booking per request is
+            // checked in the booking and reschedule Actions (SEC-AUTHZ-08).
+            // No unique key: one carrying status allows only one ended row
+            // forever, so a second reschedule or cancel would fail (MG-09,
+            // MG-10); ended rows stay.
+            $table->index(['adoption_request_id', 'status']); // active-booking check
             $table->index(['meet_greet_slot_id', 'status']); // double-booking check
             $table->index('confirmed_at'); // reminders 1 day and 1 hour before (§5.4)
         });
@@ -122,9 +127,12 @@ return new class extends Migration
             $table->timestamp('link_removed_at')->nullable()->comment('adoption cancelled by an admin (AL-07, AL-08)');
             $table->timestamps();
 
-            // Exactly one active link per pet; a removed link (link_removed_at set)
-            // is kept for history and allows a new adoption row.
-            $table->unique(['pet_id', 'link_removed_at'], 'adoptions_one_active_per_pet_unique');
+            // Exactly one active link per pet is checked in the Adopt Action
+            // (SEC-AUTHZ-08). No unique key: link_removed_at is null on the
+            // active row, and nulls are never equal, so it could not guard
+            // anything. A removed link (link_removed_at set) is kept for
+            // history and allows a new adoption row.
+            $table->index('pet_id'); // current-adoption lookups
             $table->index('home_profile_id');
         });
 

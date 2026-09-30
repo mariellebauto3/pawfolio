@@ -50,8 +50,12 @@ return new class extends Migration
             $table->foreignId('report_action_id')->nullable()->constrained('report_actions')->nullOnDelete()->comment('set when resolved');
             $table->timestamps();
 
-            // One open report per reporter per item; resolved reports allow reporting again.
-            $table->unique(['reporter_user_id', 'target_type', 'post_id', 'comment_id', 'status'], 'reports_one_open_per_item_unique');
+            // One open report per reporter per item (resolved reports allow
+            // reporting again) is checked in the Report Action (SEC-AUTHZ-08).
+            // No unique key: post_id and comment_id are null for profile and
+            // account reports, and nulls are never equal, so it could not
+            // guard those rows.
+            $table->index(['reporter_user_id', 'target_type']); // open-report check
             $table->index('status');
             $table->index(['status', 'created_at']); // admin queue, most reported first (RP-03)
             $table->index('reported_user_id');
