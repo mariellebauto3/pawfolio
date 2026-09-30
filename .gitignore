@@ -15,3 +15,6 @@ desktop.ini
 # Dependencies and build output anywhere in the repo
 node_modules/
 lofi-prototype/dist/
+
+.freebuff/
+
