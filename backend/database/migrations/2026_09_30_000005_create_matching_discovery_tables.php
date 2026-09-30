@@ -25,8 +25,11 @@ return new class extends Migration
             $table->timestamp('dismissed_at')->nullable()->comment('pet dismissed it (RQ-02)');
             $table->timestamps();
 
-            // One live invite per pet + human pair; dismissed invites allow re-invites.
-            $table->unique(['home_profile_id', 'pet_id', 'dismissed_at']);
+            // One live invite per pet + human pair (dismissed invites allow
+            // re-invites) is checked in the Invite Action (SEC-AUTHZ-08). No
+            // unique key: dismissed_at is null on the live row, and nulls are
+            // never equal, so it could not guard anything.
+            $table->index(['home_profile_id', 'pet_id']); // live-invite check
             $table->index('pet_id');
         });
 

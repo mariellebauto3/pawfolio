@@ -19,9 +19,12 @@ return new class extends Migration
     {
         Schema::create('report_actions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('admin_user_id')->constrained('users')->cascadeOnDelete()->comment('FR35');
+            // Actor link survives an admin row removal: the record stays and
+            // shows "System"; reported_user_id keeps the history (database
+            // guidelines §2–3).
+            $table->foreignId('admin_user_id')->nullable()->constrained('users')->nullOnDelete()->comment('FR35');
             $table->enum('target_type', ['profile', 'post', 'comment', 'account'])->comment('same as the reports it resolves');
-            $table->foreignId('reported_user_id')->constrained('users')->cascadeOnDelete()->comment('owner of the reported item (RP-04)');
+            $table->foreignId('reported_user_id')->constrained('users')->restrictOnDelete()->comment('owner of the reported item (RP-04)');
             $table->foreignId('post_id')->nullable()->constrained()->nullOnDelete()->comment('set when target_type is post');
             $table->foreignId('comment_id')->nullable()->constrained()->nullOnDelete()->comment('set when target_type is comment');
             $table->enum('action', ['remove_content', 'suspend_account', 'remove_content_and_suspend', 'dismiss'])->comment('RP-05, FR35');
@@ -36,11 +39,15 @@ return new class extends Migration
 
         Schema::create('reports', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('reporter_user_id')->constrained('users')->cascadeOnDelete()->comment('FR16, FR32');
+            // History: reports stay even if an account or the reported content
+            // is removed (database guidelines §2–3). Content removal must
+            // soft-delete the post or comment so its reports and comments
+            // keep their references.
+            $table->foreignId('reporter_user_id')->constrained('users')->restrictOnDelete()->comment('FR16, FR32');
             $table->enum('target_type', ['profile', 'post', 'comment', 'account'])->comment('RP-01');
-            $table->foreignId('reported_user_id')->constrained('users')->cascadeOnDelete()->comment('owner of the reported item (RP-04)');
-            $table->foreignId('post_id')->nullable()->constrained('posts')->cascadeOnDelete()->comment('set when target_type is post');
-            $table->foreignId('comment_id')->nullable()->constrained('comments')->cascadeOnDelete()->comment('set when target_type is comment');
+            $table->foreignId('reported_user_id')->constrained('users')->restrictOnDelete()->comment('owner of the reported item (RP-04)');
+            $table->foreignId('post_id')->nullable()->constrained('posts')->restrictOnDelete()->comment('set when target_type is post');
+            $table->foreignId('comment_id')->nullable()->constrained('comments')->restrictOnDelete()->comment('set when target_type is comment');
             $table->enum('reason', [
                 'fake_or_misleading_profile', 'selling_or_trading_animals', 'harassment_or_hate',
                 'animal_welfare_concern', 'spam_or_scam', 'something_else',
@@ -50,8 +57,12 @@ return new class extends Migration
             $table->foreignId('report_action_id')->nullable()->constrained('report_actions')->nullOnDelete()->comment('set when resolved');
             $table->timestamps();
 
-            // One open report per reporter per item; resolved reports allow reporting again.
-            $table->unique(['reporter_user_id', 'target_type', 'post_id', 'comment_id', 'status'], 'reports_one_open_per_item_unique');
+            // One open report per reporter per item (resolved reports allow
+            // reporting again) is checked in the Report Action (SEC-AUTHZ-08).
+            // No unique key: post_id and comment_id are null for profile and
+            // account reports, and nulls are never equal, so it could not
+            // guard those rows.
+            $table->index(['reporter_user_id', 'target_type']); // open-report check
             $table->index('status');
             $table->index(['status', 'created_at']); // admin queue, most reported first (RP-03)
             $table->index('reported_user_id');

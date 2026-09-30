@@ -35,7 +35,9 @@ return new class extends Migration
         // Platform-wide messages from admins (FR39, NT-04–05).
         Schema::create('announcements', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('admin_user_id')->constrained('users')->cascadeOnDelete()->comment('FR39');
+            // Actor link survives an admin row removal: the announcement stays
+            // and shows "System" (database guidelines §2–3).
+            $table->foreignId('admin_user_id')->nullable()->constrained('users')->nullOnDelete()->comment('FR39');
             $table->string('title')->comment('NT-04');
             $table->text('message')->comment('NT-04');
             $table->enum('audience', ['everyone', 'pets', 'humans'])->comment('NT-04');
