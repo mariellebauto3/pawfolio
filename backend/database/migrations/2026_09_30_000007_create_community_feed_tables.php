@@ -30,7 +30,8 @@ return new class extends Migration
 
             $table->index('created_at'); // feed, newest first (FD-01)
             $table->index(['author_user_id', 'created_at']);
-            $table->index('type'); // feed type filter
+            $table->index(['type', 'created_at']); // type filter, newest first
+            $table->index('adopted_pet_id'); // a pet's adoption stories (FD-04); FK
         });
 
         Schema::create('post_photos', function (Blueprint $table) {

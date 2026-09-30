@@ -35,6 +35,7 @@ return new class extends Migration
             $table->text('message_to_owner')->nullable()->comment('shown on the Denied screen (AU-20)');
             $table->timestamps();
 
+            $table->index('user_id'); // a user's resubmission rounds (AU-19); Postgres does not index FKs automatically
             $table->index('status');
             $table->index(['status', 'submitted_at']); // verification queue, oldest first (AU-22)
             $table->index('reviewed_by_user_id');

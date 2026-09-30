@@ -107,6 +107,7 @@ return new class extends Migration
             // MG-10); ended rows stay.
             $table->index(['adoption_request_id', 'status']); // active-booking check
             $table->index(['meet_greet_slot_id', 'status']); // double-booking check
+            $table->index('ended_by_user_id'); // FK; bookings a user ended
             $table->index('confirmed_at'); // reminders 1 day and 1 hour before (§5.4)
         });
 
@@ -120,6 +121,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['adoption_request_id', 'created_at']); // thread, oldest first
+            $table->index('sender_user_id'); // FK; a user's messages
         });
 
         // The adoption link: exactly one active Furparent per pet (§5.5, FR13, AL-04).

@@ -47,8 +47,7 @@ return new class extends Migration
             $table->timestamps();
 
             // Browse & search filters (DS-01): species, age group, size, city, province; feed filtering by status.
-            $table->index('status');
-            $table->index(['status', 'published_at']);
+            $table->index(['status', 'published_at']); // leading column also covers status-only filters
             $table->index('species');
             $table->index('size');
             $table->index('city');
