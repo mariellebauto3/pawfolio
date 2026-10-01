@@ -159,6 +159,16 @@
   border-radius: var(--pf-radius-badge);
 }
 
+/*
+ * The same focus style as the global :focus-visible rule, for controls whose real <input> is visually hidden
+ * (checkbox, toggle, chips, radio cards). Use it as `peer-focus-visible:focus-ring` on the drawn part.
+ */
+@utility focus-ring {
+  outline: 2px solid var(--pf-focus-ring);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px var(--pf-focus-halo);
+}
+
 /* Page side padding that widens from md up. */
 @utility px-gutter {
   padding-inline: var(--pf-gutter);
