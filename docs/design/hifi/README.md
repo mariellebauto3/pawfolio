@@ -29,7 +29,8 @@ Success has no green: confirmations use the blue soft tone, and the check icon p
 2. **No raw values in components.** Tailwind's default palette, radii, shadows and type sizes are switched off, so
    `bg-zinc-500`, `rounded-2xl` and `text-[#333]` don't work. If a value is missing, add a token.
 3. **One filled primary action per area** (blue). Secondary actions are outlined, tertiary are text only.
-4. **Yellow is for good news.** Hired, Adopted, Furparent and the match meter. Don't use it for decoration.
+4. **Yellow is for good news.** Hired, Adopted, Furparent and the match meter. Don't use it for decoration. On light
+   surfaces a yellow fill gets an `accent-edge` (`yellow-600`) outline so the bar's edge stays visible; never use it for text.
 5. **Shadows only on things that float** (bars when stuck, menus, dialogs, toasts). Cards use a 1 px `line` border.
 6. **Radius grows with the size of the thing:** badge 4 px → control 8 px → card 12 px → dialog 20 px; buttons and chips are pills.
 
@@ -70,10 +71,11 @@ yet, so it skips size-adjusting the fallback font. That's harmless, apart from a
 | Radius | `rounded-badge` 4 · `rounded-control` 8 · `rounded-card` 12 · `rounded-dialog` 20 · `rounded-pill` |
 | Shadow (tinted blue-950) | `shadow-raised` · `shadow-menu` · `shadow-dialog` · `shadow-toast` |
 | Spacing | Tailwind's 4 px grid (`p-4` = 16 px). Page padding: `px-gutter` (16 px phone, 24 px from `md`) |
-| Widths | `max-w-content` 1128 · `max-w-narrow` 760 · `max-w-dialog` 520 · `w-sidebar` 240 |
+| Widths | `max-w-content` 1128 · `max-w-narrow` 760 · `max-w-dialog` 520 · `max-w-dialog-wide` 640 · `max-w-drawer` 460 · `w-toast` 416 · `w-sidebar` 240 |
 | Touch | Minimum 44 × 44 px (`min-h-11`) |
 | Layers | `--pf-z-sticky` 40 · `dropdown` 60 · `drawer` 90 · `dialog` 100 · `toast` 120 — use as `z-(--pf-z-dialog)` |
 | Motion | `--pf-duration-fast` 120 ms · `base` 200 ms · `slow` 320 ms; `ease-out`. Reduced-motion turns transitions off globally |
+| Entrances | `animate-dialog-in` (fade + lift), `animate-sheet-in` (phone dialogs, from the bottom), `animate-drawer-in` (from the right), `animate-menu-in`, `animate-toast-in`, `animate-fade-in` (backdrops). Motion only answers an action; exits are instant |
 
 ## Accessibility
 
