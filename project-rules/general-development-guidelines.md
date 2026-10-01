@@ -82,7 +82,7 @@ A task is done when:
 - [ ] Business rules are enforced on the backend, with a test for each rule touched.
 - [ ] It works on desktop (1440 px) **and** phone (390 px) layouts.
 - [ ] Loading, empty and error states exist where the LoFi shows them.
-- [ ] Lint and type checks pass (`npm run lint`, `php artisan test`, builds succeed).
+- [ ] Lint, type checks and tests pass (`npm run lint`, `npm test`, `php artisan test`, builds succeed).
 - [ ] The security checklist (`security-guidelines.md` §10.1) is complete.
 - [ ] No secrets, personal data or debug output are committed.
 - [ ] Docs or rules are updated if behaviour or conventions changed.

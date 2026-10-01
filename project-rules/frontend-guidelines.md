@@ -76,9 +76,16 @@ Planned routes (from the LoFi, full list in the feature READMEs):
 
 ## 5. Data and API
 
-- The backend is the Laravel API at `NEXT_PUBLIC_API_URL` (`/api/v1/...`). All HTTP goes through `src/lib/api` — never call `fetch` to the API directly from components.
-- Auth uses **Laravel Sanctum SPA cookie sessions** (NFR2: session-based). Send credentials with requests; handle `401` (sign in), `403` (not allowed / account not active → status screen), `422` (show field errors).
-- Types for API responses live in `src/types/` (shared) or `src/features/<module>/types/`; they mirror Laravel API Resources.
+- The backend is the Laravel API at `NEXT_PUBLIC_API_URL` (`/api/v1/...`). All HTTP goes through `src/lib/api`: `api` from
+  `@/lib/api/client` in the browser, `getServerApi()` from `@/lib/api/server` in Server Components. Never call `fetch` on the
+  API directly. How-to: `docs/architecture/frontend-data-layer.md`.
+- Auth uses **Laravel Sanctum SPA cookie sessions** (NFR2: session-based). The client sends credentials and the CSRF token.
+  Failures throw `ApiError`: `401` → sign-in and `403 account_not_active` → status screen happen automatically; screens show
+  `message` for `409` rules and `fieldErrors` for `422`. Read the current account with `useSession()`.
+- Types for API responses live in `src/types/` (shared) or `src/features/<module>/types/`; they mirror Laravel API Resources,
+  field names in `snake_case` as the API sends them (ADR 0004).
+- Build screens before their endpoint exists with **mock mode** (`NEXT_PUBLIC_API_MODE=mock`): add handlers in
+  `src/lib/api/mock/handlers/` that follow the endpoint's entry in `docs/api/`.
 - Show loading states (`loading.tsx` or skeletons) and handle empty and error states for every data view.
 
 ## 6. Security
@@ -105,8 +112,10 @@ Follow **[security-guidelines.md](security-guidelines.md)** §6 (authoritative):
 ## 9. Testing
 
 - `tests/unit/` — pure functions and hooks; `tests/integration/` — components with mocked API; `tests/e2e/` — key flows
-  (sign-up → pending, request → approve → book → adopt). Test framework choice is recorded in `docs/decisions/` when added.
+  (sign-up → pending, request → approve → book → adopt).
+- Unit tests use **Vitest** (ADR 0003): `tests/**/*.test.ts`, Node environment. Keep logic in pure functions so it can be tested
+  without a browser. Component and e2e tooling get their own record when first needed.
 
 ## 10. Commands
 
-`npm run dev` (http://localhost:3000) · `npm run build` · `npm run lint`
+`npm run dev` (http://localhost:3000) · `npm run build` · `npm run lint` · `npm test` (`npm run test:watch` while working)
