@@ -31,11 +31,33 @@ Global screens: **GN-01** (top navigation · Me menu) → `navigation/`; **GN-02
 | `Photo` | `photo.tsx` | Fixed-ratio photo or placeholder: `ratio="pet"` (4:3), `"cover"` (3:1 → 5:1), `"square"` |
 | `Icon` | `icon.tsx` | The SVG icon set (check, x, lock, chevron-down, upload, file, alert, paw, user, spinner). Never emoji |
 
+### `forms/`
+
+| Component | File | Use it for |
+| --- | --- | --- |
+| `Field` | `field.tsx` | Label, helper text and inline error around **one** control. Wires `htmlFor`, `aria-describedby` and `aria-invalid` automatically. `optional` adds "(optional)" |
+| `Fieldset` | `fieldset.tsx` | Same for a **group** of controls (legend instead of label), e.g. a list of checkboxes |
+| `Input` | `input.tsx` | Text-like inputs. Set `type` and `autoComplete` |
+| `Textarea` | `textarea.tsx` | Long text. With `maxLength` it shows "count / max", "N more needed" below `minLength`, and announces thresholds to screen readers |
+| `Select` | `select.tsx` | Native select with `options` and an optional `placeholder`. Never for statuses (FR27) |
+| `ChoiceChips` | `choice-chips.tsx` | Quick answers (quiz, résumé). Single choice = radios, `multiple` = checkboxes |
+| `RadioCards` | `radio-cards.tsx` | One choice where each option needs a line of explanation |
+| `Toggle` | `toggle.tsx` | On/off settings that apply right away (Open to Adopt). `labelPosition="start"` for settings rows |
+| `Checkbox` | `checkbox.tsx` | Agreements and multi-select lists; whole row is the hit area |
+| `LockedField` | `locked-field.tsx` | Admin-verified details, read-only, with "Request a change" (`onRequestChange` or `requestChangeHref`), AC-03 |
+| `FileUpload` | `file-upload.tsx` | JPG/PNG/PDF, 5 MB, checked by extension **and** file signature; previews, remove, drag and drop, `multiple` + `maxFiles`. The API still re-validates (SEC-FILE-01…05) |
+| `Stepper` | `stepper.tsx` | Progress bars with step labels (labels hidden on phones, always read by screen readers) |
+| `Wizard` | `wizard.tsx` | Multi-step form (NFR1): "Step X of N" heading, Back / Next, optional Save draft with `draftStatus`, `onNext` per-step validation. All steps stay mounted so answers survive Back and Next |
+
 ### Conventions
 
+- **Uncontrolled or controlled.** Form controls work with `defaultValue` / `defaultChecked` (and plain `FormData`) or
+  with `value` + `onChange`.
 - **`className` is for layout** (margin, width, grid placement). `cn()` in `src/lib/utils/cn.ts` doesn't resolve
   conflicting utilities, so don't restyle a component through it; add a prop or a variant instead.
-- **Client boundary.** `Button` is `"use client"`; `Badge`, `StatusBadge`, `Tag`, `Card`, `Avatar`, `Photo` and
-  `Icon` stay server-safe.
+- **Native inputs everywhere.** Checkboxes, radios and switches are real `<input>`s, visually hidden inside their label;
+  the drawn part shows focus with the shared `focus-ring` utility (`peer-focus-visible:focus-ring`).
+- **Client boundary.** Components with hooks or handlers are `"use client"`; `Badge`, `StatusBadge`, `Tag`, `Card`,
+  `Avatar`, `Photo`, `Icon` and `Stepper` stay server-safe.
 - **Photos from the API** go through `next/image`; add the storage host to `images.remotePatterns` in `next.config.ts`
   when the API serves them.

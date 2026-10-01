@@ -81,7 +81,8 @@ yet, so it skips size-adjusting the fallback font. That's harmless, apart from a
   are 4.4:1 (minimum 3:1).
 - **Focus:** every interactive element gets a 3 px yellow halo inside a 2 px `blue-700` ring on `:focus-visible`, set once
   in `globals.css`. The blue ring is at least 6.5:1 against white, canvas and yellow; against blue fills, the yellow halo
-  separates it.
+  separates it. Controls whose real `<input>` is visually hidden (checkbox, toggle, chips, radio cards) show the same
+  style on their drawn part with the `focus-ring` utility (`peer-focus-visible:focus-ring`).
 - **Colour never works alone:** badges carry text; alerts carry an icon and text.
 
 ## Not in scope yet
