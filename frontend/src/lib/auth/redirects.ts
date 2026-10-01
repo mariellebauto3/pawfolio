@@ -1,0 +1,83 @@
+import {
+  ACCOUNT_STATUS_ROUTE_PREFIXES,
+  ADMIN_ROUTE_PREFIX,
+  MEMBER_ROUTE_PREFIXES,
+  NEXT_PATH_PARAM,
+  ROUTES,
+} from "@/constants/routes";
+import type { ApiError } from "@/lib/api/errors";
+import type { Account } from "@/types/account";
+
+// Where a visitor belongs, as pure functions shared by proxy.ts and the SessionProvider. These redirects are a
+// convenience (SEC-FE-06): the API refuses the same things on its own, whatever the frontend does.
+
+export type RouteArea = "public" | "member" | "admin" | "account-status";
+
+export function routeArea(pathname: string): RouteArea {
+  if (startsWithSegment(pathname, ADMIN_ROUTE_PREFIX)) return "admin";
+  if (ACCOUNT_STATUS_ROUTE_PREFIXES.some((prefix) => startsWithSegment(pathname, prefix))) return "account-status";
+  if (MEMBER_ROUTE_PREFIXES.some((prefix) => startsWithSegment(pathname, prefix))) return "member";
+  return "public";
+}
+
+/**
+ * The redirect for someone opening `path` (pathname + search), or null to let them through.
+ * - signed out, on any signed-in page → sign-in, then back here
+ * - not Active, on a member or admin page → the account-status screen (AU-18…AU-21)
+ * - not an admin, on an admin page → their home
+ */
+export function routeRedirect(path: string, account: Account | null): string | null {
+  const area = routeArea(pathOnly(path));
+  if (area === "public") return null;
+  if (!account) return signInPath(path);
+  if (area === "account-status") return null;
+  if (account.status !== "active") return ROUTES.accountStatus;
+  if (area === "admin" && account.role !== "admin") return ROUTES.memberHome;
+  return null;
+}
+
+/** Where an API error should send the user, or null when the screen should show it instead. */
+export function errorRedirect(error: ApiError, currentPath: string): string | null {
+  const area = routeArea(pathOnly(currentPath));
+  if (error.kind === "unauthenticated" && area !== "public") return signInPath(currentPath);
+  if (error.kind === "account_not_active" && area !== "account-status") return ROUTES.accountStatus;
+  return null;
+}
+
+export function homePathFor(account: Account): string {
+  if (account.status !== "active") return ROUTES.accountStatus;
+  return account.role === "admin" ? ROUTES.adminHome : ROUTES.memberHome;
+}
+
+/** `/sign-in?next=<path>`, leaving out `next` when it would be pointless or unsafe. */
+export function signInPath(next?: string | null): string {
+  const safe = safeNextPath(next);
+  if (!safe || routeArea(pathOnly(safe)) === "public") return ROUTES.signIn;
+  return `${ROUTES.signIn}?${new URLSearchParams({ [NEXT_PATH_PARAM]: safe })}`;
+}
+
+/**
+ * Accepts `next` only if it is a path on this site, so the sign-in page can't be used to send people to another
+ * site after they sign in (open redirect, SEC-FE-07). Returns null for anything else.
+ */
+export function safeNextPath(next: string | null | undefined): string | null {
+  if (!next || !next.startsWith("/")) return null;
+  // "//evil.com" and "/\evil.com" are read by browsers as another host; control characters can smuggle either in.
+  if (next.startsWith("//") || [...next].some((char) => char < " " || char === "\u007f" || char === "\\")) return null;
+  try {
+    const url = new URL(next, "http://pawfolio.invalid");
+    if (url.origin !== "http://pawfolio.invalid") return null;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
+function pathOnly(path: string): string {
+  const end = path.search(/[?#]/);
+  return end === -1 ? path : path.slice(0, end);
+}
+
+function startsWithSegment(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
