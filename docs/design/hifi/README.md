@@ -2,8 +2,9 @@
 
 Visual layer on top of the approved LoFi (`docs/design/lofi/`). Layout, structure, flows and features come from the LoFi;
 this file sets colour, type, shape and their rules. Values live in **`frontend/src/styles/tokens.css`**; the Tailwind names
-are mapped in `frontend/src/app/globals.css`. A live reference renders at **`/design-tokens`** in development
-(`npm run dev`); it returns 404 in production builds.
+are mapped in `frontend/src/app/globals.css`. Live references render at **`/design-tokens`** (tokens) and **`/ui-kit`**
+(shared components, listed in `frontend/src/components/README.md`) in development (`npm run dev`); both return 404 in
+production builds.
 
 ## Palette: what a dog sees
 
@@ -81,7 +82,8 @@ yet, so it skips size-adjusting the fallback font. That's harmless, apart from a
   are 4.4:1 (minimum 3:1).
 - **Focus:** every interactive element gets a 3 px yellow halo inside a 2 px `blue-700` ring on `:focus-visible`, set once
   in `globals.css`. The blue ring is at least 6.5:1 against white, canvas and yellow; against blue fills, the yellow halo
-  separates it.
+  separates it. Controls whose real `<input>` is visually hidden (checkbox, toggle, chips, radio cards) show the same
+  style on their drawn part with the `focus-ring` utility (`peer-focus-visible:focus-ring`).
 - **Colour never works alone:** badges carry text; alerts carry an icon and text.
 
 ## Not in scope yet
