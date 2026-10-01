@@ -57,5 +57,8 @@ Desktop (1440 px) and phone (390 px) for any UI change.
 ## Merging
 
 - Target branch: `develop` (or `main` only for release and hotfix PRs).
-- Use **squash merge** so each PR becomes one Conventional Commit on `develop`.
+- Use **Create a merge commit** (not squash or rebase), so each commit in the PR stays in history as a small, reviewable step.
+- Every commit in the PR must follow `commit-guidelines.md`. Before merging, the author cleans up "wip", "fix typo" and
+  similar commits (amend, or rebase on their own branch and push with `--force-with-lease`).
+- To undo a merged PR, revert its merge commit: `git revert -m 1 <merge-commit>`.
 - Delete the branch after merging.
