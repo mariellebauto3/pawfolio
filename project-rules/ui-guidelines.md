@@ -21,12 +21,16 @@ Every screen, dialog and state has an ID (e.g. `MG-11`); use it in branches, PRs
 
 ## 2. Visual language
 
-- LoFi is grayscale on purpose. The HiFi design (future, `docs/design/hifi/`) sets colours, fonts and brand. Until then, build
-  with neutral tokens defined once in `frontend/src/styles/` — never hard-code colours in components.
+- LoFi is grayscale on purpose. The HiFi design system (`docs/design/hifi/README.md`) sets colour, fonts and shape:
+  **blue, yellow and gray**, the colours dogs see. Values live once in `frontend/src/styles/tokens.css`; components use role
+  names (`bg-surface`, `text-ink-muted`, `bg-primary`), never raw colours or the brand ramps.
+- Meaning travels on the blue ↔ yellow axis. Red is only for errors and destructive actions; yellow is for good news
+  (Hired, match score), always as a fill with dark text.
 - **Buttons by emphasis:** one primary (filled) action per area; secondary (outlined); tertiary (text only). Destructive
   actions are never primary by default and always confirmed.
 - **Status badges:** outlined (dashed) for in-progress statuses; solid for final or highlighted ones (Hired, Adopted, Furparent,
-  Decision needed). Use the exact status names from the proposal.
+  Decision needed). Use the exact status names from the proposal. Tones: `badge-progress`, `badge-celebrate`,
+  `badge-attention`, `badge-closed` (which status gets which: `docs/design/hifi/README.md`).
 - Image placeholders keep their aspect ratios: covers wide, avatars round, pet photos 4:3.
 
 ## 3. Components (reuse before creating)
