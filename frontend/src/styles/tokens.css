@@ -1,0 +1,156 @@
+/*
+ * Pawfolio design tokens — the only place colour, type, radius, spacing and shadow values are written.
+ * Components use the Tailwind utilities mapped in `src/app/globals.css` (bg-surface, text-ink-muted, rounded-card…),
+ * never raw values. To retheme, change values here; names stay the same.
+ *
+ * Palette: dogs see the world in blue, yellow and gray (two cone types, peaks near 430 nm and 555 nm).
+ * Meaning travels on the blue ↔ yellow axis, which also holds up for red/green colour-blind people.
+ * Red is used only for errors and destructive actions, and always together with text or an icon.
+ * Rationale and usage rules: docs/design/hifi/README.md
+ */
+
+:root {
+  /* ---------- Primitives (don't use these directly in components) ---------- */
+
+  /* Blue leans violet, where dogs see colour best. */
+  --pf-blue-50: #eef0fd;
+  --pf-blue-100: #dde1fb;
+  --pf-blue-200: #bcc4f6;
+  --pf-blue-300: #929eef;
+  --pf-blue-400: #6575e5;
+  --pf-blue-500: #4253d9;
+  --pf-blue-600: #3341c2;
+  --pf-blue-700: #2a349e;
+  --pf-blue-800: #232b7d;
+  --pf-blue-900: #1c2260;
+  --pf-blue-950: #11153b;
+
+  /* Sunflower / tennis-ball yellow. Used as a fill with dark text, never as text on white. */
+  --pf-yellow-50: #fff9e6;
+  --pf-yellow-100: #fff1c2;
+  --pf-yellow-200: #ffe88a;
+  --pf-yellow-300: #ffdb4d;
+  --pf-yellow-400: #fccb1a;
+  --pf-yellow-500: #e5b000;
+  --pf-yellow-600: #b38a00;
+  --pf-yellow-700: #7a5c00;
+  --pf-yellow-800: #5c4500;
+  --pf-yellow-900: #3d2e00;
+
+  /* Cool gray: what's left of colour once blue and yellow are taken out. */
+  --pf-gray-25: #fafafb;
+  --pf-gray-50: #f4f5f7;
+  --pf-gray-100: #e9ebef;
+  --pf-gray-200: #d9dce2;
+  --pf-gray-300: #bdc1ca;
+  --pf-gray-400: #9298a4;
+  --pf-gray-500: #737988;
+  --pf-gray-600: #4e5462;
+  --pf-gray-700: #3b404c;
+  --pf-gray-800: #272b34;
+  --pf-gray-900: #191c23;
+
+  --pf-red-50: #fef1f0;
+  --pf-red-700: #b42318;
+
+  --pf-white: #ffffff;
+
+  /* ---------- Semantic colour ---------- */
+
+  --pf-canvas: var(--pf-gray-50); /* page background behind cards */
+  --pf-surface: var(--pf-white); /* cards, bars, dialogs */
+  --pf-surface-sunken: var(--pf-gray-100); /* inputs at rest, comment bubbles, placeholders */
+  --pf-surface-inverse: var(--pf-gray-800); /* toasts */
+
+  --pf-ink: var(--pf-gray-900); /* body text */
+  --pf-ink-muted: var(--pf-gray-600); /* secondary text; still AA on canvas and sunken */
+  --pf-ink-subtle: var(--pf-gray-500); /* icons and borders only, never body text */
+  --pf-ink-inverse: var(--pf-white);
+
+  --pf-line: var(--pf-gray-200); /* dividers and card edges (decorative) */
+  --pf-line-strong: var(--pf-gray-500); /* form-control borders: 3:1 against surface */
+
+  --pf-primary: var(--pf-blue-600); /* the one filled action per area, links */
+  --pf-primary-hover: var(--pf-blue-700);
+  --pf-primary-ink: var(--pf-white);
+  --pf-primary-soft: var(--pf-blue-50); /* selected chip, active nav, info alert */
+  --pf-primary-soft-ink: var(--pf-blue-800);
+
+  --pf-accent: var(--pf-yellow-400); /* highlights and celebration: Hired, match score */
+  --pf-accent-hover: var(--pf-yellow-300);
+  --pf-accent-ink: var(--pf-gray-900);
+  --pf-accent-soft: var(--pf-yellow-50); /* warning alert, "new" row highlight */
+  --pf-accent-soft-ink: var(--pf-yellow-800);
+
+  --pf-danger: var(--pf-red-700);
+  --pf-danger-ink: var(--pf-white);
+  --pf-danger-soft: var(--pf-red-50);
+  --pf-danger-soft-ink: var(--pf-red-700);
+
+  /* Success stays on the blue axis (no green), so the confirmation icon and text carry the meaning. */
+  --pf-success-soft: var(--pf-blue-50);
+  --pf-success-soft-ink: var(--pf-blue-800);
+
+  /* Focus: a yellow halo inside a blue ring, visible on white, gray, blue and yellow. */
+  --pf-focus-ring: var(--pf-blue-700);
+  --pf-focus-halo: var(--pf-yellow-400);
+
+  --pf-scrim: rgb(17 21 59 / 0.48); /* behind dialogs and drawers (blue-950) */
+
+  /* ---------- Status badges (ui-guidelines §2) ---------- */
+  /* progress: dashed outline — Sent, Approved, In Process, On Hold, Pending Verification, Open… */
+  --pf-badge-progress-bg: var(--pf-surface);
+  --pf-badge-progress-ink: var(--pf-gray-700);
+  --pf-badge-progress-border: var(--pf-gray-500);
+  --pf-badge-progress-border-style: dashed;
+  /* celebrate: solid yellow — Hired, Adopted, Furparent */
+  --pf-badge-celebrate-bg: var(--pf-yellow-400);
+  --pf-badge-celebrate-ink: var(--pf-gray-900);
+  /* attention: solid blue — Decision needed, Overdue */
+  --pf-badge-attention-bg: var(--pf-blue-700);
+  --pf-badge-attention-ink: var(--pf-white);
+  /* closed: solid gray — Suspended, Denied, Declined, Not Adopted, Expired */
+  --pf-badge-closed-bg: var(--pf-gray-800);
+  --pf-badge-closed-ink: var(--pf-white);
+
+  /* ---------- Typography ---------- */
+  /* next/font sets --font-zilla-slab and --font-atkinson on <html> (src/app/layout.tsx). */
+  --pf-font-display: var(--font-zilla-slab), ui-serif, Georgia, serif;
+  --pf-font-body: var(--font-atkinson), ui-sans-serif, system-ui, sans-serif;
+
+  /* ---------- Radius: grows with the size of the thing ---------- */
+  --pf-radius-badge: 0.25rem; /* 4px — status badges, locked label */
+  --pf-radius-control: 0.5rem; /* 8px — inputs, selects, dropdown items */
+  --pf-radius-card: 0.75rem; /* 12px — cards, photos, alerts */
+  --pf-radius-dialog: 1.25rem; /* 20px — dialogs, drawers, sheets */
+  --pf-radius-pill: 999px; /* buttons, chips, tags, toggles (LoFi pill buttons) */
+
+  /* ---------- Shadow: tinted with blue-950, used only on things that float ---------- */
+  --pf-shadow-raised: 0 1px 2px rgb(17 21 59 / 0.06), 0 1px 1px rgb(17 21 59 / 0.04);
+  --pf-shadow-menu: 0 6px 16px -4px rgb(17 21 59 / 0.16), 0 2px 4px rgb(17 21 59 / 0.06);
+  --pf-shadow-dialog: 0 24px 48px -12px rgb(17 21 59 / 0.28);
+  --pf-shadow-toast: 0 10px 24px -6px rgb(17 21 59 / 0.32);
+
+  /* ---------- Layout and spacing (base unit: Tailwind --spacing = 4px) ---------- */
+  --pf-content-max: 70.5rem; /* 1128px member content width */
+  --pf-narrow-max: 47.5rem; /* 760px forms and single-column pages */
+  --pf-dialog-max: 32.5rem; /* 520px default dialog */
+  --pf-sidebar-w: 15rem; /* 240px admin sidebar */
+  --pf-topbar-h: 4rem; /* 64px top bar */
+  --pf-gutter: 1rem; /* page side padding on phones */
+  --pf-gutter-wide: 1.5rem; /* page side padding from md up */
+  --pf-touch-min: 2.75rem; /* 44px minimum touch target */
+
+  /* ---------- Layers ---------- */
+  --pf-z-sticky: 40;
+  --pf-z-dropdown: 60;
+  --pf-z-drawer: 90;
+  --pf-z-dialog: 100;
+  --pf-z-toast: 120;
+
+  /* ---------- Motion ---------- */
+  --pf-duration-fast: 120ms;
+  --pf-duration-base: 200ms;
+  --pf-duration-slow: 320ms;
+  --pf-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}

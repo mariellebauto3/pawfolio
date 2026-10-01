@@ -1,26 +1,233 @@
 @import "tailwindcss";
+@import "../styles/tokens.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Tailwind theme = Pawfolio tokens only. Default palettes, radii, shadows and type sizes are removed so that
+ * off-token values (bg-zinc-500, rounded-2xl, text-[#333]) aren't available by accident.
+ * Values live in src/styles/tokens.css; this block only names them for Tailwind.
+ */
+@theme {
+  --color-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --text-*: initial;
+  --font-*: initial;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Surfaces and text */
+  --color-canvas: var(--pf-canvas);
+  --color-surface: var(--pf-surface);
+  --color-surface-sunken: var(--pf-surface-sunken);
+  --color-surface-inverse: var(--pf-surface-inverse);
+  --color-ink: var(--pf-ink);
+  --color-ink-muted: var(--pf-ink-muted);
+  --color-ink-subtle: var(--pf-ink-subtle);
+  --color-ink-inverse: var(--pf-ink-inverse);
+  --color-line: var(--pf-line);
+  --color-line-strong: var(--pf-line-strong);
+
+  /* Actions and feedback */
+  --color-primary: var(--pf-primary);
+  --color-primary-hover: var(--pf-primary-hover);
+  --color-primary-ink: var(--pf-primary-ink);
+  --color-primary-soft: var(--pf-primary-soft);
+  --color-primary-soft-ink: var(--pf-primary-soft-ink);
+  --color-accent: var(--pf-accent);
+  --color-accent-hover: var(--pf-accent-hover);
+  --color-accent-ink: var(--pf-accent-ink);
+  --color-accent-soft: var(--pf-accent-soft);
+  --color-accent-soft-ink: var(--pf-accent-soft-ink);
+  --color-danger: var(--pf-danger);
+  --color-danger-ink: var(--pf-danger-ink);
+  --color-danger-soft: var(--pf-danger-soft);
+  --color-danger-soft-ink: var(--pf-danger-soft-ink);
+  --color-success-soft: var(--pf-success-soft);
+  --color-success-soft-ink: var(--pf-success-soft-ink);
+  --color-focus-ring: var(--pf-focus-ring);
+  --color-focus-halo: var(--pf-focus-halo);
+  --color-scrim: var(--pf-scrim);
+
+  /* Brand ramps, for illustration and data-viz only — UI uses the semantic names above */
+  --color-blue-50: var(--pf-blue-50);
+  --color-blue-100: var(--pf-blue-100);
+  --color-blue-200: var(--pf-blue-200);
+  --color-blue-300: var(--pf-blue-300);
+  --color-blue-400: var(--pf-blue-400);
+  --color-blue-500: var(--pf-blue-500);
+  --color-blue-600: var(--pf-blue-600);
+  --color-blue-700: var(--pf-blue-700);
+  --color-blue-800: var(--pf-blue-800);
+  --color-blue-900: var(--pf-blue-900);
+  --color-blue-950: var(--pf-blue-950);
+  --color-yellow-50: var(--pf-yellow-50);
+  --color-yellow-100: var(--pf-yellow-100);
+  --color-yellow-200: var(--pf-yellow-200);
+  --color-yellow-300: var(--pf-yellow-300);
+  --color-yellow-400: var(--pf-yellow-400);
+  --color-yellow-500: var(--pf-yellow-500);
+  --color-yellow-600: var(--pf-yellow-600);
+  --color-yellow-700: var(--pf-yellow-700);
+  --color-yellow-800: var(--pf-yellow-800);
+  --color-yellow-900: var(--pf-yellow-900);
+  --color-gray-25: var(--pf-gray-25);
+  --color-gray-50: var(--pf-gray-50);
+  --color-gray-100: var(--pf-gray-100);
+  --color-gray-200: var(--pf-gray-200);
+  --color-gray-300: var(--pf-gray-300);
+  --color-gray-400: var(--pf-gray-400);
+  --color-gray-500: var(--pf-gray-500);
+  --color-gray-600: var(--pf-gray-600);
+  --color-gray-700: var(--pf-gray-700);
+  --color-gray-800: var(--pf-gray-800);
+  --color-gray-900: var(--pf-gray-900);
+
+  /* Type: Zilla Slab for headings, Atkinson Hyperlegible Next for everything else */
+  --font-display: var(--pf-font-display);
+  --font-sans: var(--pf-font-body);
+
+  /* Type scale (rem; 16px body). Nothing below 13px. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.375rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.3125rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.625rem;
+  --text-2xl--line-height: 2rem;
+  --text-2xl--letter-spacing: -0.005em;
+  --text-3xl: 2.125rem;
+  --text-3xl--line-height: 2.5rem;
+  --text-3xl--letter-spacing: -0.01em;
+  --text-4xl: 2.75rem;
+  --text-4xl--line-height: 3rem;
+  --text-4xl--letter-spacing: -0.01em;
+  --text-5xl: 3.5rem;
+  --text-5xl--line-height: 3.5rem;
+  --text-5xl--letter-spacing: -0.015em;
+
+  /* Radius by role */
+  --radius-badge: var(--pf-radius-badge);
+  --radius-control: var(--pf-radius-control);
+  --radius-card: var(--pf-radius-card);
+  --radius-dialog: var(--pf-radius-dialog);
+  --radius-pill: var(--pf-radius-pill);
+
+  /* Shadow by role */
+  --shadow-raised: var(--pf-shadow-raised);
+  --shadow-menu: var(--pf-shadow-menu);
+  --shadow-dialog: var(--pf-shadow-dialog);
+  --shadow-toast: var(--pf-shadow-toast);
+
+  /* Widths: max-w-content, max-w-narrow, max-w-dialog, w-sidebar via max-w-/w- utilities */
+  --container-content: var(--pf-content-max);
+  --container-narrow: var(--pf-narrow-max);
+  --container-dialog: var(--pf-dialog-max);
+  --container-sidebar: var(--pf-sidebar-w);
+
+  --ease-out: var(--pf-ease-out);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Status badges: shape and colour come from tokens. Pair with px/py/text utilities in the Badge component. */
+@utility badge-progress {
+  background-color: var(--pf-badge-progress-bg);
+  color: var(--pf-badge-progress-ink);
+  border: 1.5px var(--pf-badge-progress-border-style) var(--pf-badge-progress-border);
+  border-radius: var(--pf-radius-badge);
+}
+@utility badge-celebrate {
+  background-color: var(--pf-badge-celebrate-bg);
+  color: var(--pf-badge-celebrate-ink);
+  border: 1.5px solid var(--pf-badge-celebrate-bg);
+  border-radius: var(--pf-radius-badge);
+}
+@utility badge-attention {
+  background-color: var(--pf-badge-attention-bg);
+  color: var(--pf-badge-attention-ink);
+  border: 1.5px solid var(--pf-badge-attention-bg);
+  border-radius: var(--pf-radius-badge);
+}
+@utility badge-closed {
+  background-color: var(--pf-badge-closed-bg);
+  color: var(--pf-badge-closed-ink);
+  border: 1.5px solid var(--pf-badge-closed-bg);
+  border-radius: var(--pf-radius-badge);
+}
+
+/* Page side padding that widens from md up. */
+@utility px-gutter {
+  padding-inline: var(--pf-gutter);
+  @media (width >= 48rem) {
+    padding-inline: var(--pf-gutter-wide);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--pf-canvas);
+    color: var(--pf-ink);
+    font-family: var(--pf-font-body);
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--pf-font-display);
+    font-weight: 700;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  a {
+    text-underline-offset: 0.2em;
+  }
+
+  ::selection {
+    background-color: var(--pf-yellow-300);
+    color: var(--pf-ink);
+  }
+
+  /* One focus style for every interactive element: yellow halo inside a blue ring (WCAG 2.4.7, 2.4.11). */
+  :focus-visible {
+    outline: 2px solid var(--pf-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 3px var(--pf-focus-halo);
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  label[for] {
+    cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
