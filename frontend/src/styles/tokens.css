@@ -52,6 +52,7 @@
 
   --pf-red-50: #fef1f0;
   --pf-red-700: #b42318;
+  --pf-red-800: #912018;
 
   --pf-white: #ffffff;
 
@@ -83,6 +84,7 @@
   --pf-accent-soft-ink: var(--pf-yellow-800);
 
   --pf-danger: var(--pf-red-700);
+  --pf-danger-hover: var(--pf-red-800);
   --pf-danger-ink: var(--pf-white);
   --pf-danger-soft: var(--pf-red-50);
   --pf-danger-soft-ink: var(--pf-red-700);

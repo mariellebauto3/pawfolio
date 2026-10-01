@@ -39,6 +39,7 @@
   --color-accent-soft: var(--pf-accent-soft);
   --color-accent-soft-ink: var(--pf-accent-soft-ink);
   --color-danger: var(--pf-danger);
+  --color-danger-hover: var(--pf-danger-hover);
   --color-danger-ink: var(--pf-danger-ink);
   --color-danger-soft: var(--pf-danger-soft);
   --color-danger-soft-ink: var(--pf-danger-soft-ink);

@@ -17,7 +17,7 @@ colour-blind people too.
 | Blue | `blue-600` | Leans violet, where dogs see colour best | Primary actions, links, focus ring, "someone must act" |
 | Yellow | `yellow-400` | Sunflower / tennis-ball yellow | Celebration (Hired), match score, highlights, warnings. Always a fill with dark text, never text on white |
 | Gray | `gray-50` … `gray-900` | Cool, slightly blue | Canvas, surfaces, text, lines, closed states |
-| Red | `red-700` | Functional only | Errors and destructive actions, always with text or an icon |
+| Red | `red-700`, `red-800` (hover) | Functional only | Errors and destructive actions, always with text or an icon |
 
 Success has no green: confirmations use the blue soft tone, and the check icon plus the message carry the meaning.
 
@@ -38,10 +38,13 @@ Shape says whether a status is still moving; colour says what kind of ending it 
 
 | Utility | Look | Statuses |
 | --- | --- | --- |
-| `badge-progress` | Dashed gray outline | Sent, Approved, In Process, On Hold, Meet Scheduled, Pending Verification, Open, Resubmitted |
+| `badge-progress` | Dashed gray outline | Pending Verification, Resubmitted, Active, Draft, Looking for a Home, In Process, Sent, On Hold, Approved, Meet Scheduled, Open to Adopt, Open |
 | `badge-celebrate` | Solid yellow, dark text | Hired, Adopted, Furparent |
-| `badge-attention` | Solid blue, white text | Decision needed, Overdue |
-| `badge-closed` | Solid dark gray, white text | Suspended, Denied, Declined, Not Adopted, Expired, Withdrawn |
+| `badge-attention` | Solid blue, white text | Awaiting Decision; labels such as Decision needed, Overdue |
+| `badge-closed` | Solid dark gray, white text | Denied, Suspended, Deactivated, Declined, Not Adopted, Withdrawn, Expired, Resolved |
+
+The mapping lives in `frontend/src/constants/status-badges.ts`; use `<StatusBadge status="Hired" />` rather than
+choosing a tone by hand.
 
 ## Typography
 
