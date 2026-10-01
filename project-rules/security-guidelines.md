@@ -7,7 +7,7 @@
 | --- | --- |
 | **Owner** | The whole team; changes need review like any other rule |
 | **Applies to** | `frontend/`, `backend/`, database, deployment, and any new module or feature |
-| **Version** | 1.0 · 2026-09-28 (scaffolding phase) — see the changelog at the end |
+| **Version** | 1.1 · 2026-10-01 — see the changelog at the end |
 
 ## 0. Baseline and cross-references
 
@@ -79,6 +79,8 @@ Review this table whenever a module is added or changed. New threats get the nex
 | T13 | Vulnerable dependencies | Known CVE in an npm or Composer package | SEC-DEP-01…05 |
 | T14 | Leaked secrets | `.env` or API keys committed to git | SEC-SECRET-01…05 |
 | T15 | Insecure deployment | Debug mode on in production; database open to the internet | SEC-DEPLOY-01…08 |
+| T16 | Open redirect | A phishing link `/sign-in?next=https://evil.example` sends a user to a fake site right after they sign in | SEC-FE-07 |
+| T17 | Client-side path traversal | A link to `/requests/..%2F..%2Fadmin%2Faccounts%2F5%2Fsuspend` makes the page send a signed-in write, CSRF token included, to another endpoint | SEC-FE-08 |
 
 ## 4. Architecture
 
@@ -130,6 +132,8 @@ Review this table whenever a module is added or changed. New threats get the nex
 - **SEC-FE-04 (MUST)** Don't store personal data (contact numbers, addresses, documents) in `localStorage`, `sessionStorage` or URLs.
 - **SEC-FE-05 (MUST)** Hiding a button is not security. Every action hidden in the UI is also blocked by the API.
 - **SEC-FE-06 (SHOULD)** `proxy.ts` may redirect unauthenticated users early, but is never the only authorization check.
+- **SEC-FE-07 (MUST)** Redirect targets taken from the URL (e.g. `?next=` after sign-in) must be same-site paths; check them with `safeNextPath()` (`src/lib/auth/redirects.ts`) and fall back to the home page.
+- **SEC-FE-08 (MUST)** Build API paths that contain values with `apiPath` (`src/lib/api/core.ts`), which encodes each value; never splice route params or user input into a path string. The client refuses paths that `..`, `.`, `\`, `?` or `#` would change.
 
 ## 7. Backend, API and dependencies
 
@@ -216,6 +220,7 @@ Copy into the PR description for any feature that touches data, auth or files:
 - [ ] No mass-assignable `role`, `status` or milestone fields — SEC-INPUT-04
 - [ ] API Resources expose only fields this role may see; private data hidden until allowed — SEC-API-01, SEC-PRIV-02
 - [ ] User content rendered as text; no `dangerouslySetInnerHTML` — SEC-FE-01
+- [ ] API paths with values built with `apiPath`; `?next=`-style redirects checked with `safeNextPath` — SEC-FE-07, SEC-FE-08
 - [ ] Uploads validated, renamed, stripped, stored in the right disk — SEC-FILE-01…05
 - [ ] Abusable writes rate-limited — SEC-API-04
 - [ ] Admin actions require a reason and are logged — SEC-AUTHZ-07, SEC-LOG-01
@@ -282,9 +287,11 @@ Update this table as risks are found, accepted or fixed.
 | 2026-09-28 | Verification is manual (no automatic ID checks) | Accepted for the pilot; automatic checks are future scope (proposal §10) |
 | 2026-09-28 | No two-factor authentication yet | Accepted for the pilot; SEC-AUTH-09 recommends it for admins |
 | 2026-09-28 | Production database and hosting not chosen | Apply §11 when the ADR is written |
+| 2026-10-01 | Frontend mock API mode (fixtures instead of Laravel) could hide missing server checks or ship to production | Development-only: forced off in production builds (`src/config/env.ts`); mocks enforce the same 401/403 gates; fixtures are fake (SEC-PRIV-06). ADR 0004 |
 
 ## Changelog
 
 | Version | Date | Change |
 | --- | --- | --- |
 | 1.0 | 2026-09-28 | First version, written during scaffolding |
+| 1.1 | 2026-10-01 | FE-04: threats T16 (open redirect) and T17 (client-side path traversal), rules SEC-FE-07 and SEC-FE-08; mock-mode decision in §12 |

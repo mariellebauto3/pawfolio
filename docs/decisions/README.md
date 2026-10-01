@@ -26,5 +26,7 @@ What becomes easier or harder; follow-up work.
 | --- | --- | --- |
 | [0001](0001-tech-stack.md) | Next.js frontend + Laravel API backend | accepted |
 | [0002](0002-project-structure.md) | Monorepo with module-based folders | accepted |
+| [0003](0003-vitest-for-unit-tests.md) | Vitest for frontend unit tests | accepted |
+| [0004](0004-api-client-session-and-mocks.md) | One API client, session from `/auth/me`, and mock mode | accepted |
 | — | Production database engine (MySQL vs PostgreSQL) | open |
 | — | Hosting (frontend, backend, database, file storage) | open |

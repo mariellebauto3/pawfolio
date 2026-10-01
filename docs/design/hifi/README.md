@@ -43,7 +43,7 @@ Shape says whether a status is still moving; colour says what kind of ending it 
 | `badge-progress` | Dashed gray outline | Pending Verification, Resubmitted, Active, Draft, Looking for a Home, In Process, Sent, On Hold, Approved, Meet Scheduled, Open to Adopt, Open |
 | `badge-celebrate` | Solid yellow, dark text | Hired, Adopted, Furparent |
 | `badge-attention` | Solid blue, white text | Awaiting Decision; labels such as Decision needed, Overdue |
-| `badge-closed` | Solid dark gray, white text | Denied, Suspended, Deactivated, Declined, Not Adopted, Withdrawn, Expired, Resolved |
+| `badge-closed` | Solid dark gray, white text | Denied, Suspended, Deactivated, Declined, Not Adopted, Withdrawn, Closed, Expired, Resolved |
 
 The mapping lives in `frontend/src/constants/status-badges.ts`; use `<StatusBadge status="Hired" />` rather than
 choosing a tone by hand.

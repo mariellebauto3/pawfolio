@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Atkinson_Hyperlegible_Next, Zilla_Slab } from "next/font/google";
+import { SessionProvider } from "@/providers/session-provider";
 import { ToastProvider } from "@/providers/toast-provider";
 import "./globals.css";
 
@@ -28,7 +29,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${zillaSlab.variable} ${atkinson.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <ToastProvider>{children}</ToastProvider>
+        <SessionProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </SessionProvider>
       </body>
     </html>
   );
