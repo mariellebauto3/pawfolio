@@ -82,6 +82,7 @@
   --pf-accent-ink: var(--pf-gray-900);
   --pf-accent-soft: var(--pf-yellow-50); /* warning alert, "new" row highlight */
   --pf-accent-soft-ink: var(--pf-yellow-800);
+  --pf-accent-edge: var(--pf-yellow-600); /* outline of a yellow fill on light surfaces (meter bar); never text */
 
   --pf-danger: var(--pf-red-700);
   --pf-danger-hover: var(--pf-red-800);
@@ -137,6 +138,9 @@
   --pf-content-max: 70.5rem; /* 1128px member content width */
   --pf-narrow-max: 47.5rem; /* 760px forms and single-column pages */
   --pf-dialog-max: 32.5rem; /* 520px default dialog */
+  --pf-dialog-wide-max: 40rem; /* 640px dialogs with more content: match breakdown, create post */
+  --pf-drawer-w: 28.75rem; /* 460px side drawer */
+  --pf-toast-w: 26rem; /* 416px toast stack on desktop */
   --pf-sidebar-w: 15rem; /* 240px admin sidebar */
   --pf-topbar-h: 4rem; /* 64px top bar */
   --pf-gutter: 1rem; /* page side padding on phones */

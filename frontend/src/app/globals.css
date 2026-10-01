@@ -38,6 +38,7 @@
   --color-accent-ink: var(--pf-accent-ink);
   --color-accent-soft: var(--pf-accent-soft);
   --color-accent-soft-ink: var(--pf-accent-soft-ink);
+  --color-accent-edge: var(--pf-accent-edge);
   --color-danger: var(--pf-danger);
   --color-danger-hover: var(--pf-danger-hover);
   --color-danger-ink: var(--pf-danger-ink);
@@ -128,9 +129,54 @@
   --container-content: var(--pf-content-max);
   --container-narrow: var(--pf-narrow-max);
   --container-dialog: var(--pf-dialog-max);
+  --container-dialog-wide: var(--pf-dialog-wide-max);
+  --container-drawer: var(--pf-drawer-w);
+  --container-toast: var(--pf-toast-w);
   --container-sidebar: var(--pf-sidebar-w);
 
   --ease-out: var(--pf-ease-out);
+
+  /* Motion that answers an action: things that open slide in from where they come from. Exits are instant. */
+  --animate-dialog-in: pf-dialog-in var(--pf-duration-base) var(--pf-ease-out);
+  --animate-sheet-in: pf-sheet-in var(--pf-duration-slow) var(--pf-ease-out);
+  --animate-drawer-in: pf-drawer-in var(--pf-duration-slow) var(--pf-ease-out);
+  --animate-menu-in: pf-menu-in var(--pf-duration-fast) var(--pf-ease-out);
+  --animate-toast-in: pf-toast-in var(--pf-duration-base) var(--pf-ease-out);
+  --animate-fade-in: pf-fade-in var(--pf-duration-base) var(--pf-ease-out);
+
+  @keyframes pf-dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem) scale(0.98);
+    }
+  }
+  @keyframes pf-sheet-in {
+    from {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes pf-drawer-in {
+    from {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes pf-menu-in {
+    from {
+      opacity: 0;
+      transform: translateY(-0.25rem);
+    }
+  }
+  @keyframes pf-toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem);
+    }
+  }
+  @keyframes pf-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
 }
 
 /* Status badges: shape and colour come from tokens. Pair with px/py/text utilities in the Badge component. */
@@ -222,6 +268,11 @@
 
   :focus:not(:focus-visible) {
     outline: none;
+  }
+
+  /* The page behind an open modal dialog or drawer doesn't scroll. */
+  html:has(dialog:modal) {
+    overflow: hidden;
   }
 
   button:not(:disabled),
