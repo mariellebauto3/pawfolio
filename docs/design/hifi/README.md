@@ -2,8 +2,9 @@
 
 Visual layer on top of the approved LoFi (`docs/design/lofi/`). Layout, structure, flows and features come from the LoFi;
 this file sets colour, type, shape and their rules. Values live in **`frontend/src/styles/tokens.css`**; the Tailwind names
-are mapped in `frontend/src/app/globals.css`. A live reference renders at **`/design-tokens`** in development
-(`npm run dev`); it returns 404 in production builds.
+are mapped in `frontend/src/app/globals.css`. Live references render at **`/design-tokens`** (tokens) and **`/ui-kit`**
+(shared components, listed in `frontend/src/components/README.md`) in development (`npm run dev`); both return 404 in
+production builds.
 
 ## Palette: what a dog sees
 

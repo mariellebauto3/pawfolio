@@ -3,6 +3,9 @@
 Reusable, **feature-agnostic** UI building blocks taken from the LoFi UI kit (desktop PDF pages 7–8).
 If a component is only used by one module, it belongs in `src/features/<module>/` instead.
 
+A live reference of everything built so far renders at **`/ui-kit`** in development (`npm run dev`); like
+`/design-tokens`, it returns 404 in production builds.
+
 | Folder | Purpose | Planned components (from the LoFi UI kit) |
 | --- | --- | --- |
 | `ui/` | Basic building blocks | Button (primary / secondary / ghost / small), Badge (status, solid), Tag, Card, Avatar & photo placeholder, Meter |
