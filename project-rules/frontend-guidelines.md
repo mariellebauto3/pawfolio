@@ -89,6 +89,11 @@ Follow **[security-guidelines.md](security-guidelines.md)** §6 (authoritative):
 ## 7. Styling
 
 - Tailwind CSS utility classes; shared values (colours, radii, spacing) are tokens in `src/styles/` referenced by Tailwind — no hard-coded hex values in components.
+- Values are written only in `src/styles/tokens.css`; `src/app/globals.css` maps them into the Tailwind theme (`@theme`).
+  Tailwind's default colours, radii, shadows and type sizes are switched off, so only token utilities exist
+  (`bg-surface`, `rounded-card`, `shadow-menu`, `text-2xl`). Need a new value? Add a token and document it in
+  `docs/design/hifi/README.md`. Reference page: `/design-tokens` (development only).
+- Focus styles come from the global `:focus-visible` rule in `globals.css`. Don't remove outlines or restyle focus per component.
 - Mobile-first: write the phone layout, then add `md:`/`lg:` for larger screens. Verify at 390 px and 1440 px.
 
 ## 8. Forms and validation
