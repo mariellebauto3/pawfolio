@@ -27,6 +27,7 @@ export const STATUS_TONES = {
   Declined: "closed",
   "Not Adopted": "closed",
   Withdrawn: "closed",
+  Closed: "closed",
   Expired: "closed",
   // Human
   "Open to Adopt": "progress",
