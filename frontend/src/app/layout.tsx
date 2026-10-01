@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Atkinson_Hyperlegible_Next, Zilla_Slab } from "next/font/google";
+import { ToastProvider } from "@/providers/toast-provider";
 import "./globals.css";
 
 // Font roles are set in src/styles/tokens.css (--pf-font-display, --pf-font-body).
@@ -26,7 +27,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${zillaSlab.variable} ${atkinson.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        <ToastProvider>{children}</ToastProvider>
+      </body>
     </html>
   );
 }
