@@ -72,6 +72,7 @@ yet, so it skips size-adjusting the fallback font. That's harmless, apart from a
 | Shadow (tinted blue-950) | `shadow-raised` · `shadow-menu` · `shadow-dialog` · `shadow-toast` |
 | Spacing | Tailwind's 4 px grid (`p-4` = 16 px). Page padding: `px-gutter` (16 px phone, 24 px from `md`) |
 | Widths | `max-w-content` 1128 · `max-w-narrow` 760 · `max-w-dialog` 520 · `max-w-dialog-wide` 640 · `max-w-drawer` 460 · `w-toast` 416 · `w-sidebar` 240 |
+| Bars | `--pf-topbar-h` 64 · `--pf-bottom-nav-h` 64 (member tab bar on phones). `--pf-bottom-offset` is the room fixed bottom bars take (0 unless the tab bar shows); toasts and page ends sit above it |
 | Touch | Minimum 44 × 44 px (`min-h-11`) |
 | Layers | `--pf-z-sticky` 40 · `dropdown` 60 · `drawer` 90 · `dialog` 100 · `toast` 120 — use as `z-(--pf-z-dialog)` |
 | Motion | `--pf-duration-fast` 120 ms · `base` 200 ms · `slow` 320 ms; `ease-out`. Reduced-motion turns transitions off globally |

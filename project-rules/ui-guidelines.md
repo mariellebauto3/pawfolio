@@ -14,9 +14,14 @@ Every screen, dialog and state has an ID (e.g. `MG-11`); use it in branches, PRs
   - *Member shell* — top bar: logo, search, Home, Pets for You / Homes for You, Browse, Requests, Alerts, Me. Max content width 1128 px.
   - *Admin shell* — left sidebar (Dashboard, Verification, Reports, Requests & Meets, Resolve Issues, Accounts & Alumni,
     Announcements, Activity Logs) with counts.
-- **Phone adaptations** (as in the mobile PDF): the top bar keeps icon tabs with short labels and moves search to its own row;
-  feed side rails are hidden; request detail shows the action panel first; the admin sidebar becomes a wrapped tab strip;
-  dialogs become full width; multi-column grids become one column.
+- **Phone adaptations** (as in the mobile PDF, except the navigation, below): feed side rails are hidden; request detail
+  shows the action panel first; dialogs become full width; multi-column grids become one column.
+- **Navigation below `lg`** (changed 2026-10-02 from the mobile LoFi's crowded top tabs and wrapped admin strip):
+  - *Member:* the top bar keeps the logo mark, search and the Me avatar; Home, Matches, Browse, Requests and Alerts move
+    to a tab bar fixed to the bottom of the screen, with their counts. No hamburger: these are the screens members
+    return to all day, so they stay one tap away.
+  - *Admin:* a top bar with the current section and a menu button that opens the sidebar's links, counts and Log out
+    in a drawer.
 - The pet's and human's shells are the same; content changes by role. Pets see "Homes for You", humans "Pets for You".
 
 ## 2. Visual language

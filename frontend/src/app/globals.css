@@ -270,6 +270,13 @@
     outline: none;
   }
 
+  /* While the member tab bar is fixed to the bottom (phones and tablets), toasts and page ends sit above it. */
+  @media (width < 64rem) {
+    body:has([data-bottom-nav]) {
+      --pf-bottom-offset: calc(var(--pf-bottom-nav-h) + env(safe-area-inset-bottom, 0px));
+    }
+  }
+
   /* The page behind an open modal dialog or drawer doesn't scroll. */
   html:has(dialog:modal) {
     overflow: hidden;

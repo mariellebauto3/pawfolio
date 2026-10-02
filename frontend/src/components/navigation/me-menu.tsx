@@ -50,11 +50,12 @@ export function MeMenu({ account, triggerClassName }: Props) {
         )
       }
     >
-      <Avatar name={name} src={account?.avatar_url ?? undefined} alt="" size="xs" />
-      <span className="flex items-center gap-0.5">
+      {/* Phones: the avatar alone (32 px) is the button, named "Me" for screen readers. From lg: icon-sized avatar
+          over "Me ▾", like the other tabs. */}
+      <Avatar name={name} src={account?.avatar_url ?? undefined} alt="" size="sm" className="lg:size-6" />
+      <span className="sr-only lg:not-sr-only lg:flex lg:items-center lg:gap-0.5">
         Me
-        {/* Dropped on phones for room; the button still announces its menu (aria-haspopup). */}
-        <Icon name="chevron-down" className="hidden size-3.5 sm:block" />
+        <Icon name="chevron-down" className="hidden size-3.5 lg:block" />
       </span>
     </DropdownMenu>
   );
