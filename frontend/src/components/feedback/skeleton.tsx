@@ -37,6 +37,20 @@ type GroupProps = {
   className?: string;
 };
 
+/** The default `loading.tsx` body inside a shell: a page title and two content blocks. */
+export function PageSkeleton() {
+  return (
+    <SkeletonGroup label="Loading page" className="flex flex-col gap-6">
+      <span className="flex flex-col gap-3">
+        <Skeleton className="h-8 w-64 max-w-full" />
+        <Skeleton className="w-96 max-w-full" />
+      </span>
+      <Skeleton shape="block" className="h-40" />
+      <Skeleton shape="block" className="h-40" />
+    </SkeletonGroup>
+  );
+}
+
 // Wrap a set of skeletons in one of these so screen readers hear a single "Loading…" message.
 export function SkeletonGroup({ label, children, className }: GroupProps) {
   return (
