@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Atkinson_Hyperlegible_Next, Zilla_Slab } from "next/font/google";
+import { cookies } from "next/headers";
+import { lookUpAccount } from "@/lib/auth/lookup-account";
 import { SessionProvider } from "@/providers/session-provider";
 import { ToastProvider } from "@/providers/toast-provider";
 import "./globals.css";
@@ -22,14 +24,18 @@ export const metadata: Metadata = {
     "Pets build a résumé, apply to homes that fit their lifestyle, and get Hired by their future Furparent.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Loaded on the server so the shells render the right navigation for the role on the first paint, without a
+  // flash of the wrong links. undefined (API unreachable) lets the browser try again.
+  const initialAccount = await lookUpAccount((await cookies()).toString() || null);
+
   return (
     <html
       lang="en"
       className={`${zillaSlab.variable} ${atkinson.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <SessionProvider>
+        <SessionProvider initialAccount={initialAccount}>
           <ToastProvider>{children}</ToastProvider>
         </SessionProvider>
       </body>
