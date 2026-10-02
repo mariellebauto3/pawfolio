@@ -26,8 +26,9 @@ type ViewportProps = {
   onDismiss: (id: number) => void;
 };
 
-// Bottom-left on desktop, full width at the bottom on phones (ui-guidelines §5). Rendered by ToastProvider; screen
-// reader announcements come from the provider's live regions, so they're read once, not with the buttons.
+// Bottom-left on desktop, full width at the bottom on phones (ui-guidelines §5), always above the member tab bar
+// (--pf-bottom-offset). Rendered by ToastProvider; screen reader announcements come from the provider's live regions,
+// so they're read once, not with the buttons.
 export function ToastViewport({ toasts, onDismiss }: ViewportProps) {
   if (toasts.length === 0) return null;
 
@@ -35,9 +36,9 @@ export function ToastViewport({ toasts, onDismiss }: ViewportProps) {
     <section
       aria-label="Notifications"
       className={cn(
-        "pointer-events-none fixed inset-x-0 bottom-0 z-(--pf-z-toast) flex flex-col gap-2",
+        "pointer-events-none fixed inset-x-0 bottom-(--pf-bottom-offset) z-(--pf-z-toast) flex flex-col gap-2",
         "px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
-        "md:right-auto md:bottom-6 md:left-6 md:w-toast md:p-0",
+        "md:right-auto md:bottom-[calc(var(--pf-bottom-offset)+1.5rem)] md:left-6 md:w-toast md:p-0",
       )}
     >
       {toasts.map((toast) => (
