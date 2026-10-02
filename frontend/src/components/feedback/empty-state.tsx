@@ -11,7 +11,8 @@ type Props = {
   /** The next step, usually one primary button or link: "Take the lifestyle quiz". */
   action?: ReactNode;
   secondaryAction?: ReactNode;
-  titleAs?: "h2" | "h3";
+  /** `h1` when the empty state is the whole page (Page not found, GN-02). */
+  titleAs?: "h1" | "h2" | "h3";
   className?: string;
 };
 
