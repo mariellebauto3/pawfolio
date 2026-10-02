@@ -143,6 +143,10 @@
   --pf-toast-w: 26rem; /* 416px toast stack on desktop */
   --pf-sidebar-w: 15rem; /* 240px admin sidebar */
   --pf-topbar-h: 4rem; /* 64px top bar */
+  --pf-bottom-nav-h: 4rem; /* 64px member tab bar at the bottom of phone screens */
+  /* Space taken by fixed bars at the bottom of the screen. globals.css sets it while the bottom tab bar shows, so
+     toasts and page content stay above the bar. */
+  --pf-bottom-offset: 0px;
   --pf-gutter: 1rem; /* page side padding on phones */
   --pf-gutter-wide: 1.5rem; /* page side padding from md up */
   --pf-touch-min: 2.75rem; /* 44px minimum touch target */

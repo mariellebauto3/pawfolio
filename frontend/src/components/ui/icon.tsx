@@ -156,6 +156,14 @@ const PATHS = {
     </>
   ),
   filter: <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />,
+  // Opens the admin menu drawer on phones.
+  menu: (
+    <>
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h16" />
+    </>
+  ),
   // Member top bar (GN-01): Home, Matches, Browse, Requests.
   home: (
     <>

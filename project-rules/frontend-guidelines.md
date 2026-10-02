@@ -61,7 +61,9 @@ Planned routes (from the LoFi, full list in the feature READMEs):
 | Member | `/feed`, `/posts/[postId]`, `/matches`, `/browse`, `/search`, `/pets/[petId]`, `/homes/[homeId]`, `/me`, `/resume/edit`, `/home-profile/edit`, `/availability`, `/invites`, `/apply/[homeId]`, `/requests`, `/requests/[requestId]`, `/notifications`, `/bookmarks`, `/stats`, `/activity`, `/settings` |
 | Admin | `/admin`, `/admin/verification`, `/admin/verification/[accountId]`, `/admin/reports`, `/admin/reports/[reportId]`, `/admin/requests`, `/admin/requests/[requestId]`, `/admin/resolve`, `/admin/accounts`, `/admin/accounts/[accountId]`, `/admin/announcements`, `/admin/activity-logs` |
 
-- Route groups `(public)`, `(account-status)`, `(member)` don't appear in URLs; they share layouts (shells).
+- Route groups `(public)`, `(account-status)`, `(member)` don't appear in URLs; they share layouts (shells). Each
+  group's `layout.tsx` already renders its shell, `error.tsx` and `loading.tsx`: pages render only their content,
+  starting with `PageHeader` (`src/components/README.md`, "Page shells").
 - Tabs and filters use query strings (`?tab=closed`), so views are linkable.
 - Dialogs are components, not routes, unless a dialog must be shareable by URL.
 - Role and account-status checks happen on the **server** (Laravel). `proxy.ts` may do optimistic redirects only.

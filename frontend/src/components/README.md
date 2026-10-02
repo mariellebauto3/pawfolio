@@ -18,6 +18,42 @@ A live reference of everything built so far renders at **`/ui-kit`** in developm
 
 Global screens: **GN-01** (top navigation · Me menu) → `navigation/`; **GN-02** (Page not found) → `src/app/not-found.tsx` using `feedback/`.
 
+## Page shells (FE-05)
+
+Each route group's `layout.tsx` renders its shell, so screens only render their content. Every shell starts with a
+"Skip to main content" link and puts the page in `<main id="main-content">`. Why it's built this way:
+[ADR 0005](../../../docs/decisions/0005-page-shells-and-server-seeded-session.md).
+
+| Shell | File | Used by | What it shows |
+| --- | --- | --- | --- |
+| `GuestShell` | `layout/guest-shell.tsx` | `app/page.tsx`, `(public)` | Logo, How it works · Success stories · FAQ (footer only on phones), Join now, Sign in; footer. Pages set their own width |
+| `AccountStatusShell` | `layout/account-status-shell.tsx` | `(account-status)` | Logo (not a link), Help center, Log out. Content 760 px wide |
+| `MemberShell` | `layout/member-shell.tsx` | `(member)` | `MemberTopBar` (GN-01), content up to 1128 px. `counts={{ requests, alerts }}` for the unread badges |
+| `AdminShell` | `layout/admin-shell.tsx` | `admin` | `AdminSidebar`, content fills the rest. `counts={{ verification, reports, … }}` for queue sizes |
+| `SessionShell` | `layout/session-shell.tsx` | `app/not-found.tsx` | Whichever of the four fits the signed-in account (`shellAreaFor`) |
+
+Inside a shell, start a page with **`PageHeader`** (`layout/page-header.tsx`): the page's one `h1`, an optional
+`description`, and `actions` (right on desktop, below the title on phones).
+
+| Component | File | Notes |
+| --- | --- | --- |
+| `MemberTopBar` | `navigation/member-top-bar.tsx` | Role from `useSession()`: pets get "Homes for You", humans "Pets for You" ("Matches" on phones). Desktop: one 64 px row. Below `lg`: logo mark, search and the Me avatar on top, and the tabs in a bar fixed to the bottom of the screen (`data-bottom-nav`; toasts and the page end stay above it through `--pf-bottom-offset`). Alerts links to `/notifications` until NT-01 replaces it with its dropdown |
+| `MeMenu` | `navigation/me-menu.tsx` | Profile card and the role's links in groups, as in the LoFi; Log out ends the Account group |
+| `MemberSearch` | `navigation/member-search.tsx` | `next/form` GET to `/search?q=` (DS-03) |
+| `AdminSidebar` | `navigation/admin-sidebar.tsx` | 240 px sidebar from `lg`. Below `lg`: a top bar with the current section and a menu button (showing the total waiting) that opens the same links, counts and Log out in a `Drawer`. `aria-current="page"` on a section's own page, `"true"` on pages inside it |
+| `GuestTopBar`, `Footer` | `navigation/guest-top-bar.tsx`, `layout/footer.tsx` | Server components. Links go to landing-page sections (`LANDING_SECTIONS` in `src/constants/routes.ts`) |
+| `Logo` | `navigation/logo.tsx` | Placeholder "P" mark + wordmark. `wordmark="responsive"` keeps only the mark below `lg` |
+| `NavCount` | `navigation/nav-count.tsx` | Blue count pill; "99+" above 99, nothing at 0; read as "3 unread" |
+| `SignOutButton` | `navigation/sign-out-button.tsx` | "Log out" button for bars without a Me menu. Both use `useSignOut()` (`src/hooks/`) |
+
+What each shell links to lives in **`navigation/nav-config.ts`** (`memberNavItems(role)`, `meMenuFor(role)`,
+`ADMIN_NAV`, `GUEST_NAV`), tested in `tests/unit/components/navigation/`. A new top-level page gets its link there.
+
+**Route states.** Every group has `error.tsx` (`RouteError`: fixed copy by kind, "Try again" for server and network
+errors, never the error's own text) and, apart from `(public)`, `loading.tsx` (`PageSkeleton`). `(member)` and `admin`
+have `not-found.tsx` for `notFound()` calls; unknown URLs get `app/not-found.tsx`. All show **`PageNotFound`** (GN-02),
+the same message for missing pages and for hidden, suspended or deactivated profiles (SEC-AUTHZ-04).
+
 ## Built (FE-02, FE-03)
 
 ### `ui/`
@@ -30,7 +66,7 @@ Global screens: **GN-01** (top navigation · Me menu) → `navigation/`; **GN-02
 | `StatusBadge` | `status-badge.tsx` | A status by its exact proposal name; the tone comes from `src/constants/status-badges.ts` |
 | `Tag` | `tag.tsx` | Descriptive, non-interactive labels (traits, match reasons); optional leading `icon` |
 | `Card` | `card.tsx` | Content block on the canvas: optional `title`, `description`, `action`; `padding="none"` for edge-to-edge photos |
-| `Avatar` | `avatar.tsx` | Round photo of a pet or human; initials when there is no photo. Sizes `sm` 32, `md` 40, `lg` 56, `xl` 96 |
+| `Avatar` | `avatar.tsx` | Round photo of a pet or human; initials when there is no photo. Sizes `xs` 24 (one initial; top-bar Me tab), `sm` 32, `md` 40, `lg` 56, `xl` 96 |
 | `Photo` | `photo.tsx` | Fixed-ratio photo or placeholder: `ratio="pet"` (4:3), `"cover"` (3:1 → 5:1), `"square"` |
 | `Icon` | `icon.tsx` | The SVG icon set (after Lucide): status, arrows, actions (pencil, trash, flag, bookmark, bell, log-out…), states (inbox, search, wifi-off). Never emoji |
 | `IconButton` | `icon-button.tsx` | Round 44 × 44 px button with only an icon. `label` is required (screen readers, tooltip). `tone="inverse"` on dark or coloured fills |
@@ -61,7 +97,7 @@ Global screens: **GN-01** (top navigation · Me menu) → `navigation/`; **GN-02
 | `Modal` | `modal.tsx` | Confirmations, short forms, explanations (ui-guidelines §5). Controlled: `open` + `onClose`. `title`, `subtitle`, `footer` (cancel first, primary last), `size` `md` 520 / `lg` 640, `onSubmit` wraps body and footer in a form. Bottom sheet on phones |
 | `ConfirmDialog` | `confirm-dialog.tsx` | Important or irreversible actions. `confirmLabel` names the action, `destructive`, `consequences` list, `permanent`, required `reason` (confirm stays disabled until filled), `acknowledgement` checkbox. `onConfirm` resolves → closes; throws → stays open with a retry message |
 | `Drawer` | `drawer.tsx` | Side panel from the right (460 px, full screen on phones), e.g. Browse filters. Same props as Modal |
-| `DropdownMenu` | `dropdown-menu.tsx` | Menu button (GN-01 Me menu, FD-06 post options). `items` with `onSelect` or `href`, `destructive`, `separator`s; optional `header`; `icon` for a ••• trigger or `children` for a text trigger; `align="end"` near the right edge |
+| `DropdownMenu` | `dropdown-menu.tsx` | Menu button (GN-01 Me menu, FD-06 post options). `items` with `onSelect` or `href`, `destructive`, `separator`s, and `group`s (a small heading over its items, named for screen readers); optional `header`; `icon` for a ••• trigger or `children` for a text trigger; `align="end"` near the right edge; `triggerClassName` replaces the trigger's look for menus inside a nav bar |
 | `ToastViewport` | `toast.tsx` | The toast stack. Don't render it yourself — `ToastProvider` does |
 
 **Toasts:** `const toast = useToast(); toast.show("Saved to Bookmarks.")` from any client component
@@ -79,9 +115,11 @@ Dialogs with typed input don't close on a backdrop click. Nothing closes while a
 | --- | --- | --- |
 | `Alert` | `alert.tsx` | A message inside a card or form. `tone`: `info`, `success`, `warning`, `error`. `announce` when it appears after an action (errors interrupt, others wait) |
 | `Banner` | `banner.tsx` | A message about the whole page: "Hired by …" (`celebrate`), "The meeting time has passed" (`attention`), drafts (`neutral`), announcements (`info`, `onDismiss`). `icon` is an icon name or an element such as an Avatar |
-| `EmptyState` | `empty-state.tsx` | Why it's empty, plus the next step (`action`) |
+| `EmptyState` | `empty-state.tsx` | Why it's empty, plus the next step (`action`). `titleAs="h1"` when it is the whole page |
 | `ErrorState` | `error-state.tsx` | A view that failed to load. `kind`: `network`, `not-found`, `forbidden`, `server`, each with fixed friendly copy; never shows an error's message or code. `onRetry` (Next's `retry` in `error.tsx`). `errorKindFromStatus(status)` picks the kind |
-| `Skeleton`, `SkeletonText`, `SkeletonGroup` | `skeleton.tsx` | Loading placeholders in the shape of the content. Wrap them in one `SkeletonGroup label="Loading …"` |
+| `Skeleton`, `SkeletonText`, `SkeletonGroup` | `skeleton.tsx` | Loading placeholders in the shape of the content. Wrap them in one `SkeletonGroup label="Loading …"`. `PageSkeleton` is the default `loading.tsx` body |
+| `PageNotFound` | `page-not-found.tsx` | GN-02 page body; `area` picks the way out (Browse / Back to feed, Back to dashboard, home page) |
+| `RouteError` | `route-error.tsx` | Body of every `error.tsx` |
 
 ### `data-display/`
 
