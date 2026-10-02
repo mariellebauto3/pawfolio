@@ -5,6 +5,8 @@
 - Every PR comes from **its own new branch**, created from the latest `develop` and named `<type>/<scope>-<short-desc>`
   (format and exceptions: `git-guidelines.md` §3).
 - Compare your branch with `develop` (base: `develop`). `develop` → `main` happens only through a release PR.
+- **Never stack PRs:** the base is always `develop` (or `main` for release and hotfix PRs), never another feature
+  branch. Why and how to split instead: `git-guidelines.md` §3.
 
 ## Title
 
@@ -13,7 +15,8 @@ Same format as a commit: `<type>(<scope>): <summary>` — e.g. `feat(requests): 
 ## Size
 
 - Aim for **under ~400 changed lines** (excluding lock files and generated files). Split large features into several PRs
-  (e.g. backend endpoint → frontend screen → dialogs).
+  (e.g. backend endpoint → frontend screen → dialogs), each targeting `develop` and opened after the previous part is
+  merged.
 - One PR = one task. Don't include unrelated fixes or refactors.
 
 ## Description template
@@ -56,7 +59,8 @@ Desktop (1440 px) and phone (390 px) for any UI change.
 
 ## Merging
 
-- Target branch: `develop` (or `main` only for release and hotfix PRs).
+- Target branch: `develop` (or `main` only for release and hotfix PRs). **Before clicking Merge, check the base shown at
+  the top of the PR.** If it's any other branch, don't merge: ask the author to change the base to `develop`.
 - Use **Create a merge commit** (not squash or rebase), so each commit in the PR stays in history as a small, reviewable step.
 - Every commit in the PR must follow `commit-guidelines.md`. Before merging, the author cleans up "wip", "fix typo" and
   similar commits (amend, or rebase on their own branch and push with `--force-with-lease`).

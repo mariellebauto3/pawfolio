@@ -39,6 +39,12 @@ Code always moves in this order, and every step is a reviewed pull request:
   - `<scope>`: a scope from §2. Required for `feature` and `fix`; optional for `docs`, `chore` and `hotfix`.
   - `<short-desc>`: 2–5 words in `kebab-case`, e.g. `feature/requests-approve-dialog`, `docs/rules-branch-per-pr`.
 - **The PR compares your branch with `develop`.** Base = `develop`, compare = your branch. This is where review happens.
+- **No stacked PRs.** Never set a PR's base to another feature branch, even when the work builds on a PR that is still
+  open. A PR merges into its base, so a stacked PR lands on the branch below it instead of `develop`. FE-02 (#11, #12)
+  and FE-05 (#19, #20) were stranded this way and needed catch-up PRs (#13, #21).
+- **Splitting a big task:** make each part a PR that works on its own and targets `develop`. Open the next part only
+  after the previous one is merged, from a new branch off the updated `develop`. If the parts only make sense together,
+  send one PR with small commits and say why it's over the size guideline.
 - **`develop` goes to `main` later**, through a release PR (`develop` → `main`) opened when `develop` is stable and
   demo-ready. After it merges, tag the release on `main` (`v0.1.0`…).
 - **Only exception:** `hotfix/*` branches come from `main`, go into `main` by PR, and are then merged back into `develop`.
