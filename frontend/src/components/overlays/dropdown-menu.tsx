@@ -6,22 +6,26 @@ import { buttonClasses } from "@/components/ui/button-styles";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils/cn";
 
+export type MenuAction = {
+  type?: "item";
+  label: string;
+  icon?: IconName;
+  /** A second line, e.g. who can see the result. */
+  description?: string;
+  /** Runs after the menu closes and focus is back on the trigger, so a dialog it opens returns focus there. */
+  onSelect?: () => void;
+  /** Makes the item a link instead. */
+  href?: string;
+  /** Red text for items that remove something. The action itself still asks for confirmation. */
+  destructive?: boolean;
+  disabled?: boolean;
+};
+
 export type MenuItem =
-  | {
-      type?: "item";
-      label: string;
-      icon?: IconName;
-      /** A second line, e.g. who can see the result. */
-      description?: string;
-      /** Runs after the menu closes and focus is back on the trigger, so a dialog it opens returns focus there. */
-      onSelect?: () => void;
-      /** Makes the item a link instead. */
-      href?: string;
-      /** Red text for items that remove something. The action itself still asks for confirmation. */
-      destructive?: boolean;
-      disabled?: boolean;
-    }
-  | { type: "separator" };
+  | MenuAction
+  | { type: "separator" }
+  /** Items under a small heading, e.g. "Résumé" and "Account" in the Me menu (GN-01). */
+  | { type: "group"; label: string; items: MenuAction[] };
 
 type Props = {
   /** Names the trigger and the menu: "Post options", "Me". Read by screen readers; shown as the tooltip on icon triggers. */
@@ -29,19 +33,33 @@ type Props = {
   items: MenuItem[];
   /** Icon-only trigger (e.g. `more` for a ••• menu). Leave out and pass children for a text trigger. */
   icon?: IconName;
-  /** Visible trigger content, e.g. an avatar and "Me". A chevron is added. */
+  /** Visible trigger content, e.g. an avatar and "Me". A chevron is added unless `triggerClassName` is set. */
   children?: ReactNode;
   /** Non-interactive content above the items, such as the profile card in the Me menu (GN-01). */
   header?: ReactNode;
   /** Which edge of the trigger the menu lines up with. Use `end` for triggers near the right of the screen. */
   align?: "start" | "end";
+  /**
+   * Replaces the trigger's styling (not merged), for a menu that sits in a navigation bar and must look like its
+   * tabs. The trigger then shows only `children`, without the added chevron.
+   */
+  triggerClassName?: string;
   className?: string;
 };
 
 // Menu button (WAI-ARIA APG pattern): Me menu (GN-01), post options (FD-06). Enter, Space or ↓ opens on the first item,
 // ↑ on the last; ↑ ↓ Home End move; a letter jumps to the next item starting with it; Escape closes and returns focus;
 // Tab closes and moves on. Clicking outside closes.
-export function DropdownMenu({ label, items, icon, children, header, align = "start", className }: Props) {
+export function DropdownMenu({
+  label,
+  items,
+  icon,
+  children,
+  header,
+  align = "start",
+  triggerClassName,
+  className,
+}: Props) {
   const baseId = useId();
   const buttonId = `${baseId}-button`;
   const menuId = `${baseId}-menu`;
@@ -138,14 +156,15 @@ export function DropdownMenu({ label, items, icon, children, header, align = "st
         onClick={() => (open ? close(false) : openMenu("first"))}
         onKeyDown={handleButtonKeyDown}
         className={
-          children
+          triggerClassName ??
+          (children
             ? buttonClasses({ variant: "tertiary" })
             : "grid size-11 place-items-center rounded-pill text-ink-muted transition-colors duration-200 ease-out " +
-              "hover:bg-surface-sunken hover:text-ink aria-expanded:bg-surface-sunken aria-expanded:text-ink"
+              "hover:bg-surface-sunken hover:text-ink aria-expanded:bg-surface-sunken aria-expanded:text-ink")
         }
       >
         {children ?? <Icon name={icon ?? "more"} />}
-        {children && (
+        {children && !triggerClassName && (
           <Icon
             name="chevron-down"
             className={cn("size-4 shrink-0 transition-transform duration-200", open && "rotate-180")}
@@ -163,15 +182,37 @@ export function DropdownMenu({ label, items, icon, children, header, align = "st
         >
           {header && <div className="mb-1.5 border-b border-line px-2.5 pt-1.5 pb-3">{header}</div>}
           <ul ref={menuRef} id={menuId} role="menu" aria-labelledby={buttonId} onKeyDown={handleMenuKeyDown}>
-            {items.map((item, i) =>
-              item.type === "separator" ? (
-                <li key={`separator-${i}`} role="separator" className="mx-2 my-1.5 border-t border-line" />
-              ) : (
+            {items.map((item, i) => {
+              if (item.type === "separator") {
+                return <li key={`separator-${i}`} role="separator" className="mx-2 my-1.5 border-t border-line" />;
+              }
+              if (item.type === "group") {
+                return (
+                  <li key={`group-${item.label}`} role="none">
+                    {/* Screen readers hear the label as the group's name instead. It's aria-label, not
+                        aria-labelledby, so the name keeps its case: browsers apply `uppercase` to labelledby names. */}
+                    <span
+                      aria-hidden="true"
+                      className="block px-2.5 pt-2 pb-1 text-xs font-bold tracking-wide text-ink-muted uppercase"
+                    >
+                      {item.label}
+                    </span>
+                    <ul role="group" aria-label={item.label}>
+                      {item.items.map((action) => (
+                        <li key={action.label} role="none">
+                          <MenuItemControl item={action} onDone={close} />
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                );
+              }
+              return (
                 <li key={item.label} role="none">
                   <MenuItemControl item={item} onDone={close} />
                 </li>
-              ),
-            )}
+              );
+            })}
           </ul>
         </div>
       )}
@@ -180,7 +221,7 @@ export function DropdownMenu({ label, items, icon, children, header, align = "st
 }
 
 type ItemProps = {
-  item: Exclude<MenuItem, { type: "separator" }>;
+  item: MenuAction;
   onDone: (returnFocus: boolean) => void;
 };
 
