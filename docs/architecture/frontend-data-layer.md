@@ -56,14 +56,18 @@ const { data } = await (await getServerApi()).get<ApiResource<Pet>>(apiPath`/pet
 
 ## Session
 
-`SessionProvider` (root layout) loads `GET /auth/me` once. Read it anywhere in a client component:
+`SessionProvider` (root layout) holds the account from `GET /auth/me`. The root layout looks it up on the server
+(`lookUpAccount`, the same helper `proxy.ts` uses) and hands it over, so pages render with the right role from the first
+paint ([ADR 0005](../decisions/0005-page-shells-and-server-seeded-session.md)); if the API doesn't answer in 2 s,
+the provider loads it in the browser instead. Read it anywhere in a client component:
 
 ```ts
 const { status, account, role, accountStatus, isActive, isAdmin, refresh } = useSession();
 // status: "loading" | "signed-in" | "signed-out" | "error"
 ```
 
-After signing in or out, call `refresh()`. The account is kept in React state only, never in browser storage
+After signing in, call `refresh()`. To log out, use `useSignOut()` (`src/hooks/use-sign-out.ts`): it ends the
+session and reloads the landing page, so nothing from the signed-in session stays in memory. The account is kept in React state only, never in browser storage
 (SEC-FE-04). Use it to choose what to show; the API still checks every action (SEC-FE-05).
 
 Automatic redirects from any `api` call:

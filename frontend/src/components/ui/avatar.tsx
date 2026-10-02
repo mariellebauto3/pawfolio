@@ -2,9 +2,11 @@ import Image from "next/image";
 import { cn } from "@/lib/utils/cn";
 import { Icon } from "./icon";
 
-type Size = "sm" | "md" | "lg" | "xl";
+type Size = "xs" | "sm" | "md" | "lg" | "xl";
 
 const SIZES: Record<Size, { box: string; text: string; px: number }> = {
+  // Icon-sized, for the Me tab in the top bar. Initials are trimmed to one letter to fit.
+  xs: { box: "size-6", text: "text-xs", px: 24 },
   sm: { box: "size-8", text: "text-xs", px: 32 },
   md: { box: "size-10", text: "text-sm", px: 40 },
   lg: { box: "size-14", text: "text-lg", px: 56 },
@@ -32,7 +34,7 @@ function initials(name: string): string {
 export function Avatar({ name, src, alt, size = "md", className }: Props) {
   const s = SIZES[size];
   const label = alt ?? name;
-  const letters = initials(name);
+  const letters = size === "xs" ? initials(name).slice(0, 1) : initials(name);
 
   return (
     <span
