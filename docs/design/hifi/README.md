@@ -22,6 +22,21 @@ colour-blind people too.
 
 Success has no green: confirmations use the blue soft tone, and the check icon plus the message carry the meaning.
 
+### Brand moments (public pages)
+
+The landing page (`AU-01`) is allowed more play than the app screens, still inside the same palette:
+
+| Token | Utility | Value | Used for |
+| --- | --- | --- | --- |
+| `--pf-sky` | `bg-sky` | `blue-100` | The round badge behind the hero dog's head (the O of PAWFOLIO). The hero itself sits on the plain `canvas`, with a frosted `surface` panel behind the dog |
+| `--pf-sky-soft` | `bg-sky-soft` | `blue-50` | Illustration wells on tiles (How it works, Recently Hired placeholders) |
+| `--pf-surface-brand` | `bg-surface-brand` | `blue-900` | A full-width brand band (the verification promise) |
+| `--pf-ink-on-brand`, `--pf-ink-on-brand-muted` | `text-ink-on-brand`, `text-ink-on-brand-muted` | white, `blue-200` (8:1) | Text on that band. Its button is the white `secondary` one |
+
+On `sky`, ink is 13:1, primary 6.1:1 and muted ink 5.9:1 (AA); on the band, white is 14.5:1. Decorative drawings (tennis ball, bone,
+sparkles, step pictures) live in `features/auth/components/landing/landing-illustrations.tsx`, use the ramps
+directly as illustrations may, and are hidden from screen readers.
+
 ## Rules
 
 1. **Components use role names, not ramps.** `bg-surface`, `text-ink-muted`, `bg-primary`, `border-line-strong`. The
@@ -29,10 +44,31 @@ Success has no green: confirmations use the blue soft tone, and the check icon p
 2. **No raw values in components.** Tailwind's default palette, radii, shadows and type sizes are switched off, so
    `bg-zinc-500`, `rounded-2xl` and `text-[#333]` don't work. If a value is missing, add a token.
 3. **One filled primary action per area** (blue). Secondary actions are outlined, tertiary are text only.
-4. **Yellow is for good news.** Hired, Adopted, Furparent and the match meter. Don't use it for decoration. On light
-   surfaces a yellow fill gets an `accent-edge` (`yellow-600`) outline so the bar's edge stays visible; never use it for text.
+4. **Yellow is for good news.** Hired, Adopted, Furparent and the match meter. Don't use it for decoration in the UI
+   (buttons, text, backgrounds, borders). The one exception is drawings on public pages, where a tennis ball or a
+   sparkle may be yellow (see "Brand moments"). On light surfaces a yellow fill gets an `accent-edge` (`yellow-600`)
+   outline so the bar's edge stays visible; never use it for text. The one exception is `text-accent-display`
+   (`yellow-600`, 3.2:1 on white) for a yellow word in a large display heading, 24 px bold or bigger, such as
+   "Questions" in the landing FAQ. Lighter yellows (`yellow-400` 1.5:1, `yellow-500` 2.0:1) are never text.
 5. **Shadows only on things that float** (bars when stuck, menus, dialogs, toasts). Cards use a 1 px `line` border.
 6. **Radius grows with the size of the thing:** badge 4 px → control 8 px → card 12 px → dialog 20 px; buttons and chips are pills.
+
+## Brand mark
+
+A paw whose toes spell **F-O-L-I-O** over a yellow pad, so the mark itself reads "Paw-folio".
+Converted 1:1 from the designer's vector file into `frontend/public/images/brand/pawfolio-mark.svg` (master),
+`src/app/icon.svg` (browser tab) and `src/app/apple-icon.png` (home-screen icon, on white).
+
+- In the UI, use `<Logo>` (mark + "Pawfolio" wordmark) or `<BrandMark>` alone (`src/components/navigation/`). Size it by
+  height; the mark is 1.16 × wider than tall. **Never smaller than 48 px tall:** below that the F-O-L-I-O letters blur
+  together on 1× screens. Bars use 48 px (`size="bar"`), the footer 56 px (`size="lg"`). The wordmark stays beside
+  it, or is screen-reader text when hidden on phones.
+- Its colours are the UI's own: `--pf-brand-mark-blue` = `blue-600` (`#3341C2`, the primary blue) and
+  `--pf-brand-mark-yellow` = `yellow-400` (`#FCCB1A`, the Hired yellow). The original file used a brighter violet
+  (`#4C3DFF`) and amber (`#FDB813`); those were 7–9 ΔE2000 away from the UI colours, close enough to look like a
+  mistake next to the buttons, so the mark was matched to the system (2026-10-03). The static copies (`icon.svg`, the
+  master SVG) carry the same two values as hex; change all three together.
+- Give it clear space of at least a quarter of its height, and don't recolour, stretch or rotate it.
 
 ## Status badges
 
@@ -52,7 +88,7 @@ choosing a tone by hand.
 
 | Role | Family | Why |
 | --- | --- | --- |
-| Headings (`font-display`) | **Zilla Slab**, 600 and 700 | A slab serif reads like a stamped pet ID tag or a typed résumé, which fits the job-hunting idea behind Pawfolio. It feels human and trustworthy without being childish, and stays clear at card-title sizes |
+| Headings (`font-display`) | **Zilla Slab**, 600 and 700 | A slab serif reads like a stamped pet ID tag or a typed resume, which fits the job-hunting idea behind Pawfolio. It feels human and trustworthy without being childish, and stays clear at card-title sizes |
 | Everything else (`font-sans`) | **Atkinson Hyperlegible Next** | Designed for low-vision readers; distinct letterforms (Il1, 0O) for a broad audience including older adopters |
 
 Scale (rem, 16 px body): `xs` 13 · `sm` 14 · `base` 16 · `lg` 18 · `xl` 21 · `2xl` 26 · `3xl` 34 · `4xl` 44 · `5xl` 56.
@@ -76,7 +112,7 @@ yet, so it skips size-adjusting the fallback font. That's harmless, apart from a
 | Touch | Minimum 44 × 44 px (`min-h-11`) |
 | Layers | `--pf-z-sticky` 40 · `dropdown` 60 · `drawer` 90 · `dialog` 100 · `toast` 120 — use as `z-(--pf-z-dialog)` |
 | Motion | `--pf-duration-fast` 120 ms · `base` 200 ms · `slow` 320 ms; `ease-out`. Reduced-motion turns transitions off globally |
-| Entrances | `animate-dialog-in` (fade + lift), `animate-sheet-in` (phone dialogs, from the bottom), `animate-drawer-in` (from the right), `animate-menu-in`, `animate-toast-in`, `animate-fade-in` (backdrops). Motion only answers an action; exits are instant |
+| Entrances | `animate-dialog-in` (fade + lift), `animate-sheet-in` (phone dialogs, from the bottom), `animate-drawer-in` (from the right), `animate-menu-in`, `animate-toast-in`, `animate-fade-in` (backdrops). Motion only answers an action; exits are instant. Exception: the landing hero (`AU-01`). Its paw trail walks without end (`animate-paw-loop`, a marquee that pauses on hover), and a story loop tells the adoption story every 7 s while the hero is on screen (`landing-motion.ts`, `use-story-cycle.ts`): the offer chip (after React Bits "Call Chip") runs its timer and rolls to a yellow check, then the "loved" heart (after "Pulse Heart") beats to solid yellow. Clicking the heart stops the loop. On the first run only, the lanyard card turns over to show "Furever home". Reduced motion shows the end states and never loops |
 
 ## Accessibility
 
@@ -93,4 +129,3 @@ yet, so it skips size-adjusting the fallback font. That's harmless, apart from a
 
 - Dark mode. LoFi has no dark designs. The tokens are ready for it: a dark theme would redefine the semantic variables
   in `tokens.css`.
-- Brand mark. The "P" tile on `/design-tokens` is a placeholder.

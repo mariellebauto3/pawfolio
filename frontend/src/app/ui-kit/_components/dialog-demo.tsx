@@ -89,7 +89,7 @@ export function DialogDemo() {
         onClose={close}
         size="lg"
         title="86% match with Ana Santos"
-        subtitle="Both sides see the same score. It updates when the quiz or résumé changes."
+        subtitle="Both sides see the same score. It updates when the quiz or resume changes."
         footer={
           <Button variant="primary" onClick={close}>
             Got it

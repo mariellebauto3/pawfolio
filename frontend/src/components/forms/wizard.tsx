@@ -20,7 +20,7 @@ type Props = {
   onFinish: (form: HTMLFormElement) => void | Promise<void>;
   /** Final button, e.g. "Submit for review". Wizards are the one place a generic "Submit" is allowed. */
   finishLabel?: string;
-  /** Shows "Save draft" when given (résumé, Home Profile). */
+  /** Shows "Save draft" when given (resume, Home Profile). */
   onSaveDraft?: (form: HTMLFormElement) => void | Promise<void>;
   /** Short note next to Save draft, e.g. "Draft saved at 10:42 AM". Announced politely. */
   draftStatus?: string;
@@ -28,7 +28,7 @@ type Props = {
   className?: string;
 };
 
-// Multi-step form shell for sign-up (5 steps), résumé (6) and Home Profile & quiz (6), NFR1.
+// Multi-step form shell for sign-up (5 steps), resume (6) and Home Profile & quiz (6), NFR1.
 // Every step stays mounted (inactive ones are hidden), so typed answers survive Back/Next and FormData sees them all.
 export function Wizard({
   steps,

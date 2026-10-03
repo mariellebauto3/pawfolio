@@ -160,7 +160,7 @@ Review this table whenever a module is added or changed. New threats get the nex
 
 - **SEC-PRIV-01 (MUST)** Verification documents are admin-only, stored on the private disk, and served through an authorized admin endpoint.
 - **SEC-PRIV-02 (MUST)** Contact numbers and exact addresses are returned only to the two parties of a **confirmed** Meet & Greet, and to admins when needed.
-- **SEC-PRIV-03 (MUST)** Public profiles show only the city and a household summary (humans) or the pet's public résumé.
+- **SEC-PRIV-03 (MUST)** Public profiles show only the city and a household summary (humans) or the pet's public resume.
 - **SEC-PRIV-04 (MUST)** Collect only data the proposal requires. New personal-data fields need a documented purpose.
 - **SEC-PRIV-05 (MUST)** Deactivation hides the profile immediately; retained records (adoption history, logs) stay access-controlled.
 - **SEC-PRIV-06 (MUST)** Seed and test data are fake. Never use real people's names, IDs, photos or numbers.

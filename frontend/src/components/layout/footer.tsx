@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/navigation/logo";
+import { HomeLink } from "@/components/navigation/home-link";
 import { GUEST_NAV } from "@/components/navigation/nav-config";
 import { ROUTES } from "@/constants/routes";
 
@@ -9,19 +10,22 @@ export function Footer() {
   return (
     <footer className="border-t border-line bg-surface">
       <div className="mx-auto flex max-w-content flex-col gap-4 px-gutter py-8 md:flex-row md:items-center md:gap-8">
-        <Logo href={ROUTES.landing} />
+        <Logo href={ROUTES.landing} size="lg" />
         <nav aria-label="Footer">
           <ul className="flex flex-wrap gap-x-2 md:gap-x-4">
-            {GUEST_NAV.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className="flex min-h-11 items-center px-1 text-sm text-ink-muted no-underline hover:text-ink hover:underline"
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
+            {GUEST_NAV.map((link) => {
+              const Anchor = link.href === ROUTES.landing ? HomeLink : Link;
+              return (
+                <li key={link.href}>
+                  <Anchor
+                    href={link.href}
+                    className="flex min-h-11 items-center px-1 text-sm text-ink-muted no-underline hover:text-ink hover:underline"
+                  >
+                    {link.label}
+                  </Anchor>
+                </li>
+              );
+            })}
           </ul>
         </nav>
         <p className="text-sm text-ink-muted md:ml-auto">© {new Date().getFullYear()} Pawfolio</p>

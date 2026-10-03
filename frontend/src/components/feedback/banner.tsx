@@ -26,7 +26,7 @@ const TONES: Record<BannerTone, string> = {
   attention: "bg-primary text-primary-ink",
 };
 
-// A message about the whole page or profile, at the top of the content: "Hired by Ana Santos", "Your résumé is a
+// A message about the whole page or profile, at the top of the content: "Hired by Ana Santos", "Your resume is a
 // draft", an admin announcement, "The meeting time has passed". Messages inside a card or form use Alert.
 export function Banner({ tone = "neutral", icon, title, children, actions, onDismiss, className }: Props) {
   const iconNode = typeof icon === "string" ? <Icon name={icon as IconName} className="size-6 shrink-0" /> : icon;

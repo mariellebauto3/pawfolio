@@ -41,7 +41,7 @@ Inside a shell, start a page with **`PageHeader`** (`layout/page-header.tsx`): t
 | `MeMenu` | `navigation/me-menu.tsx` | Profile card and the role's links in groups, as in the LoFi; Log out ends the Account group |
 | `MemberSearch` | `navigation/member-search.tsx` | `next/form` GET to `/search?q=` (DS-03) |
 | `AdminSidebar` | `navigation/admin-sidebar.tsx` | 240 px sidebar from `lg`. Below `lg`: a top bar with the current section and a menu button (showing the total waiting) that opens the same links, counts and Log out in a `Drawer`. `aria-current="page"` on a section's own page, `"true"` on pages inside it |
-| `GuestTopBar`, `Footer` | `navigation/guest-top-bar.tsx`, `layout/footer.tsx` | Server components. Links go to landing-page sections (`LANDING_SECTIONS` in `src/constants/routes.ts`) |
+| `GuestTopBar`, `Footer` | `navigation/guest-top-bar.tsx`, `layout/footer.tsx` | Server components. Links go to landing-page sections (`LANDING_SECTIONS` in `src/constants/routes.ts`). Below `md` the bar shows the logo and `GuestMenu` (`navigation/guest-menu.tsx`): a menu button opening a `Drawer` with the section links, Join now and Sign in |
 | `Logo` | `navigation/logo.tsx` | Placeholder "P" mark + wordmark. `wordmark="responsive"` keeps only the mark below `lg` |
 | `NavCount` | `navigation/nav-count.tsx` | Blue count pill; "99+" above 99, nothing at 0; read as "3 unread" |
 | `SignOutButton` | `navigation/sign-out-button.tsx` | "Log out" button for bars without a Me menu. Both use `useSignOut()` (`src/hooks/`) |
@@ -81,7 +81,7 @@ the same message for missing pages and for hidden, suspended or deactivated prof
 | `Input` | `input.tsx` | Text-like inputs. Set `type` and `autoComplete` |
 | `Textarea` | `textarea.tsx` | Long text. With `maxLength` it shows "count / max", "N more needed" below `minLength`, and announces thresholds to screen readers |
 | `Select` | `select.tsx` | Native select with `options` and an optional `placeholder`. Never for statuses (FR27) |
-| `ChoiceChips` | `choice-chips.tsx` | Quick answers (quiz, résumé). Single choice = radios, `multiple` = checkboxes |
+| `ChoiceChips` | `choice-chips.tsx` | Quick answers (quiz, resume). Single choice = radios, `multiple` = checkboxes |
 | `RadioCards` | `radio-cards.tsx` | One choice where each option needs a line of explanation |
 | `Toggle` | `toggle.tsx` | On/off settings that apply right away (Open to Adopt). `labelPosition="start"` for settings rows |
 | `Checkbox` | `checkbox.tsx` | Agreements and multi-select lists; whole row is the hit area |

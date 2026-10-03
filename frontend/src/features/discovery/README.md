@@ -26,7 +26,7 @@ Browsing, filtering and searching. Humans find pets; pets find homes. Home Profi
 | DS-02 | Browse homes | Screen | Pet | `/browse` |
 | DS-03 | Search results | Screen | Human | `/search` |
 | DS-04 | Search · no results | Empty state | Human | `/search` |
-| DS-05 | Pet résumé (human view) | Screen | Human | `/pets/[petId]` |
+| DS-05 | Pet resume (human view) | Screen | Human | `/pets/[petId]` |
 | DS-06 | Photo viewer | Dialog | Human | `/pets/[petId]` |
 | DS-07 | Home Profile (pet view) | Screen | Pet | `/homes/[homeId]` |
 | DS-08 | Alumni profile (public view) | Screen | Pet | `/pets/[petId]` |
@@ -36,7 +36,7 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
 ## Requirements covered
 
 - **FR6** — Browse and search pets by species, age, size, temperament and compatibility.
-- **FR7** — View a pet’s full résumé.
+- **FR7** — View a pet’s full resume.
 - **FR8** — Bookmark pet profiles.
 - **FR9** — Send an Invite to Apply to a pet.
 - **FR22** — Browse and search Home Profiles (public details only).

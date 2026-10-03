@@ -56,6 +56,7 @@
 
   --pf-white: #ffffff;
 
+
   /* ---------- Semantic colour ---------- */
 
   --pf-canvas: var(--pf-gray-50); /* page background behind cards */
@@ -83,6 +84,7 @@
   --pf-accent-soft: var(--pf-yellow-50); /* warning alert, "new" row highlight */
   --pf-accent-soft-ink: var(--pf-yellow-800);
   --pf-accent-edge: var(--pf-yellow-600); /* outline of a yellow fill on light surfaces (meter bar); never text */
+  --pf-accent-display: var(--pf-yellow-600); /* yellow words in large display headings only (24px+ bold): 3.2:1 on white */
 
   --pf-danger: var(--pf-red-700);
   --pf-danger-hover: var(--pf-red-800);
@@ -99,6 +101,18 @@
   --pf-focus-halo: var(--pf-yellow-400);
 
   --pf-scrim: rgb(17 21 59 / 0.48); /* behind dialogs and drawers (blue-950) */
+
+  /* The brand mark (BrandMark): the UI's own blue and yellow, so the logo matches the buttons and the Hired yellow. The
+     static copies (app/icon.svg, public/images/brand/pawfolio-mark.svg) repeat these two values as hex. */
+  --pf-brand-mark-blue: var(--pf-blue-600);
+  --pf-brand-mark-yellow: var(--pf-yellow-400);
+
+  /* Brand moments on public pages (landing AU-01): soft blue shapes and a dark blue band. */
+  --pf-sky: var(--pf-blue-100); /* round badge behind the hero dog's head; ink and primary text stay AA on it */
+  --pf-sky-soft: var(--pf-blue-50); /* illustration wells on tiles */
+  --pf-surface-brand: var(--pf-blue-900); /* full-width brand band */
+  --pf-ink-on-brand: var(--pf-white);
+  --pf-ink-on-brand-muted: var(--pf-blue-200); /* 8:1 on surface-brand */
 
   /* ---------- Status badges (ui-guidelines §2) ---------- */
   /* progress: dashed outline — Sent, Approved, In Process, On Hold, Pending Verification, Open… */

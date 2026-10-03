@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { BrandMark } from "@/components/navigation/brand-mark";
 
 // Token reference for the team (FE-01). Uses token utilities only — no raw values — and is hidden in production.
 
@@ -84,12 +85,7 @@ export default function DesignTokensPage() {
     <>
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex h-16 max-w-content items-center gap-3 px-gutter">
-          <span
-            aria-hidden="true"
-            className="grid size-9 place-items-center rounded-control bg-accent font-display text-lg font-bold text-accent-ink"
-          >
-            P
-          </span>
+          <BrandMark className="h-12" />
           <span className="font-display text-xl font-bold">Pawfolio</span>
           <span className="ml-auto text-sm text-ink-muted">Design tokens</span>
         </div>

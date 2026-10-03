@@ -24,7 +24,7 @@ export type MenuAction = {
 export type MenuItem =
   | MenuAction
   | { type: "separator" }
-  /** Items under a small heading, e.g. "Résumé" and "Account" in the Me menu (GN-01). */
+  /** Items under a small heading, e.g. "Resume" and "Account" in the Me menu (GN-01). */
   | { type: "group"; label: string; items: MenuAction[] };
 
 type Props = {

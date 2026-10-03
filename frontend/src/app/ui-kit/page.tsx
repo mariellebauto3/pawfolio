@@ -128,7 +128,7 @@ export default async function UiKitPage({ searchParams }: PageProps<"/ui-kit">) 
             <Card titleAs="h3" title="Sizes and states">
               <div className="flex flex-wrap items-center gap-3">
                 <Button variant="primary" size="sm">
-                  View résumé
+                  View resume
                 </Button>
                 <Button size="sm">Bookmark</Button>
                 <Button variant="primary" disabled>
@@ -216,7 +216,7 @@ export default async function UiKitPage({ searchParams }: PageProps<"/ui-kit">) 
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button variant="primary" size="sm">
-                      View résumé
+                      View resume
                     </Button>
                     <Button size="sm">Bookmark</Button>
                   </div>
@@ -478,7 +478,7 @@ export default async function UiKitPage({ searchParams }: PageProps<"/ui-kit">) 
                 </Banner>
                 <Banner
                   icon="file"
-                  title="Your résumé is a draft"
+                  title="Your resume is a draft"
                   actions={
                     <Button variant="primary" size="sm">
                       Continue editing

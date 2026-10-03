@@ -5,6 +5,8 @@ export const ROUTES = {
   landing: "/",
   signIn: "/sign-in",
   signUp: "/sign-up",
+  signUpPet: "/sign-up/pet",
+  signUpHuman: "/sign-up/human",
   accountStatus: "/account-status",
   memberHome: "/feed",
   adminHome: "/admin",

@@ -70,9 +70,10 @@ A new module gets a new row here first, then folders in both apps.
 | Environment variables | `UPPER_SNAKE_CASE`, public ones prefixed `NEXT_PUBLIC_` | `NEXT_PUBLIC_API_URL` |
 | Git branches | `type/scope-short-description` | `feature/requests-approve-dialog` |
 
-Use the **domain words from the proposal** exactly: *Pet, Human, Admin, Furparent, résumé, Home Profile, Open to Adopt,
+Use the **domain words from the proposal** exactly: *Pet, Human, Admin, Furparent, resume, Home Profile, Open to Adopt,
 Looking for a Home, In Process, Hired, alumni, adoption request, Invite to Apply, Meet & Greet*. Don't invent synonyms
-(e.g. never "owner", "listing" or "application" for these).
+(e.g. never "owner", "listing" or "application" for these). Write **resume** without accents in all copy, code and
+docs (agreed 2026-10-02); the proposal and LoFi spell it "résumé", which is the same word.
 
 ## 5. Definition of done
 

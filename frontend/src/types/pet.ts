@@ -1,7 +1,7 @@
 import type { IsoDateTime } from "@/types/api";
 import type { PetStatus } from "@/types/statuses";
 
-// A pet's public résumé, mirroring the `pets` table and its child tables (backend migration
+// A pet's public resume, mirroring the `pets` table and its child tables (backend migration
 // 2026_09_30_000003). Private fields — caretaker contact number, vet records — are not part of this type: they reach
 // the frontend only through the endpoints that are allowed to reveal them (NFR4, SEC-PRIV-01/02).
 

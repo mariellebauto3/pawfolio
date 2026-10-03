@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { cn } from "@/lib/utils/cn";
+import { BrandMark } from "./brand-mark";
+import { HomeLink } from "./home-link";
 
 type Props = {
   /** Where the logo leads. Leave out for a logo that isn't a link (account-status bar). */
@@ -8,20 +9,19 @@ type Props = {
   suffix?: string;
   /** `responsive` shows only the mark on phones, where the top bar needs the room (LoFi mobile). */
   wordmark?: "always" | "responsive";
+  /** `bar`: 48 px tall, the smallest that keeps the letters readable. `lg`: 56 px, for roomier places such as the footer. */
+  size?: "bar" | "lg";
   className?: string;
 };
 
-// The brand mark is a placeholder "P" tile until a real one exists (docs/design/hifi/README.md, "Not in scope yet").
-export function Logo({ href, suffix, wordmark = "always", className }: Props) {
+// The brand mark (a paw whose toes spell FOLIO) and the wordmark. The mark alone is too small to read at bar size, so
+// the wordmark stays beside it, or as screen-reader text when `wordmark="responsive"` hides it on phones.
+export function Logo({ href, suffix, wordmark = "always", size = "bar", className }: Props) {
   const name = suffix ? `Pawfolio ${suffix}` : "Pawfolio";
   const content = (
     <>
-      <span
-        aria-hidden="true"
-        className="grid size-9 shrink-0 place-items-center rounded-control bg-accent font-display text-lg font-bold text-accent-ink"
-      >
-        P
-      </span>
+      {/* The FOLIO letters need the height: below about 48 px they blur together on 1x screens. */}
+      <BrandMark className={size === "lg" ? "h-14" : "h-12"} />
       <span className={cn("font-display text-xl font-bold whitespace-nowrap", wordmark === "responsive" && "sr-only lg:not-sr-only")}>
         {name}
       </span>
@@ -31,8 +31,8 @@ export function Logo({ href, suffix, wordmark = "always", className }: Props) {
 
   if (!href) return <span className={classes}>{content}</span>;
   return (
-    <Link href={href} className={cn(classes, "rounded-control")}>
+    <HomeLink href={href} className={cn(classes, "rounded-control")}>
       {content}
-    </Link>
+    </HomeLink>
   );
 }

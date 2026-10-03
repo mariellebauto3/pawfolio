@@ -34,10 +34,10 @@ describe("meMenuFor (GN-01)", () => {
     return [profileLink?.label, ...sections.flatMap((section) => section.links.map((link) => link.label))];
   };
 
-  it("gives pets their résumé links and Invites to Apply", () => {
+  it("gives pets their resume links and Invites to Apply", () => {
     expect(links("pet")).toEqual([
-      "View my résumé",
-      "Edit résumé",
+      "View my resume",
+      "Edit resume",
       "Invites to Apply",
       "Bookmarks",
       "My stats",
