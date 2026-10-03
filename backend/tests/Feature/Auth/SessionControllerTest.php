@@ -5,10 +5,10 @@ namespace Tests\Feature\Auth;
 use App\Actions\Auth\SignIn;
 use App\Enums\AccountStatus;
 use App\Enums\Role;
-use Illuminate\Cache\Repository;
-use Illuminate\Cache\Store\ArrayStore;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Session\TokenMismatchException;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 class SessionControllerTest extends TestCase
@@ -27,6 +27,10 @@ class SessionControllerTest extends TestCase
         $store = $this->app->make('cache')->store('array');
         $this->signIn = new SignIn($store);
         $this->app->instance(SignIn::class, $this->signIn);
+
+        // Requests come from the SPA, as in the browser: Sanctum's statefulApi only starts a session for a stateful
+        // origin (SANCTUM_STATEFUL_DOMAINS), and sign-in needs that session.
+        $this->withHeader('Referer', 'http://localhost:3000/');
     }
 
     public function test_me_returns_the_signed_in_account_shape(): void
@@ -180,6 +184,10 @@ class SessionControllerTest extends TestCase
                 'profile_id' => $user->homeProfile->id,
             ],
         ]);
+
+        // Really signed in on the session guard: the next /me call knows who this is.
+        $this->assertAuthenticatedAs($user, 'web');
+        $this->getJson('/api/v1/auth/me')->assertOk()->assertJsonPath('data.email', 'ana.santos@example.com');
     }
 
     public function test_sign_in_wrong_password_is_one_generic_message_whether_account_exists(): void
@@ -220,8 +228,6 @@ class SessionControllerTest extends TestCase
             'name' => 'admin.jess',
         ]);
 
-        $this->withHeaders(['X-Forwarded-For' => '10.0.0.1']);
-
         for ($i = 0; $i < 5; $i++) {
             $this->postJson('/api/v1/auth/sign-in', [
                 'email' => 'mochi@example.com',
@@ -229,10 +235,114 @@ class SessionControllerTest extends TestCase
             ])->assertUnprocessable();
         }
 
-        $this->postJson('/api/v1/auth/sign-in', [
+        // Locked for 15 minutes, even with the right password now.
+        $response = $this->postJson('/api/v1/auth/sign-in', [
             'email' => 'mochi@example.com',
-            'password' => 'wrong',
-        ])->assertTooManyRequests()->assertHeader('Retry-After', '900');
+            'password' => 'password',
+        ])->assertTooManyRequests()->assertJsonPath('code', 'rate_limited');
+
+        $retryAfter = (int) $response->headers->get('Retry-After');
+        $this->assertGreaterThan(890, $retryAfter);
+        $this->assertLessThanOrEqual(900, $retryAfter);
+        $this->assertGuest('web');
+    }
+
+    public function test_the_lockout_is_per_email_and_ip_so_other_accounts_on_the_same_ip_still_sign_in(): void
+    {
+        User::factory()->create(['email' => 'mochi@example.com', 'status' => AccountStatus::Active]);
+        User::factory()->create(['email' => 'ana.santos@example.com', 'status' => AccountStatus::Active]);
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson('/api/v1/auth/sign-in', ['email' => 'mochi@example.com', 'password' => 'wrong']);
+        }
+
+        $this->postJson('/api/v1/auth/sign-in', ['email' => 'ana.santos@example.com', 'password' => 'password'])
+            ->assertOk();
+    }
+
+    public function test_four_failures_do_not_lock_the_account(): void
+    {
+        User::factory()->create(['email' => 'mochi@example.com', 'status' => AccountStatus::Active]);
+
+        for ($i = 0; $i < 4; $i++) {
+            $this->postJson('/api/v1/auth/sign-in', ['email' => 'mochi@example.com', 'password' => 'wrong'])
+                ->assertUnprocessable();
+        }
+
+        $this->postJson('/api/v1/auth/sign-in', ['email' => 'mochi@example.com', 'password' => 'password'])
+            ->assertOk();
+    }
+
+    public function test_keep_me_signed_in_sets_the_remember_cookie_and_leaving_it_off_does_not(): void
+    {
+        User::factory()->create(['email' => 'mochi@example.com', 'status' => AccountStatus::Active]);
+        $recaller = auth()->guard('web')->getRecallerName();
+
+        $this->postJson('/api/v1/auth/sign-in', ['email' => 'mochi@example.com', 'password' => 'password', 'remember' => true])
+            ->assertOk()->assertCookie($recaller);
+
+        $this->postJson('/api/v1/auth/sign-out');
+
+        $this->postJson('/api/v1/auth/sign-in', ['email' => 'mochi@example.com', 'password' => 'password'])
+            ->assertOk()->assertCookieMissing($recaller);
+    }
+
+    public function test_a_deactivated_account_is_told_it_was_closed_only_after_the_right_password(): void
+    {
+        User::factory()->create(['email' => 'gone@example.com', 'status' => AccountStatus::Deactivated]);
+
+        $this->postJson('/api/v1/auth/sign-in', ['email' => 'gone@example.com', 'password' => 'wrong'])
+            ->assertUnprocessable()->assertJsonPath('errors.email.0', "That email and password don't match. Try again.");
+
+        $this->postJson('/api/v1/auth/sign-in', ['email' => 'gone@example.com', 'password' => 'password'])
+            ->assertUnprocessable()->assertJsonPath('errors.email.0', 'This account was closed.');
+
+        $this->assertGuest('web');
+    }
+
+    public function test_pending_denied_and_suspended_accounts_can_sign_in_to_see_their_status(): void
+    {
+        foreach ([AccountStatus::PendingVerification, AccountStatus::Suspended, AccountStatus::Denied] as $i => $status) {
+            User::factory()->create(['email' => "status{$i}@example.com", 'status' => $status]);
+
+            $this->postJson('/api/v1/auth/sign-in', ['email' => "status{$i}@example.com", 'password' => 'password'])
+                ->assertOk()->assertJsonPath('data.status', $status->value);
+
+            $this->postJson('/api/v1/auth/sign-out');
+        }
+    }
+
+    public function test_the_email_is_compared_trimmed_and_case_insensitively(): void
+    {
+        User::factory()->create(['email' => 'mochi@example.com', 'status' => AccountStatus::Active]);
+
+        $this->postJson('/api/v1/auth/sign-in', ['email' => '  Mochi@Example.COM ', 'password' => 'password'])
+            ->assertOk();
+    }
+
+    public function test_sign_ins_and_failures_are_written_to_the_security_log(): void
+    {
+        $user = User::factory()->create(['email' => 'mochi@example.com', 'status' => AccountStatus::Active]);
+
+        $this->withHeader('User-Agent', 'PawfolioTest/1.0');
+        $this->postJson('/api/v1/auth/sign-in', ['email' => 'mochi@example.com', 'password' => 'password']);
+        $this->postJson('/api/v1/auth/sign-out');
+        $this->postJson('/api/v1/auth/sign-in', ['email' => 'nobody@example.com', 'password' => 'x']);
+
+        $this->assertDatabaseHas('activity_logs', [
+            'type' => 'security', 'action' => 'signed_in', 'actor_user_id' => $user->id, 'user_agent' => 'PawfolioTest/1.0',
+        ]);
+        // Unknown emails are logged without the address or an actor.
+        $this->assertDatabaseHas('activity_logs', ['type' => 'security', 'action' => 'sign_in_failed', 'actor_user_id' => null]);
+    }
+
+    public function test_an_expired_csrf_token_answers_419_session_expired_not_401(): void
+    {
+        Route::post('/api/v1/__csrf-check', function () {
+            throw new TokenMismatchException;
+        });
+
+        $this->postJson('/api/v1/__csrf-check')->assertStatus(419)->assertJsonPath('code', 'session_expired');
     }
 
     public function test_sign_out_is_204_and_ends_the_session(): void

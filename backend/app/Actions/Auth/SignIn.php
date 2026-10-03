@@ -2,100 +2,109 @@
 
 namespace App\Actions\Auth;
 
-use Illuminate\Cache\Repository as CacheStore;
+use App\Enums\AccountStatus;
+use App\Models\ActivityLog;
 use App\Models\User;
+use Illuminate\Contracts\Cache\Repository as CacheStore;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * Sign-in action (SEC-AUTH-04, SEC-AUTH-05, SEC-AUTH-07).
+ * Sign-in check (SEC-AUTH-04, SEC-AUTH-05, SEC-LOG-02). The controller logs the user in.
  *
- * - 5 failed attempts per account + IP pauses sign-in for 15 minutes (SEC-AUTH-04).
- * - On failure the caller gets one generic message whether the account exists (SEC-AUTH-05).
- * - On success the session ID is regenerated (SEC-AUTH-07) and the authenticated user is returned.
+ * - 5 failed attempts for one email from one IP pause sign-in for that pair for 15 minutes (SEC-AUTH-04, AU-03).
+ *   Keyed on email + IP, so one shared IP (a school, an office) can't lock out everyone behind it.
+ * - The caller gets one generic message whether the account exists (SEC-AUTH-05). A deactivated account is only
+ *   told so after the right password, so the message reveals nothing to someone guessing.
+ * - Successful, failed and locked-out attempts are written to activity_logs as `security` (SEC-LOG-02, LG-02),
+ *   with the user agent and never the password.
  *
- * Attempt counters live in a cache store (default: the app's cache, CACHE_STORE in
- * .env). The store is injected so tests can use an in-memory array store without
- * depending on the global cache binding.
+ * Attempt counters live in a cache store, injected so tests can use an isolated array store.
  */
 class SignIn
 {
-    private const MAX_ATTEMPTS = 5;
-    private const LOCKOUT_SECONDS = 15 * 60;
+    public const MAX_ATTEMPTS = 5;
+
+    public const LOCKOUT_SECONDS = 15 * 60;
 
     public function __construct(
         private readonly ?CacheStore $store = null,
     ) {}
 
-    /**
-     * Convenience for production wiring: use the app cache when no store is injected.
-     * Made public so tests can swap in an isolated store.
-     */
     public function store(): CacheStore
     {
         return $this->store ?? Cache::store();
     }
 
-    public function attempt(string $email, string $password, string $ip): ?User
+    public function isLockedOut(string $email, string $ip): bool
     {
-        $emailKey = $this->emailKey($email);
-        $fails = (int) $this->store()->get($emailKey, 0);
+        return (int) $this->store()->get($this->key($email, $ip), 0) >= self::MAX_ATTEMPTS;
+    }
 
-        if ($fails >= self::MAX_ATTEMPTS) {
-            $this->recordIpLockout($ip);
+    /** Seconds until a locked-out pair may try again (for Retry-After). */
+    public function secondsUntilUnlocked(string $email, string $ip): int
+    {
+        $lockedAt = (int) $this->store()->get($this->key($email, $ip).':at', 0);
 
-            return null;
-        }
+        return max(1, $lockedAt + self::LOCKOUT_SECONDS - time());
+    }
 
+    /**
+     * The user when the email and password match, otherwise null. A match on a deactivated account returns the
+     * user too: the controller turns it away with "This account was closed."
+     */
+    public function attempt(string $email, string $password, string $ip, ?string $userAgent): ?User
+    {
         $user = User::whereEmail($email)->first();
 
         if (! $user || ! Hash::check($password, $user->password)) {
-            $this->recordFailure($emailKey, $ip, $user);
+            $this->recordFailure($email, $ip, $user, $userAgent);
 
             return null;
         }
 
-        $this->clearFailures($emailKey);
-        $this->store()->forget("signin:account:{$user->id}");
+        $this->store()->forget($this->key($email, $ip));
+        $this->store()->forget($this->key($email, $ip).':at');
+
+        $this->log($user, $user->status === AccountStatus::Deactivated ? 'sign_in_closed_account' : 'signed_in', $userAgent);
 
         return $user;
     }
 
-    private function recordFailure(string $emailKey, string $ip, ?User $user): void
+    private function recordFailure(string $email, string $ip, ?User $user, ?string $userAgent): void
     {
-        $this->store()->add($emailKey, 1, self::LOCKOUT_SECONDS);
-        $this->store()->increment($emailKey, 1, self::LOCKOUT_SECONDS);
+        $key = $this->key($email, $ip);
 
-        if ($user) {
-            $this->store()->add("signin:account:{$user->id}", 1, self::LOCKOUT_SECONDS);
-            $this->store()->increment("signin:account:{$user->id}", 1, self::LOCKOUT_SECONDS);
+        // add() only sets a missing key; otherwise count one more. (Doing both counted every failure twice.)
+        if (! $this->store()->add($key, 1, self::LOCKOUT_SECONDS)) {
+            $this->store()->increment($key);
         }
 
-        $this->recordIpLockout($ip);
+        $attempts = (int) $this->store()->get($key, 0);
+        $lockedNow = $attempts === self::MAX_ATTEMPTS;
+        if ($lockedNow) {
+            $this->store()->put($key.':at', time(), self::LOCKOUT_SECONDS);
+        }
+
+        // Unknown emails are logged without the address, so the log can't be used to collect them.
+        $this->log($user, $lockedNow ? 'sign_in_locked_out' : 'sign_in_failed', $userAgent);
     }
 
-    private function recordIpLockout(string $ip): void
+    private function log(?User $user, string $action, ?string $userAgent): void
     {
-        $this->store()->add("signin:ip:{$ip}", 1, self::LOCKOUT_SECONDS);
-        $this->store()->increment("signin:ip:{$ip}", 1, self::LOCKOUT_SECONDS);
+        ActivityLog::create([
+            'actor_user_id' => $user?->id,
+            'type' => 'security',
+            'action' => $action,
+            'subject_type' => $user ? User::class : null,
+            'subject_id' => $user?->id,
+            'user_agent' => $userAgent !== null ? mb_substr($userAgent, 0, 255) : null,
+        ]);
     }
 
-    private function clearFailures(string $emailKey): void
+    private function key(string $email, string $ip): string
     {
-        $this->store()->forget($emailKey);
-    }
-
-    public function isLockedOut(string $email, string $ip): bool
-    {
-        $emailKey = $this->emailKey($email);
-
-        return (int) $this->store()->get($emailKey, 0) >= self::MAX_ATTEMPTS
-            || (int) $this->store()->get("signin:ip:{$ip}", 0) >= self::MAX_ATTEMPTS;
-    }
-
-    private function emailKey(string $email): string
-    {
-        // Hash the email so the cache key is not the raw address (defense in depth, not secret).
-        return 'signin:email:' . sha1(strtolower($email));
+        // Hash the email so the cache key isn't the raw address (defence in depth, not a secret).
+        return 'signin:'.sha1(mb_strtolower(trim($email))).':'.$ip;
     }
 }
