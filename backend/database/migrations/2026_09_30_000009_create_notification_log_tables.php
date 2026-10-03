@@ -4,32 +4,36 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Notifications, announcements and activity logs (ERD page 10).
+/** Notifications, announcements and activity logs (ERD page 10).
  *
- * notifications uses Laravel's database notification channel, as
- * backend-guidelines.md §1 prescribes. Its data column carries the category tab
- * (Requests, Meet & Greets, Account), title, message and link shown on
- * NT-01–NT-03. activity_logs is append-only (NFR9, LG-04, SEC-LOG-04);
- * actor_user_id is null for system actions.
+ * notifications is the platform's custom in-app notification channel. Each
+ * row is an append-only, insert-only record: once written, a row is never
+ * modified or hard-deleted by an owner (database guidelines §2-3, SEC-LOG-04).
+ * Columns follow the BE-10 contract (NT-01–NT-09): user_id (owner), type,
+ * title, body, data(payload), read_at (unread dot), dismissed_at (dismiss),
+ * urgency, action_url.
+ *
+ * announcements and activity_logs are separate append-only tables (FR39, NFR9).
  */
 return new class extends Migration
 {
     public function up(): void
     {
-        // Laravel database notifications (FR15, FR31). The standard
-        // create_notifications_table stub matches the ERD; indexed per its
-        // guidance plus read_at for unread-dot queries (NT-01).
         Schema::create('notifications', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->string('type');
-            $table->morphs('notifiable');
-            $table->text('data');
+            $table->string('title');
+            $table->text('body');
+            $table->text('data')->nullable();
             $table->timestamp('read_at')->nullable();
+            $table->timestamp('dismissed_at')->nullable();
+            $table->string('urgency', 16);
+            $table->string('action_url', 255)->nullable();
             $table->timestamps();
 
-            $table->index('notifiable_id');
-            $table->index('read_at');
+            $table->index(['user_id', 'read_at']);
+            $table->index('dismissed_at');
         });
 
         // Platform-wide messages from admins (FR39, NT-04–05).
@@ -66,16 +70,16 @@ return new class extends Migration
             $table->string('user_agent')->nullable()->comment('sign-in device (LG-01)');
             $table->timestamps();
 
-            $table->index(['type', 'created_at']); // admin log filters (LG-03)
+            $table->index(['type', 'created_at']);
             $table->index(['actor_user_id', 'created_at']);
-            $table->index(['subject_type', 'subject_id', 'created_at']); // log detail (LG-04)
+            $table->index(['subject_type', 'subject_id', 'created_at']);
         });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('notifications');
         Schema::dropIfExists('activity_logs');
         Schema::dropIfExists('announcements');
-        Schema::dropIfExists('notifications');
     }
 };

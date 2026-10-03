@@ -23,7 +23,7 @@ Route::prefix('v1')->group(function () {
     // One route file per module under routes/api/v1/ (backend-guidelines.md §1, §2).
     // The modules folder name (Auth, Profiles, Discovery, Matching, Bookmarks,
     // AdoptionRequests, MeetAndGreet, Adoption, Notifications, CommunityFeed,
-    // Reports, Accounts, Analytics, ActivityLogs, ui) is the single source of
+    // Files, Reports, Accounts, Analytics, ActivityLogs, ui) is the single source of
     // truth for both the frontend module layout (general-development-guidelines.md §3)
     // and this routing layer (backend-guidelines.md §1).
     foreach (scandir(__DIR__.'/api/v1') as $file) {
@@ -41,6 +41,13 @@ Route::prefix('v1')->group(function () {
 
         if (is_dir($path) && file_exists($path.'/routes.php')) {
             require $path.'/routes.php';
+
+            continue;
+        }
+
+        // Direct module route files (e.g. routes/api/v1/auth.php).
+        if (is_file($path)) {
+            require $path;
 
             continue;
         }
