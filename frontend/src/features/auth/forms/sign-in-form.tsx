@@ -92,7 +92,7 @@ export function SignInForm({ next }: Props) {
   return (
     <AuthCard
       title="Sign in"
-      description="Welcome back! Pets, humans and admins all sign in here."
+      description="Welcome back! Sign in to your Pawfolio account."
       footer={
         <>
           New to Pawfolio?{" "}
