@@ -88,7 +88,7 @@ the same message for missing pages and for hidden, suspended or deactivated prof
 | `LockedField` | `locked-field.tsx` | Admin-verified details, read-only, with "Request a change" (`onRequestChange` or `requestChangeHref`), AC-03 |
 | `FileUpload` | `file-upload.tsx` | JPG/PNG/PDF, 5 MB, checked by extension **and** file signature; previews, remove, drag and drop, `multiple` + `maxFiles`. The API still re-validates (SEC-FILE-01…05) |
 | `Stepper` | `stepper.tsx` | Progress bars with step labels (labels hidden on phones, always read by screen readers) |
-| `Wizard` | `wizard.tsx` | Multi-step form (NFR1): "Step X of N" heading, Back / Next, optional Save draft with `draftStatus`, `onNext` per-step validation. All steps stay mounted so answers survive Back and Next |
+| `Wizard` | `wizard.tsx` | Multi-step form (NFR1): "Step X of N" heading, Back / Next, optional Save draft with `draftStatus`, `onNext` per-step validation. All steps stay mounted so answers survive Back and Next. Pass `step` + `onStepChange` to open a step yourself (review-step "Edit", a server error on an earlier step) |
 
 ### `overlays/`
 
