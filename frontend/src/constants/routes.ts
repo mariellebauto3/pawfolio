@@ -4,6 +4,8 @@
 export const ROUTES = {
   landing: "/",
   signIn: "/sign-in",
+  forgotPassword: "/forgot-password",
+  resetPassword: "/reset-password",
   signUp: "/sign-up",
   signUpPet: "/sign-up/pet",
   signUpHuman: "/sign-up/human",

@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { normalizeApiError } from "@/lib/api/errors";
-import { errorRedirect, homePathFor, routeArea, routeRedirect, safeNextPath, signInPath } from "@/lib/auth/redirects";
+import {
+  afterSignInPath,
+  errorRedirect,
+  homePathFor,
+  routeArea,
+  routeRedirect,
+  safeNextPath,
+  signInPath,
+} from "@/lib/auth/redirects";
 import type { Account } from "@/types/account";
 
 function account(overrides: Partial<Account> = {}): Account {
@@ -132,5 +140,26 @@ describe("signInPath", () => {
     expect(signInPath("//evil.example")).toBe("/sign-in");
     expect(signInPath("/")).toBe("/sign-in");
     expect(signInPath("/sign-in")).toBe("/sign-in");
+  });
+});
+
+describe("afterSignInPath (AU-02)", () => {
+  it("sends each account to its home when there is no next page", () => {
+    expect(afterSignInPath(account(), null)).toBe("/feed");
+    expect(afterSignInPath(account({ role: "admin", profile_id: null }), null)).toBe("/admin");
+    expect(afterSignInPath(account({ status: "pending_verification" }), null)).toBe("/account-status");
+    expect(afterSignInPath(account({ status: "suspended" }), "/feed")).toBe("/account-status");
+  });
+
+  it("returns to a page the account may open", () => {
+    expect(afterSignInPath(account(), "/requests/12?tab=thread")).toBe("/requests/12?tab=thread");
+    expect(afterSignInPath(account({ role: "admin", profile_id: null }), "/admin/reports")).toBe("/admin/reports");
+  });
+
+  it("ignores next pages the account may not open, public pages and other sites (SEC-FE-07)", () => {
+    expect(afterSignInPath(account(), "/admin/reports")).toBe("/feed");
+    expect(afterSignInPath(account(), "/sign-in")).toBe("/feed");
+    expect(afterSignInPath(account(), "https://evil.example/feed")).toBe("/feed");
+    expect(afterSignInPath(account(), "//evil.example")).toBe("/feed");
   });
 });
