@@ -39,6 +39,7 @@
   --color-accent-soft: var(--pf-accent-soft);
   --color-accent-soft-ink: var(--pf-accent-soft-ink);
   --color-accent-edge: var(--pf-accent-edge);
+  --color-accent-display: var(--pf-accent-display);
   --color-danger: var(--pf-danger);
   --color-danger-hover: var(--pf-danger-hover);
   --color-danger-ink: var(--pf-danger-ink);
@@ -49,6 +50,11 @@
   --color-focus-ring: var(--pf-focus-ring);
   --color-focus-halo: var(--pf-focus-halo);
   --color-scrim: var(--pf-scrim);
+  --color-sky: var(--pf-sky);
+  --color-sky-soft: var(--pf-sky-soft);
+  --color-surface-brand: var(--pf-surface-brand);
+  --color-ink-on-brand: var(--pf-ink-on-brand);
+  --color-ink-on-brand-muted: var(--pf-ink-on-brand-muted);
 
   /* Brand ramps, for illustration and data-viz only — UI uses the semantic names above */
   --color-blue-50: var(--pf-blue-50);
@@ -143,6 +149,9 @@
   --animate-menu-in: pf-menu-in var(--pf-duration-fast) var(--pf-ease-out);
   --animate-toast-in: pf-toast-in var(--pf-duration-base) var(--pf-ease-out);
   --animate-fade-in: pf-fade-in var(--pf-duration-base) var(--pf-ease-out);
+  /* The landing hero's paw trail (AU-01): an endless walk, like a logo marquee. The track holds the prints twice and
+     slides one copy's width, so the loop is seamless. Reduced motion stops it (global rule below). */
+  --animate-paw-loop: pf-paw-loop 40s linear infinite;
 
   @keyframes pf-dialog-in {
     from {
@@ -175,6 +184,14 @@
   @keyframes pf-fade-in {
     from {
       opacity: 0;
+    }
+  }
+  @keyframes pf-paw-loop {
+    from {
+      transform: translateX(-50%);
+    }
+    to {
+      transform: translateX(0);
     }
   }
 }

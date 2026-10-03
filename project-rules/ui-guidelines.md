@@ -9,7 +9,9 @@ Every screen, dialog and state has an ID (e.g. `MG-11`); use it in branches, PRs
 - **Two target layouts:** desktop at 1440 × 900 and phone at 390 × 844. Everything in between must reflow without horizontal
   page scrolling. Tables may scroll sideways inside their card on phones.
 - **Page shells** (see `frontend/src/components/layout/`):
-  - *Guest shell* — visitor top bar (How it works, Success stories, FAQ, Join now, Sign in) + footer. Screens `AU-01`–`AU-17`.
+  - *Guest shell* — visitor top bar (Home, How it works, Success stories, FAQ, Join now, Sign in) + footer. Screens
+    `AU-01`–`AU-17`. Home was added 2026-10-03 (not in the LoFi) for visitors who don't know the logo is a link; it and
+    the logo both scroll back to the hero when the landing page is already open.
   - *Account-status shell* — minimal bar with Help center and Log out only. Pending, Denied, Suspended accounts see nothing else (`AU-18`–`AU-21`).
   - *Member shell* — top bar: logo, search, Home, Pets for You / Homes for You, Browse, Requests, Alerts, Me. Max content width 1128 px.
   - *Admin shell* — left sidebar (Dashboard, Verification, Reports, Requests & Meets, Resolve Issues, Accounts & Alumni,
@@ -17,6 +19,8 @@ Every screen, dialog and state has an ID (e.g. `MG-11`); use it in branches, PRs
 - **Phone adaptations** (as in the mobile PDF, except the navigation, below): feed side rails are hidden; request detail
   shows the action panel first; dialogs become full width; multi-column grids become one column.
 - **Navigation below `lg`** (changed 2026-10-02 from the mobile LoFi's crowded top tabs and wrapped admin strip):
+  - *Visitor* (below `md`, added 2026-10-03): the top bar holds the logo and a menu button; Home, How it works,
+    Success stories, FAQ, Join now and Sign in open in a drawer. Visitors pass through once, so one tap more is fine.
   - *Member:* the top bar keeps the logo mark, search and the Me avatar; Home, Matches, Browse, Requests and Alerts move
     to a tab bar fixed to the bottom of the screen, with their counts. No hamburger: these are the screens members
     return to all day, so they stay one tap away.
@@ -46,7 +50,7 @@ Empty state, Table, Timeline, Meter, Match card, Post card. Add a new shared com
 
 ## 4. Forms
 
-- Long forms are **wizards** with a visible step indicator and "Step X of N" (NFR1): sign-up (5 steps), résumé (6), Home Profile & quiz (6).
+- Long forms are **wizards** with a visible step indicator and "Step X of N" (NFR1): sign-up (5 steps), resume (6), Home Profile & quiz (6).
 - Show helper text under fields (e.g. "Only your city is shown publicly"); show errors inline next to the field.
 - Verified fields (name, species, breed, age; human name, birthdate) render as **Locked** with a "Request a change" path (`AC-03`).
 - Required reasons (deny, suspend, cancel meeting, resolve issue) block the confirm button until filled.
@@ -76,7 +80,7 @@ Empty state, Table, Timeline, Meter, Match card, Post card. Add a new shared com
 - Pets speak in **first person** on their own screens ("Your request to Ana", "Share an update, Mochi…").
 - Friendly, short, plain language. Sentence case for headings and buttons ("Send request", not "SEND REQUEST").
 - Buttons name the action ("Approve request", "Book this slot"), not "OK" or "Submit" (except final wizard steps).
-- Keep the job-hunting metaphor consistent: résumé, apply, cover letter, Hired, alumni.
+- Keep the job-hunting metaphor consistent: resume, apply, cover letter, Hired, alumni.
 
 ## 8. Accessibility
 

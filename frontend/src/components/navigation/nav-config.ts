@@ -44,7 +44,7 @@ export function memberNavItems(role: Role | null): MemberNavItem[] {
   return [
     { id: "home", href: ROUTES.memberHome, label: "Home", shortLabel: "Home", icon: "home", matches: ["/posts"] },
     ...matches,
-    // Pet résumés and Home Profiles are opened from Browse, Matches and Search; Browse is the closest home for them.
+    // Pet resumes and Home Profiles are opened from Browse, Matches and Search; Browse is the closest home for them.
     {
       id: "browse",
       href: ROUTES.browse,
@@ -73,12 +73,12 @@ export function meMenuFor(role: Role | null): { profileLink: NavLink | null; sec
 
   if (role === "pet") {
     return {
-      profileLink: { href: ROUTES.me, label: "View my résumé" },
+      profileLink: { href: ROUTES.me, label: "View my resume" },
       sections: [
         {
-          label: "Résumé",
+          label: "Resume",
           links: [
-            { href: ROUTES.resumeEdit, label: "Edit résumé" },
+            { href: ROUTES.resumeEdit, label: "Edit resume" },
             { href: ROUTES.invites, label: "Invites to Apply" },
             { href: ROUTES.bookmarks, label: "Bookmarks" },
             { href: ROUTES.stats, label: "My stats" },
@@ -142,7 +142,10 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
 ];
 
 /** Guest top bar links: sections of the landing page (AU-01). */
+/** Visitor nav. Home comes first (added 2026-10-03 for visitors who don't know the logo is a link); render it with
+ * HomeLink so it scrolls back to the hero when the landing page is already open. */
 export const GUEST_NAV: readonly NavLink[] = [
+  { href: ROUTES.landing, label: "Home" },
   { href: `/#${LANDING_SECTIONS.howItWorks}`, label: "How it works" },
   { href: `/#${LANDING_SECTIONS.successStories}`, label: "Success stories" },
   { href: `/#${LANDING_SECTIONS.faq}`, label: "FAQ" },
