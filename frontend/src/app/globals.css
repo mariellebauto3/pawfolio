@@ -244,6 +244,9 @@
   html {
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
+    /* Keeps whatever is scrolled or focused into view (a wizard step's heading, a field with an error, an in-page
+       link's target) clear of the sticky top bar. */
+    scroll-padding-top: calc(var(--pf-topbar-h) + 1rem);
   }
 
   body {
