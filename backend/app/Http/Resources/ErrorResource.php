@@ -3,9 +3,7 @@
 namespace App\Http\Resources;
 
 use Illuminate\Contracts\Support\Responsable;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -18,21 +16,46 @@ use Illuminate\Validation\ValidationException;
 class ErrorResource implements Responsable
 {
     public const CODE_UNAUTHENTICATED = 'unauthenticated';
+
     public const CODE_FORBIDDEN = 'forbidden';
+
     public const CODE_NOT_FOUND = 'not_found';
+
     public const CODE_CONFLICT = 'conflict';
+
     public const CODE_VALIDATION = 'validation';
+
     public const CODE_PAYLOAD_TOO_LARGE = 'payload_too_large';
+
     public const CODE_RATE_LIMITED = 'rate_limited';
+
     public const CODE_BAD_REQUEST = 'bad_request';
+
     public const CODE_SERVER = 'server';
+
     public const CODE_ACCOUNT_NOT_ACTIVE = 'account_not_active';
+
+    public const CODE_SESSION_EXPIRED = 'session_expired';
 
     public function __construct(
         public readonly string $message,
         public readonly ?string $code = null,
         public readonly array $errors = [],
-    ) {
+        private array $headers = [],
+    ) {}
+
+    /** Response headers to send along, e.g. Retry-After on a 429 (only that one is kept). */
+    public function withHeaders(array $headers): self
+    {
+        $retryAfter = $headers['retry-after'] ?? null;
+        $this->headers = $retryAfter !== null ? ['Retry-After' => (string) (is_array($retryAfter) ? $retryAfter[0] : $retryAfter)] : [];
+
+        return $this;
+    }
+
+    public static function sessionExpired(string $message = 'Your session expired. Please try again.'): self
+    {
+        return new self($message, self::CODE_SESSION_EXPIRED);
     }
 
     public static function unauthorized(string $message = 'Unauthenticated.'): self
@@ -103,7 +126,7 @@ class ErrorResource implements Responsable
             Log::error('Unhandled exception', ['exception' => $request->exception]);
         }
 
-        return response()->json($body, $this->responseStatus());
+        return response()->json($body, $this->responseStatus(), $this->headers);
     }
 
     private function responseStatus(): int
@@ -113,8 +136,11 @@ class ErrorResource implements Responsable
             self::CODE_FORBIDDEN, self::CODE_ACCOUNT_NOT_ACTIVE => 403,
             self::CODE_NOT_FOUND => 404,
             self::CODE_BAD_REQUEST => 400,
-            self::CODE_CONFLICT, self::CODE_RATE_LIMITED => 409,
-            self::CODE_VALIDATION, self::CODE_PAYLOAD_TOO_LARGE => 422,
+            self::CODE_CONFLICT => 409,
+            self::CODE_PAYLOAD_TOO_LARGE => 413,
+            self::CODE_SESSION_EXPIRED => 419,
+            self::CODE_VALIDATION => 422,
+            self::CODE_RATE_LIMITED => 429,
             self::CODE_SERVER => 500,
             default => 400,
         };

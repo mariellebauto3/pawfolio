@@ -3,11 +3,13 @@
 namespace App\Exceptions;
 
 use App\Http\Resources\ErrorResource;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
-use Illuminate\Pipeline\Pipeline;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Session\TokenMismatchException;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Auth\Access\AuthorizationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -54,17 +56,16 @@ class Handler extends ExceptionHandler
     /**
      * Render an exception into a JSON response.
      *
-     * @param \Illuminate\Http\Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @param  Request  $request
+     * @return JsonResponse
      */
     public function render($request, Throwable $e)
     {
-        // Debug: reveal the actual exception during the suite run.
-        
-
-        // 419 CSRF token missing/expired (SEC-AUTH-06, AU-03).
-        if ($e instanceof \Illuminate\Session\TokenMismatchException) {
-            return ErrorResource::unauthorized('Session expired. Please refresh and try again.')->toResponse($request);
+        // 419 CSRF token missing/expired (SEC-AUTH-06). It stays 419, not 401: the frontend client refreshes the
+        // token and retries once on 419 (docs/api/README.md), while a 401 would send the user to sign in.
+        if ($e instanceof TokenMismatchException
+            || ($e instanceof HttpException && $e->getStatusCode() === 419)) {
+            return ErrorResource::sessionExpired()->toResponse($request);
         }
 
         // Unknown routes: 404 (SEC-AUTHZ-04 — missing or hidden records return 404).
@@ -77,11 +78,11 @@ class Handler extends ExceptionHandler
             return ErrorResource::badRequest('The request method is not supported for this route.')->toResponse($request);
         }
 
-        // Rate-limited writes (SEC-API-04): 429 with Retry-After.
+        // Rate-limited writes (SEC-API-04): 429 with Retry-After kept, so screens can say when to try again (AU-03).
         if ($e instanceof TooManyRequestsHttpException) {
-            $retryAfter = $e->getHeaders()['retry-after'] ?? 0;
-
-            return ErrorResource::rateLimited($e->getMessage())->toResponse($request);
+            return ErrorResource::rateLimited('Too many attempts. Please wait a moment and try again.')
+                ->withHeaders(array_change_key_case($e->getHeaders(), CASE_LOWER))
+                ->toResponse($request);
         }
 
         // Validation failures: 422 with { message, errors }.
@@ -109,7 +110,9 @@ class Handler extends ExceptionHandler
                 404 => ErrorResource::notFound($e->getMessage())->toResponse($request),
                 405 => ErrorResource::badRequest('The request method is not supported for this route.')->toResponse($request),
                 413 => ErrorResource::tooLarge($e->getMessage())->toResponse($request),
-                429 => $this->renderTooManyRequests($request, $e),
+                429 => ErrorResource::rateLimited('Too many attempts. Please wait a moment and try again.')
+                    ->withHeaders(array_change_key_case($e->getHeaders(), CASE_LOWER))
+                    ->toResponse($request),
                 default => ErrorResource::badRequest($e->getMessage())->toResponse($request),
             };
         }
@@ -121,5 +124,4 @@ class Handler extends ExceptionHandler
 
         return parent::render($request, $e);
     }
-
 }
