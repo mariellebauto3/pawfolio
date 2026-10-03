@@ -14,7 +14,9 @@ Frontend client: `frontend/src/lib/api/` ([ADR 0004](../decisions/0004-api-clien
 - Every request sends `Accept: application/json` and `X-Requested-With: XMLHttpRequest`, so Laravel answers errors
   as JSON (no HTML pages, no redirects).
 - Query strings: booleans are `1`/`0`, arrays are `key[]=a&key[]=b`.
-- Bodies are JSON, except uploads, which are `multipart/form-data`.
+- Bodies are JSON, except uploads, which are `multipart/form-data`. PHP reads a multipart body only on `POST`, so an
+  upload to a `PATCH` or `PUT` endpoint is sent as `POST` with `_method=PATCH` in the form (Laravel method spoofing),
+  e.g. `PATCH /account/submission`.
 
 ## Responses
 

@@ -91,8 +91,8 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
 
 - **Personas:** sign in with any persona email and password `password`, or set the cookie in the browser console:
   `document.cookie = "pf_mock_persona=human; path=/"`. Personas: `pet` (Mochi, default), `human` (Ana Santos),
-  `admin`, `pet-pending`, `human-pending`, `human-denied`, `pet-suspended`, `human-closed` (Jun Reyes, deactivated),
-  `signed-out`.
+  `admin`, `pet-pending`, `human-pending`, `human-denied`, `human-resubmitted`, `pet-suspended`, `human-closed`
+  (Jun Reyes, deactivated), `signed-out`.
   Without the cookie you are signed in as `pet`; set `signed-out` to see the sign-in screens.
 - **Auth states:** a wrong password 5 times for one email pauses its sign-in for 15 minutes (until reload).
   `/reset-password#token=mock-reset-token&email=mochi%40example.com` opens a working reset link; any other token is
@@ -100,6 +100,10 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
 - **Sign-up:** as `signed-out`, a valid pet sign-up signs you in as `pet-pending` and a human one as
   `human-pending`, whatever was typed; nothing is stored. A persona's email (e.g. `mochi@example.com`) is "already
   taken", which shows how the wizard returns to the step with the error.
+- **Account status:** `pet-pending`, `human-pending`, `human-denied`, `pet-suspended` and `human-closed` each show
+  their screen at `/account-status` (`AU-18`, `AU-20`, `AU-21`, closed). "Save and resubmit" on `/account/edit` as
+  `human-denied` signs you in as `human-resubmitted` (the same account, Pending again); what was typed isn't stored.
+  Sign in as `carla.mendoza@example.com` to see the denial again.
 - **Adding mocks:** add a file in `src/lib/api/mock/handlers/` and register it in `handlers/index.ts`. Follow the
   planned shape in `docs/api/` so switching to `live` changes nothing. Created records live in memory until reload.
 - All fixture data is made up (SEC-PRIV-06).

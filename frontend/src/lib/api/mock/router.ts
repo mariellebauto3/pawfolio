@@ -67,15 +67,24 @@ export function dispatch(
   request: { method: HttpMethod; path: string; query?: Query; body?: unknown },
   account: Account | null,
 ): MockResult {
+  const method = spoofedMethod(request) ?? request.method;
   for (const candidate of routes) {
-    if (candidate.method !== request.method) continue;
+    if (candidate.method !== method) continue;
     const params = matchPath(candidate.pattern, request.path);
     if (!params) continue;
     const denied = checkAccess(candidate.access, account);
     if (denied) return denied;
     return candidate.handler({ params, query: request.query ?? {}, body: request.body, account });
   }
-  return fail(404, `No mock for ${request.method} ${request.path} yet. Add one in src/lib/api/mock/handlers/.`);
+  return fail(404, `No mock for ${method} ${request.path} yet. Add one in src/lib/api/mock/handlers/.`);
+}
+
+// Laravel's method spoofing: PHP reads a multipart body only on POST, so an upload to a PATCH or PUT route is sent
+// as POST with `_method` in the form (docs/api/README.md).
+function spoofedMethod({ method, body }: { method: HttpMethod; body?: unknown }): HttpMethod | null {
+  if (method !== "POST" || !(body instanceof FormData)) return null;
+  const spoofed = body.get("_method");
+  return spoofed === "PATCH" || spoofed === "PUT" || spoofed === "DELETE" ? spoofed : null;
 }
 
 function checkAccess(access: MockAccess, account: Account | null): MockResult | null {

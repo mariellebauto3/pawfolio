@@ -1,16 +1,23 @@
 import type { Metadata } from "next";
-import { EmptyState } from "@/components/feedback/empty-state";
-import { PageHeader } from "@/components/layout/page-header";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants/routes";
+import { getAccountStatus } from "@/features/auth/api/account-status";
+import { AccountStatusScreen } from "@/features/auth/components/account-status-screen";
+import { getServerApi } from "@/lib/api/server";
+import { homePathFor, signInPath } from "@/lib/auth/redirects";
+import { fetchSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Account status" };
 
-// Placeholder so blocked accounts have somewhere to land (ROUTES.accountStatus). The status screens (AU-18, AU-20,
-// AU-21) replace it.
-export default function AccountStatusPage() {
-  return (
-    <>
-      <PageHeader title="Your account" />
-      <EmptyState icon="info" title="Your account isn't active yet" description="You'll see its status and what to do next here." />
-    </>
-  );
+// AU-18 Pending approval, AU-20 Account denied, AU-21 Account suspended, and the closed-account message. An account
+// that is Active (approved since it last looked) goes to its home instead.
+export default async function AccountStatusPage() {
+  const api = await getServerApi();
+  const account = await fetchSession(api);
+  if (!account) redirect(signInPath(ROUTES.accountStatus));
+
+  const info = await getAccountStatus(api);
+  if (info.status === "active") redirect(homePathFor({ ...account, status: info.status }));
+
+  return <AccountStatusScreen account={account} info={info} />;
 }

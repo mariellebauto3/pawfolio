@@ -15,6 +15,7 @@ export type MockPersonaId =
   | "pet-pending"
   | "human-pending"
   | "human-denied"
+  | "human-resubmitted"
   | "pet-suspended"
   | "human-closed"
   | "signed-out";
@@ -77,6 +78,17 @@ export const MOCK_PERSONAS: Record<MockPersonaId, Account | null> = {
     avatar_url: null,
     profile_id: 2,
   },
+  // The denied human after "Save and resubmit" (AU-19): the same account, Pending Verification again. Signing in
+  // with her email gives "human-denied", so the denial can be replayed.
+  "human-resubmitted": {
+    id: 5,
+    role: "human",
+    status: "pending_verification",
+    email: "carla.mendoza@example.com",
+    display_name: "Carla Mendoza",
+    avatar_url: null,
+    profile_id: 2,
+  },
   "pet-suspended": {
     id: 6,
     role: "pet",
@@ -105,6 +117,12 @@ export function isMockPersonaId(value: string | null): value is MockPersonaId {
 
 export function resolveMockAccount(personaId: string | null): Account | null {
   return MOCK_PERSONAS[isMockPersonaId(personaId) ? personaId : DEFAULT_MOCK_PERSONA];
+}
+
+/** The persona for one account in one status, e.g. the denied human once she is Pending again. */
+export function findMockPersona(accountId: number, status: Account["status"]): MockPersonaId | null {
+  const match = Object.entries(MOCK_PERSONAS).find(([, account]) => account?.id === accountId && account.status === status);
+  return match ? (match[0] as MockPersonaId) : null;
 }
 
 export function findMockPersonaByEmail(email: string): MockPersonaId | null {

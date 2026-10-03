@@ -20,7 +20,7 @@ Sign-up, sign-in and the admin verification gate. Every new Pet and Human accoun
 
 ## Screens, dialogs and states to build
 
-Built: AU-01 to AU-06 (FE-06) and AU-07 to AU-17 (FE-07). Endpoints: `docs/api/auth.md`.
+Built: AU-01 to AU-06 (FE-06), AU-07 to AU-17 (FE-07) and AU-18 to AU-21 (FE-08). Endpoints: `docs/api/auth.md`.
 
 **Sign-up wizards (FE-07).** `forms/pet-sign-up-wizard.tsx` and `forms/human-sign-up-wizard.tsx` share
 `hooks/use-sign-up-wizard.ts`: typed values stay in React state only (no browser storage, no URL: SEC-FE-04), so a
@@ -28,6 +28,17 @@ reload starts over and the browser warns first. Each step is checked on Next by 
 from the API is shown on its field and the wizard returns to the first step that has one. On success the account is
 signed in as Pending Verification and goes to `/account-status`. The sign-up endpoints are not built yet (BE-04), so
 the wizards run against the mock (`NEXT_PUBLIC_API_MODE=mock`, as the `signed-out` persona).
+
+**Account-status screens (FE-08).** Both pages are Server Components that read the account and its status from the
+API (`api/account-status.ts`) and send anyone who doesn't belong there to their own home. `/account-status` renders
+`components/account-status-screen.tsx`: Pending (`AU-18`, with what was submitted), Denied (`AU-20`, the admin's
+reason and "Correct and resubmit"), Suspended (`AU-21`, the reason only) and the message for an account closed while
+signed in. `/account/edit` (`AU-19`) is for Pending and Denied accounts only: `forms/pet-submission-form.tsx` and
+`forms/human-submission-form.tsx` show the sign-up fields again, filled in, through the field components the wizards
+use (`components/*-fields.tsx`) and the same checks (`schemas/submission-schemas.ts`). Files are optional there:
+leaving one out keeps the one on file. Saving returns to `/account-status` with a toast, Pending again. The owner
+never gets their documents back, only what was sent and when (SEC-PRIV-01). The endpoints are not built yet (BE-06),
+so the screens run against the mock.
 
 | ID | Name | Type | Role | Route (planned) |
 | --- | --- | --- | --- | --- |
@@ -48,10 +59,10 @@ the wizards run against the mock (`NEXT_PUBLIC_API_MODE=mock`, as the `signed-ou
 | AU-15 | Human sign-up · 3 Address | Screen | Visitor | `/sign-up/human` |
 | AU-16 | Human sign-up · 4 Valid ID | Screen | Visitor | `/sign-up/human` |
 | AU-17 | Human sign-up · 5 Review | Screen | Visitor | `/sign-up/human` |
-| AU-18 | Pending approval screen | Screen | Pet | `/account-status` |
-| AU-19 | Edit submitted details | Screen | Pet | `/account/edit` |
-| AU-20 | Account denied | Screen | Human | `/account-status` |
-| AU-21 | Account suspended | Screen | Pet | `/account-status` |
+| AU-18 | Pending approval screen | Screen | Pet, Human | `/account-status` |
+| AU-19 | Edit submitted details | Screen | Pet, Human | `/account/edit` |
+| AU-20 | Account denied | Screen | Pet, Human | `/account-status` |
+| AU-21 | Account suspended | Screen | Pet, Human | `/account-status` |
 | AU-22 | Admin · Verification queue | Screen | Admin | `/admin/verification` |
 | AU-23 | Admin · Review pet account | Screen | Admin | `/admin/verification/[accountId]` |
 | AU-24 | Admin · Review human account (resubmitted) | Screen | Admin | `/admin/verification/[accountId]` |

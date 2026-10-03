@@ -21,8 +21,11 @@ export type AgeUnit = "years" | "months";
 
 type AccountValues = { email: string; password: string; password_confirmation: string };
 
-/** What the pet wizard holds while it is open. Kept in memory only, never in browser storage (SEC-FE-04). */
-export type PetSignUpValues = AccountValues & {
+/**
+ * A pet's verification details (proposal §5.1) as a form holds them: sign-up collects them, and a Pending or Denied
+ * owner edits them again (AU-19). Kept in memory only, never in browser storage (SEC-FE-04).
+ */
+export type PetDetailValues = {
   name: string;
   species: Species | "";
   breed: string;
@@ -37,10 +40,10 @@ export type PetSignUpValues = AccountValues & {
   caretaker_contact_number: string;
   valid_id: File | null;
   vet_record: File | null;
-  terms_accepted: boolean;
 };
 
-export type HumanSignUpValues = AccountValues & {
+/** A human's verification details; see PetDetailValues. */
+export type HumanDetailValues = {
   full_name: string;
   birthdate: string;
   contact_number: string;
@@ -49,8 +52,11 @@ export type HumanSignUpValues = AccountValues & {
   street_address: string;
   id_type: IdType | "";
   valid_id: File | null;
-  terms_accepted: boolean;
 };
+
+/** What a sign-up wizard holds while it is open: the login, the details and the agreement. */
+export type PetSignUpValues = AccountValues & PetDetailValues & { terms_accepted: boolean };
+export type HumanSignUpValues = AccountValues & HumanDetailValues & { terms_accepted: boolean };
 
 const EMPTY_ACCOUNT: AccountValues = { email: "", password: "", password_confirmation: "" };
 
@@ -137,48 +143,74 @@ export function approximateAgeMonths(amount: string, unit: AgeUnit): number | nu
   return unit === "years" ? count * 12 : count;
 }
 
+/** Problems with the pet's own details (AU-09). */
+export function petDetailErrors(
+  values: Pick<PetDetailValues, "name" | "species" | "breed" | "age_amount" | "age_unit" | "currently_at" | "city" | "province">,
+): FieldErrors {
+  const errors: FieldErrors = {};
+  requireText(values, errors, ["name", "species", "breed", "currently_at", "city"]);
+  provinceError(values.province, errors);
+  const ageProblem = approximateAgeProblem(approximateAgeMonths(values.age_amount, values.age_unit));
+  if (ageProblem) errors.approximate_age_months = ageProblem;
+  return errors;
+}
+
+/** Problems with the caretaker's name and number (AU-11). */
+export function caretakerErrors(values: Pick<PetDetailValues, "caretaker_name" | "caretaker_contact_number">): FieldErrors {
+  const errors: FieldErrors = {};
+  requireText(values, errors, ["caretaker_name"]);
+  const contactProblem = contactNumberProblem(values.caretaker_contact_number);
+  if (contactProblem) errors.caretaker_contact_number = contactProblem;
+  return errors;
+}
+
+/** Problems with a human's identity details (AU-14). `today` decides the 18-or-older check (SEC-INPUT-05). */
+export function humanPersonalErrors(
+  values: Pick<HumanDetailValues, "full_name" | "birthdate" | "contact_number">,
+  today: Date,
+): FieldErrors {
+  const errors: FieldErrors = {};
+  requireText(values, errors, ["full_name"]);
+  const birthProblem = birthdateProblem(values.birthdate, today);
+  if (birthProblem) errors.birthdate = birthProblem;
+  const contactProblem = contactNumberProblem(values.contact_number);
+  if (contactProblem) errors.contact_number = contactProblem;
+  return errors;
+}
+
+/** Problems with a human's address (AU-15). */
+export function humanAddressErrors(values: Pick<HumanDetailValues, "city" | "province" | "street_address">): FieldErrors {
+  const errors: FieldErrors = {};
+  requireText(values, errors, ["city", "street_address"]);
+  provinceError(values.province, errors);
+  return errors;
+}
+
 /** Problems on one step of the pet wizard (0 Account … 4 Review); empty when the step can be left. */
 export function validatePetStep(step: number, values: PetSignUpValues): FieldErrors {
   if (step === 0) return accountErrors(values);
-  if (step === 4) return termsErrors(values);
-  const errors: FieldErrors = {};
-  if (step === 1) {
-    requireText(values, errors, ["name", "species", "breed", "currently_at", "city"]);
-    provinceError(values.province, errors);
-    const ageProblem = approximateAgeProblem(approximateAgeMonths(values.age_amount, values.age_unit));
-    if (ageProblem) errors.approximate_age_months = ageProblem;
-  }
-  if (step === 2 && values.photos.length === 0) errors.photos = REQUIRED.photos;
+  if (step === 1) return petDetailErrors(values);
+  if (step === 2) return values.photos.length === 0 ? { photos: REQUIRED.photos } : {};
   if (step === 3) {
-    requireText(values, errors, ["caretaker_name"]);
-    const contactProblem = contactNumberProblem(values.caretaker_contact_number);
-    if (contactProblem) errors.caretaker_contact_number = contactProblem;
+    const errors = caretakerErrors(values);
     if (!values.valid_id) errors.valid_id = REQUIRED.valid_id;
+    return errors;
   }
-  return errors;
+  return step === 4 ? termsErrors(values) : {};
 }
 
 /** Problems on one step of the human wizard. `today` decides the 18-or-older check (SEC-INPUT-05). */
 export function validateHumanStep(step: number, values: HumanSignUpValues, today: Date = new Date()): FieldErrors {
   if (step === 0) return accountErrors(values);
-  if (step === 4) return termsErrors(values);
-  const errors: FieldErrors = {};
-  if (step === 1) {
-    requireText(values, errors, ["full_name"]);
-    const birthProblem = birthdateProblem(values.birthdate, today);
-    if (birthProblem) errors.birthdate = birthProblem;
-    const contactProblem = contactNumberProblem(values.contact_number);
-    if (contactProblem) errors.contact_number = contactProblem;
-  }
-  if (step === 2) {
-    requireText(values, errors, ["city", "street_address"]);
-    provinceError(values.province, errors);
-  }
+  if (step === 1) return humanPersonalErrors(values, today);
+  if (step === 2) return humanAddressErrors(values);
   if (step === 3) {
+    const errors: FieldErrors = {};
     requireText(values, errors, ["id_type"]);
     if (!values.valid_id) errors.valid_id = REQUIRED.valid_id;
+    return errors;
   }
-  return errors;
+  return step === 4 ? termsErrors(values) : {};
 }
 
 /**
@@ -215,11 +247,10 @@ function baseForm({ email, password, password_confirmation: confirmation }: Acco
 }
 
 /**
- * The multipart body for `POST /auth/sign-up/pet`, trimmed and normalized (SEC-INPUT-06). Call it only with values
- * that passed every step, with the Terms checkbox ticked.
+ * Adds a pet's details to a multipart body, trimmed and normalized (SEC-INPUT-06). A file that wasn't chosen is left
+ * out, which on a resubmission keeps the one already sent.
  */
-export function toPetSignUpForm(values: PetSignUpValues): FormData {
-  const form = baseForm(values);
+export function appendPetDetails(form: FormData, values: PetDetailValues): void {
   form.set("name", values.name.trim());
   form.set("species", values.species);
   form.set("breed", values.breed.trim());
@@ -232,12 +263,10 @@ export function toPetSignUpForm(values: PetSignUpValues): FormData {
   form.set("caretaker_contact_number", normalizeContactNumber(values.caretaker_contact_number) ?? "");
   if (values.valid_id) form.set("valid_id", values.valid_id);
   if (values.vet_record) form.set("vet_record", values.vet_record);
-  return form;
 }
 
-/** The multipart body for `POST /auth/sign-up/human`. */
-export function toHumanSignUpForm(values: HumanSignUpValues): FormData {
-  const form = baseForm(values);
+/** Adds a human's details to a multipart body; see appendPetDetails. */
+export function appendHumanDetails(form: FormData, values: HumanDetailValues): void {
   form.set("full_name", values.full_name.trim());
   form.set("birthdate", values.birthdate);
   form.set("contact_number", normalizeContactNumber(values.contact_number) ?? "");
@@ -246,6 +275,22 @@ export function toHumanSignUpForm(values: HumanSignUpValues): FormData {
   form.set("street_address", values.street_address.trim());
   form.set("id_type", values.id_type);
   if (values.valid_id) form.set("valid_id", values.valid_id);
+}
+
+/**
+ * The multipart body for `POST /auth/sign-up/pet`. Call it only with values that passed every step, with the Terms
+ * checkbox ticked.
+ */
+export function toPetSignUpForm(values: PetSignUpValues): FormData {
+  const form = baseForm(values);
+  appendPetDetails(form, values);
+  return form;
+}
+
+/** The multipart body for `POST /auth/sign-up/human`. */
+export function toHumanSignUpForm(values: HumanSignUpValues): FormData {
+  const form = baseForm(values);
+  appendHumanDetails(form, values);
   return form;
 }
 

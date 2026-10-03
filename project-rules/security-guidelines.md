@@ -7,7 +7,7 @@
 | --- | --- |
 | **Owner** | The whole team; changes need review like any other rule |
 | **Applies to** | `frontend/`, `backend/`, database, deployment, and any new module or feature |
-| **Version** | 1.1 · 2026-10-01 — see the changelog at the end |
+| **Version** | 1.2 · 2026-10-03 — see the changelog at the end |
 
 ## 0. Baseline and cross-references
 
@@ -288,6 +288,7 @@ Update this table as risks are found, accepted or fixed.
 | 2026-09-28 | No two-factor authentication yet | Accepted for the pilot; SEC-AUTH-09 recommends it for admins |
 | 2026-09-28 | Production database and hosting not chosen | Apply §11 when the ADR is written |
 | 2026-10-01 | Frontend mock API mode (fixtures instead of Laravel) could hide missing server checks or ship to production | Development-only: forced off in production builds (`src/config/env.ts`); mocks enforce the same 401/403 gates; fixtures are fake (SEC-PRIV-06). ADR 0004 |
+| 2026-10-03 | LoFi `AU-19` shows the owner their current ID photo, but documents are admin-only (SEC-PRIV-01, NFR4) | The owner sees what was sent (kind, format, date), never the file; the API sends no path or URL for it. An owner preview would need its own authorized endpoint and a rule change here |
 
 ## Changelog
 
@@ -295,3 +296,4 @@ Update this table as risks are found, accepted or fixed.
 | --- | --- | --- |
 | 1.0 | 2026-09-28 | First version, written during scaffolding |
 | 1.1 | 2026-10-01 | FE-04: threats T16 (open redirect) and T17 (client-side path traversal), rules SEC-FE-07 and SEC-FE-08; mock-mode decision in §12 |
+| 1.2 | 2026-10-03 | FE-08: decision in §12 that owners don't get their verification documents back on `AU-19` |
