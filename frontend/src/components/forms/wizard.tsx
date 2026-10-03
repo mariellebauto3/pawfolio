@@ -98,7 +98,8 @@ export function Wizard({
             ref={headingRef}
             id={`${baseId}-heading`}
             tabIndex={-1}
-            className="flex flex-col gap-0.5"
+            // The scroll margin keeps the progress bars above the heading in view when focus moves here.
+            className="flex scroll-mt-14 flex-col gap-0.5"
           >
             <span className="font-display text-lg font-semibold text-primary">
               Step {current + 1} of {steps.length}

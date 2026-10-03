@@ -20,7 +20,14 @@ Sign-up, sign-in and the admin verification gate. Every new Pet and Human accoun
 
 ## Screens, dialogs and states to build
 
-Built: AU-01 to AU-06 (FE-06). The sign-in, forgot-password and reset-password endpoints are in `docs/api/auth.md`.
+Built: AU-01 to AU-06 (FE-06) and AU-07 to AU-17 (FE-07). Endpoints: `docs/api/auth.md`.
+
+**Sign-up wizards (FE-07).** `forms/pet-sign-up-wizard.tsx` and `forms/human-sign-up-wizard.tsx` share
+`hooks/use-sign-up-wizard.ts`: typed values stay in React state only (no browser storage, no URL: SEC-FE-04), so a
+reload starts over and the browser warns first. Each step is checked on Next by `schemas/sign-up-schemas.ts`; a `422`
+from the API is shown on its field and the wizard returns to the first step that has one. On success the account is
+signed in as Pending Verification and goes to `/account-status`. The sign-up endpoints are not built yet (BE-04), so
+the wizards run against the mock (`NEXT_PUBLIC_API_MODE=mock`, as the `signed-out` persona).
 
 | ID | Name | Type | Role | Route (planned) |
 | --- | --- | --- | --- | --- |

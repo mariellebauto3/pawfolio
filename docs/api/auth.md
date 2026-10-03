@@ -1,6 +1,7 @@
 # Auth & session endpoints
 
-Module 1, Authentication & Verification. **Status: built (BE-03).** The frontend uses these through
+Module 1, Authentication & Verification. **Status: built (BE-03)**, except the two sign-up endpoints at the end,
+which are planned for BE-04. The frontend uses these through
 `frontend/src/lib/auth/` and `src/features/auth/api/`; the mock handlers in
 `frontend/src/lib/api/mock/handlers/auth.ts` answer the same way for mock mode. If anything here changes, update this
 file, the backend tests (`backend/tests/Feature/Auth/`), the mock and the types in the same PR.
@@ -92,3 +93,81 @@ The signed-in account. Used by `SessionProvider` and `proxy.ts`.
 - **422** `errors.token`: `"This reset link is invalid or has expired. Ask for a new one."` for a wrong, used or
   expired token, or an unknown email alike.
 - **429** with `Retry-After`: 10 requests per 15 minutes per IP.
+
+## Sign-up: `POST /api/v1/auth/sign-up/pet` and `POST /api/v1/auth/sign-up/human`
+
+`AU-08`…`AU-17`, FR1, FR18. **Status: planned (BE-04), not built yet.** The frontend wizards (FE-07) are built against
+this contract through the mock (`frontend/src/lib/api/mock/handlers/sign-up.ts`); BE-04 implements it, or changes
+this section, the mock, the client checks (`frontend/src/features/auth/schemas/sign-up-schemas.ts`,
+`frontend/src/lib/auth/sign-up-rules.ts`) and their tests in the same PR.
+
+- **Who:** visitors only. A signed-in account gets **403** `"You're already signed in. Log out to create another
+  account."`
+- **One endpoint per role**, so the role never comes from the body. `role`, `status` and every other field not listed
+  below are ignored (SEC-INPUT-04, SEC-AUTHZ-05). Admin accounts are never created here (SEC-AUTH-10).
+- **Body:** `multipart/form-data` (it carries files). Text is trimmed and the email lower-cased before validation
+  (SEC-INPUT-06).
+
+### Fields
+
+Both endpoints:
+
+| Field | Rules | 422 message |
+| --- | --- | --- |
+| `email` | required, valid email, max 255, not already an account | `"Enter your email."`, `"Enter a valid email address."`, `"An account with this email already exists. Sign in, or use a different email."` |
+| `password` | required; the SEC-AUTH-03 rules and messages of `reset-password`, including the leaked-password check | `"Enter a password."`, then the first failing rule |
+| `password_confirmation` | must equal `password`; the error is reported on `password` | `"The passwords don't match."` |
+| `terms_accepted` | must be `1` (`AU-12`, `AU-17`) | `"Confirm the details and agree to the Terms and Community Guidelines to continue."` |
+
+`POST /auth/sign-up/pet` (`pets`, `verification_documents`):
+
+| Field | Rules | 422 message |
+| --- | --- | --- |
+| `name` | required, max 50 | `"Enter the pet's name."` |
+| `species` | `dog` \| `cat` \| `other` | `"Choose a species."` |
+| `breed` | required, max 80 | `"Enter the breed, or "Mixed" if you're not sure."` |
+| `approximate_age_months` | whole number, 1 to 360 | `"Enter the pet's approximate age."`, `"Enter a whole number, 1 or more. Use months for a pet under a year old."`, `"Enter an age of 30 years or less."` |
+| `currently_at` | required, max 120 (where the pet is staying) | `"Enter where the pet is staying."` |
+| `city` | required, max 80 | `"Enter the city."` |
+| `province` | one of the 83 values in `frontend/src/constants/provinces.ts` (82 provinces and Metro Manila) | `"Choose a province."` |
+| `photos[]` | 1 to 3 files, each JPG or PNG, max 5 MB. A file's own error is keyed `photos.<index>` | `"Add at least one clear photo of the pet."`, `"Add up to 3 photos."`, `"Upload a JPG or PNG photo."`, `"Each file must be 5 MB or smaller."` |
+| `caretaker_name` | required, max 120 | `"Enter the caretaker's full name."` |
+| `caretaker_contact_number` | Philippine mobile number, sent as `09XXXXXXXXX` | `"Enter a mobile number."`, `"Enter a mobile number like 0917 123 4567."` |
+| `valid_id` | required file: JPG, PNG or PDF, max 5 MB | `"Upload a photo of the valid ID."`, `"Upload a JPG, PNG or PDF file."`, `"Each file must be 5 MB or smaller."` |
+| `vet_record` | optional file: JPG, PNG or PDF, max 5 MB (vet record or shelter certificate) | as `valid_id` |
+
+`POST /auth/sign-up/human` (`home_profiles`, `verification_documents`):
+
+| Field | Rules | 422 message |
+| --- | --- | --- |
+| `full_name` | required, max 120 | `"Enter your full name."` |
+| `birthdate` | `YYYY-MM-DD`, a real past date, **18 or older today** (proposal §5.1, SEC-INPUT-05) | `"Enter your birthdate."`, `"Enter a valid birthdate."`, `"You must be 18 or older to adopt on Pawfolio."` |
+| `contact_number` | as `caretaker_contact_number` | same |
+| `city`, `province` | as for pets | same |
+| `street_address` | required, max 255 | `"Enter your street address."` |
+| `id_type` | `drivers_license` \| `passport` \| `umid` \| `national_id_philsys` \| `postal_id` | `"Choose the type of ID."` |
+| `valid_id` | as for pets | same |
+
+### Answers
+
+- **201** with the same body as `GET /auth/me`: the new account, `status: "pending_verification"`. The account is
+  **signed in** on the session (session ID regenerated, SEC-AUTH-07), so the frontend goes straight to the
+  account-status screen (`AU-18`), the only page a Pending account can open (FR2, FR19). A `verification_submissions`
+  row with `status: "pending"` puts it in the admin queue (`AU-22`).
+- **422** `errors` by field, with the messages above. The wizard returns to the first step that has one.
+- **413** when the upload is larger than the server accepts.
+- **429** with `Retry-After`: sign-ups are rate limited per IP (SEC-AUTH-04).
+
+### For BE-04
+
+- Files are checked by content, renamed, and images re-encoded without EXIF (SEC-FILE-01…05). The ID, the vet record
+  and the sign-up photos go to the **private** disk (SEC-PRIV-01, SEC-FILE-04); the frontend's own file checks are
+  for quick feedback only.
+- **Pet photos are JPG or PNG only.** The LoFi's `AU-10` caption says "JPG, PNG, PDF", but SEC-FILE-01 keeps PDF for
+  documents, so a PDF is refused as a photo.
+- **The "email already exists" message tells a visitor that an email has an account.** SEC-AUTH-05 names sign-in
+  and forgot-password, not sign-up, and without it nobody could finish the form; the rate limit keeps it from being
+  used to list accounts. If the team wants it closed, the fix is email confirmation, a decision for
+  `security-guidelines.md` §12.
+- The sign-up is written to `activity_logs` (SEC-LOG-01) without the password, the ID or the contact number
+  (SEC-LOG-03).

@@ -13,6 +13,7 @@ export type MockPersonaId =
   | "human"
   | "admin"
   | "pet-pending"
+  | "human-pending"
   | "human-denied"
   | "pet-suspended"
   | "human-closed"
@@ -56,6 +57,16 @@ export const MOCK_PERSONAS: Record<MockPersonaId, Account | null> = {
     display_name: "Kulit",
     avatar_url: null,
     profile_id: 2,
+  },
+  // Who a human sign-up becomes in mock mode (AU-17 → AU-18); a pet sign-up becomes "pet-pending".
+  "human-pending": {
+    id: 8,
+    role: "human",
+    status: "pending_verification",
+    email: "bea.navarro@example.com",
+    display_name: "Bea Navarro",
+    avatar_url: null,
+    profile_id: 4,
   },
   "human-denied": {
     id: 5,

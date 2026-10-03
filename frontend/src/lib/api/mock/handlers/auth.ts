@@ -29,7 +29,7 @@ export function resetMockSignInAttempts(): void {
 }
 
 const normalize = (email: string) => email.trim().toLowerCase();
-const isEmail = (value: unknown): value is string => typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+export const isEmail = (value: unknown): value is string => typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 
 export const authRoutes: MockRoute[] = [
   route("GET", AUTH_ENDPOINTS.me, ({ account }) => ok(account), "signed-in"),
