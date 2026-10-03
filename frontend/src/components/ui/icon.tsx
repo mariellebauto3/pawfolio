@@ -193,6 +193,26 @@ const PATHS = {
       <rect width="20" height="14" x="2" y="6" rx="2" />
     </>
   ),
+  // Account-status screens: Pending (AU-18), Denied (AU-20), Suspended (AU-21).
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 6v6l4 2" />
+    </>
+  ),
+  "circle-x": (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="m15 9-6 6" />
+      <path d="m9 9 6 6" />
+    </>
+  ),
+  ban: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="m4.9 4.9 14.2 14.2" />
+    </>
+  ),
 } as const;
 
 export type IconName = keyof typeof PATHS;
