@@ -40,7 +40,7 @@ function normalize(option: ChoiceOption) {
   return typeof option === "string" ? { value: option, label: option } : option;
 }
 
-// Pill-shaped choices for quiz and résumé answers. Single choice uses radios (arrow keys move between them);
+// Pill-shaped choices for quiz and resume answers. Single choice uses radios (arrow keys move between them);
 // multiple choice uses checkboxes. A selected chip shows a check as well as the blue fill.
 export function ChoiceChips(props: Props) {
   const { legend, options, hint, error, required, optional, disabled, className } = props;

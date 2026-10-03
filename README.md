@@ -1,6 +1,6 @@
 # Pawfolio
 
-A LinkedIn-style platform where stray and shelter pets build a résumé, apply for a home, and get “Hired” by their future
+A LinkedIn-style platform where stray and shelter pets build a resume, apply for a home, and get “Hired” by their future
 Furparent. School project — see `docs/proposal/Pawfolio_System_Proposal.pdf`.
 
 **Status:** scaffolding phase — folder structure and project rules only; no application code yet.

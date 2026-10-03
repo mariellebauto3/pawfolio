@@ -39,7 +39,7 @@ export function MenuDemo() {
           </div>
         }
         items={[
-          { label: "My résumé", icon: "user", href: "/ui-kit" },
+          { label: "My resume", icon: "user", href: "/ui-kit" },
           { label: "Bookmarks", icon: "bookmark", href: "/ui-kit" },
           { label: "Invites to Apply", icon: "inbox", description: "2 new", href: "/ui-kit" },
           { label: "Design tokens", icon: "file", href: "/design-tokens" },

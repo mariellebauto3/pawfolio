@@ -21,7 +21,7 @@ const atkinson = Atkinson_Hyperlegible_Next({
 export const metadata: Metadata = {
   title: { default: "Pawfolio", template: "%s | Pawfolio" },
   description:
-    "Pets build a résumé, apply to homes that fit their lifestyle, and get Hired by their future Furparent.",
+    "Pets build a resume, apply to homes that fit their lifestyle, and get Hired by their future Furparent.",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

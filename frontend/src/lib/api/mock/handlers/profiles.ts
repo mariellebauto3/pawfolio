@@ -2,7 +2,7 @@ import { HOME_PROFILES } from "@/lib/api/mock/fixtures/home-profiles";
 import { PETS } from "@/lib/api/mock/fixtures/pets";
 import { type MockRoute, fail, ok, paginate, route } from "@/lib/api/mock/router";
 
-// Draft résumés are hidden from everyone but their pet (§5.2, PR-02).
+// Draft resumes are hidden from everyone but their pet (§5.2, PR-02).
 const isVisible = (petId: number, status: string, viewerPetId: number | null) =>
   status !== "draft" || petId === viewerPetId;
 

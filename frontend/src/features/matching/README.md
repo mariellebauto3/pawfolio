@@ -26,7 +26,7 @@ One compatibility score (0–100) used in both directions: Pets for You and Home
 | MT-02 | Homes for You | Screen | Pet | `/matches` |
 | MT-03 | Match breakdown dialog | Dialog | Human | `/matches` |
 | MT-04 | Pets for You · quiz not finished | Empty state | Human | `/matches` |
-| MT-05 | Homes for You · résumé in Draft | Empty state | Pet | `/matches` |
+| MT-05 | Homes for You · resume in Draft | Empty state | Pet | `/matches` |
 
 Dialogs, menus, toasts and states render on top of (or inside) the route shown; they are not separate pages.
 
@@ -34,5 +34,5 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
 
 - **FR3** — Complete and edit a Home Profile and lifestyle quiz.
 - **FR5** — View a ranked Pets for You feed with match scores and reasons.
-- **FR20** — Create and edit the résumé: photos, bio, temperament, skills, compatibility, health.
+- **FR20** — Create and edit the resume: photos, bio, temperament, skills, compatibility, health.
 - **FR21** — View a ranked Homes for You list of humans who are Open to Adopt.

@@ -10,7 +10,7 @@ type Props = {
 };
 
 // Pet and Human pages: the role-aware top bar (GN-01) over content up to 1128 px wide. Pages lay out their own
-// columns (feed side rails, résumé, request detail) inside it. Below lg the page's end is padded clear of the tab bar
+// columns (feed side rails, resume, request detail) inside it. Below lg the page's end is padded clear of the tab bar
 // fixed to the bottom of the screen.
 export function MemberShell({ children, counts }: Props) {
   return (
