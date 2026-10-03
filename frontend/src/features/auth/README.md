@@ -20,6 +20,8 @@ Sign-up, sign-in and the admin verification gate. Every new Pet and Human accoun
 
 ## Screens, dialogs and states to build
 
+Built: AU-01 to AU-06 (FE-06). The sign-in, forgot-password and reset-password endpoints are in `docs/api/auth.md`.
+
 | ID | Name | Type | Role | Route (planned) |
 | --- | --- | --- | --- | --- |
 | AU-01 | Landing page | Screen | Visitor | `/` |
