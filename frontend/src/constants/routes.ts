@@ -10,6 +10,7 @@ export const ROUTES = {
   signUpPet: "/sign-up/pet",
   signUpHuman: "/sign-up/human",
   accountStatus: "/account-status",
+  accountEdit: "/account/edit",
   memberHome: "/feed",
   adminHome: "/admin",
 
@@ -76,7 +77,7 @@ export const MEMBER_ROUTE_PREFIXES = [
 ] as const;
 
 /** The only pages a Pending, Denied or Suspended account may open (AU-18…AU-21). */
-export const ACCOUNT_STATUS_ROUTE_PREFIXES = ["/account-status", "/account/edit"] as const;
+export const ACCOUNT_STATUS_ROUTE_PREFIXES = [ROUTES.accountStatus, ROUTES.accountEdit] as const;
 
 export const ADMIN_ROUTE_PREFIX = "/admin";
 
