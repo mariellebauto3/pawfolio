@@ -25,7 +25,8 @@ export async function fetchSession(client: ApiClient, options: Pick<RequestOptio
   return response.data;
 }
 
-function isAccount(value: unknown): value is Account {
+/** Whether an API payload is an Account as docs/api/auth.md describes it (role and status checked against the enums). */
+export function isAccount(value: unknown): value is Account {
   if (typeof value !== "object" || value === null) return false;
   const { id, role, status } = value as Record<string, unknown>;
   return (

@@ -31,7 +31,11 @@ export function createMockTransport({ readCookie, writePersona, latencyMs = MOCK
     const result = dispatch(MOCK_ROUTES, { ...request, body }, resolveMockAccount(readCookie(MOCK_PERSONA_COOKIE)));
     if (result.persona) writePersona?.(result.persona);
 
-    return { status: result.status, body: result.body === undefined ? null : clone(result.body), retryAfter: null };
+    return {
+      status: result.status,
+      body: result.body === undefined ? null : clone(result.body),
+      retryAfter: result.retryAfter === undefined ? null : String(result.retryAfter),
+    };
   };
 }
 

@@ -8,7 +8,15 @@ import type { Account } from "@/types/account";
 
 export const MOCK_PASSWORD = "password";
 
-export type MockPersonaId = "pet" | "human" | "admin" | "pet-pending" | "human-denied" | "pet-suspended" | "signed-out";
+export type MockPersonaId =
+  | "pet"
+  | "human"
+  | "admin"
+  | "pet-pending"
+  | "human-denied"
+  | "pet-suspended"
+  | "human-closed"
+  | "signed-out";
 
 export const DEFAULT_MOCK_PERSONA: MockPersonaId = "pet";
 
@@ -64,6 +72,16 @@ export const MOCK_PERSONAS: Record<MockPersonaId, Account | null> = {
     status: "suspended",
     email: "biscuit@example.com",
     display_name: "Biscuit",
+    avatar_url: null,
+    profile_id: 3,
+  },
+  // Deactivated: signing in answers "This account was closed." (AU-03), so this persona is never the session.
+  "human-closed": {
+    id: 7,
+    role: "human",
+    status: "deactivated",
+    email: "jun.reyes@example.com",
+    display_name: "Jun Reyes",
     avatar_url: null,
     profile_id: 3,
   },

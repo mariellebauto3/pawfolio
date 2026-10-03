@@ -44,6 +44,17 @@ export function errorRedirect(error: ApiError, currentPath: string): string | nu
   return null;
 }
 
+/**
+ * Where sign-in sends an account (AU-02): back to `next` when it is a safe, same-site page this account may open,
+ * otherwise its home (members → feed, admins → dashboard, anyone not Active → account-status, FR2, FR19).
+ */
+export function afterSignInPath(account: Account, next: string | null | undefined): string {
+  const home = homePathFor(account);
+  const safe = safeNextPath(next);
+  if (!safe || routeArea(pathOnly(safe)) === "public") return home;
+  return routeRedirect(safe, account) === null ? safe : home;
+}
+
 export function homePathFor(account: Account): string {
   if (account.status !== "active") return ROUTES.accountStatus;
   return account.role === "admin" ? ROUTES.adminHome : ROUTES.memberHome;
