@@ -22,6 +22,8 @@ export type MockResult = {
   body?: unknown;
   /** Switch the mock session, e.g. after sign-in or sign-out. */
   persona?: MockPersonaId;
+  /** Seconds, sent as the Retry-After header (429 lockouts). */
+  retryAfter?: number;
 };
 
 export type MockRoute = {
