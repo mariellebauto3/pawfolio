@@ -1,19 +1,17 @@
 "use client";
 
-import type { ComponentProps } from "react";
 import { Field } from "@/components/forms/field";
 import { Input } from "@/components/forms/input";
 import type { FieldErrors } from "@/lib/api/errors";
 import { SIGN_UP_TEXT_LIMITS } from "@/lib/auth/sign-up-rules";
+import type { TextFieldProps } from "../hooks/use-form-fields";
 import { NewPasswordGuide } from "./new-password-guide";
 import { PasswordInput } from "./password-input";
 
-type TextProps = Pick<ComponentProps<typeof Input>, "name" | "value" | "onChange" | "onBlur"> & { value: string };
-
 type Props = {
-  email: TextProps;
-  password: TextProps;
-  confirmation: TextProps;
+  email: TextFieldProps;
+  password: TextFieldProps;
+  confirmation: TextFieldProps;
   errors: FieldErrors;
   emailPlaceholder: string;
   emailHint?: string;
