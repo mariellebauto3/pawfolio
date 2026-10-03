@@ -17,6 +17,13 @@ class NotificationPreference extends Model
         'announcements',
     ];
 
+    protected $attributes = [
+        'requests_and_invites' => true,
+        'meet_and_greets' => true,
+        'post_activity' => true,
+        'announcements' => true,
+    ];
+
     protected $casts = [
         'id' => 'integer',
         'user_id' => 'integer',
@@ -47,6 +54,27 @@ class NotificationPreference extends Model
     }
 
     public function shouldAnnouncements(): bool
+    {
+        return (bool) $this->getAttribute('announcements');
+    }
+
+    /** Category-gate accessors used by the WriteNotification queue listener (NT-08). */
+    public function requests_and_invites(): bool
+    {
+        return (bool) $this->getAttribute('requests_and_invites');
+    }
+
+    public function meet_and_greets(): bool
+    {
+        return (bool) $this->getAttribute('meet_and_greets');
+    }
+
+    public function post_activity(): bool
+    {
+        return (bool) $this->getAttribute('post_activity');
+    }
+
+    public function announcements(): bool
     {
         return (bool) $this->getAttribute('announcements');
     }

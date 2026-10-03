@@ -23,6 +23,10 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= bcrypt('password'),
             'remember_token' => Str::random(10),
+            // role + status are system-set only (FR27, SEC-INPUT-04); the
+            // factory's default is a working active human account for tests.
+            'role' => Role::Human->value,
+            'status' => AccountStatus::Active->value,
         ];
     }
 

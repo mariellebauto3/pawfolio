@@ -110,14 +110,11 @@ class ErrorResource implements Responsable
     {
         return match ($this->code) {
             self::CODE_UNAUTHENTICATED => 401,
-            self::CODE_FORBIDDEN,
-            self::CODE_ACCOUNT_NOT_ACTIVE => 403,
-            self::CODE_NOT_FOUND,
+            self::CODE_FORBIDDEN, self::CODE_ACCOUNT_NOT_ACTIVE => 403,
+            self::CODE_NOT_FOUND => 404,
             self::CODE_BAD_REQUEST => 400,
-            self::CODE_CONFLICT,
-            self::CODE_RATE_LIMITED => 409,
-            self::CODE_VALIDATION,
-            self::CODE_PAYLOAD_TOO_LARGE => 422,
+            self::CODE_CONFLICT, self::CODE_RATE_LIMITED => 409,
+            self::CODE_VALIDATION, self::CODE_PAYLOAD_TOO_LARGE => 422,
             self::CODE_SERVER => 500,
             default => 400,
         };

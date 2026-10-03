@@ -4,9 +4,10 @@ namespace App\Models;
 
 use App\Enums\AccountStatus;
 use App\Enums\Role;
-use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\Authenticatable as UserAuthenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -46,144 +47,144 @@ class User extends Authenticatable implements UserAuthenticatable
 
     // ── role-shape relationships ────────────────────────────────────────────────
 
-    public function pet(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function pet(): HasOne
     {
         return $this->hasOne(Pet::class);
     }
 
-    public function homeProfile(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function homeProfile(): HasOne
     {
         return $this->hasOne(HomeProfile::class);
     }
 
     // ── verification & admin flows ──────────────────────────────────────────────
 
-    public function verificationSubmission(): ?\Illuminate\Database\Eloquent\Relations\HasOne
+    public function verificationSubmission(): ?HasOne
     {
         return $this->hasOne(VerificationSubmission::class);
     }
 
-    public function verificationDocuments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function verificationDocuments(): HasMany
     {
         return $this->hasMany(VerificationDocument::class);
     }
 
-    public function detailChangeRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function detailChangeRequests(): HasMany
     {
         return $this->hasMany(DetailChangeRequest::class);
     }
 
-    public function accountActions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function accountActions(): HasMany
     {
         return $this->hasMany(AccountAction::class);
     }
 
-    public function notificationPreferences(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function notificationPreferences(): HasOne
     {
         return $this->hasOne(NotificationPreference::class);
     }
 
     // ── adoption & Meet & Greet ─────────────────────────────────────────────────
 
-    public function adoptionRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function adoptionRequests(): HasMany
     {
         return $this->hasMany(AdoptionRequest::class);
     }
 
-    public function meetGreetSlots(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function meetGreetSlots(): HasMany
     {
         return $this->hasMany(MeetGreetSlot::class);
     }
 
-    public function meetAndGreetBookings(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function meetAndGreetBookings(): HasMany
     {
         return $this->hasMany(MeetAndGreet::class);
     }
 
-    public function adoptions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function adoptions(): HasMany
     {
         return $this->hasMany(Adoption::class);
     }
 
-    public function adoptionResolution(): ?\Illuminate\Database\Eloquent\Relations\HasOne
+    public function adoptionResolution(): ?HasOne
     {
         return $this->hasOne(AdoptionResolution::class);
     }
 
     // ── discovery, matching, bookmarks, views ───────────────────────────────────
 
-    public function invitations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function invitations(): HasMany
     {
         return $this->hasMany(Invite::class);
     }
 
-    public function matchScore(): ?\Illuminate\Database\Eloquent\Relations\HasOne
+    public function matchScore(): ?HasOne
     {
         return $this->hasOne(MatchScore::class);
     }
 
-    public function bookmarks(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function bookmarks(): HasMany
     {
         return $this->hasMany(Bookmark::class);
     }
 
-    public function profileViews(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function profileViews(): HasMany
     {
         return $this->hasMany(ProfileView::class);
     }
 
     // ── community feed ──────────────────────────────────────────────────────────
 
-    public function feedPosts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function feedPosts(): HasMany
     {
         return $this->hasMany(Post::class)->where('type', PostType::Post);
     }
 
-    public function adoptionStories(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function adoptionStories(): HasMany
     {
         return $this->hasMany(Post::class)->where('type', PostType::AdoptionStory);
     }
 
-    public function comments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function comments(): HasMany
     {
         return $this->hasMany(Comment::class);
     }
 
-    public function reactions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function reactions(): HasMany
     {
         return $this->hasMany(Reaction::class);
     }
 
     // ── reporting & moderation ─────────────────────────────────────────────────
 
-    public function reports(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function reports(): HasMany
     {
         return $this->hasMany(Report::class)->where('target_type', ReportTargetType::Account);
     }
 
-    public function reportActions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function reportActions(): HasMany
     {
         return $this->hasMany(ReportAction::class);
     }
 
     // ── notifications & announcements ───────────────────────────────────────────
 
-    public function notifications(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function notifications(): HasMany
     {
-        return $this->hasMany(\Illuminate\Notifications\DatabaseNotification::class);
+        return $this->hasMany(Notification::class);
     }
 
-    public function announcements(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function announcements(): HasMany
     {
         return $this->hasMany(Announcement::class);
     }
 
-    public function activityLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function activityLogs(): HasMany
     {
         return $this->hasMany(ActivityLog::class);
     }
 
-    public function activityLog(): ?\Illuminate\Database\Eloquent\Relations\HasOne
+    public function activityLog(): ?HasOne
     {
         return $this->hasOne(ActivityLog::class);
     }
@@ -211,8 +212,24 @@ class User extends Authenticatable implements UserAuthenticatable
     }
 
     /** Active accounts can use the platform (proposal §5.1, SEC-AUTHZ-06). */
+    /** Active accounts can use the platform (proposal �5.1, SEC-AUTHZ-06). */
     public function isActive(): bool
     {
         return $this->status === AccountStatus::Active;
+    }
+
+    public function getNotificationPreferenceAttribute(): ?NotificationPreference
+    {
+        return $this->notificationPreferences;
+    }
+
+    public function createNotificationPreference(): NotificationPreference
+    {
+        return $this->notificationPreferences()->create([
+            'requests_and_invites' => true,
+            'meet_and_greets' => true,
+            'post_activity' => true,
+            'announcements' => true,
+        ]);
     }
 }
