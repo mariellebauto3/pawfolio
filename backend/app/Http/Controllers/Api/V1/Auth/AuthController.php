@@ -3,19 +3,23 @@
 namespace App\Http\Controllers\Api\V1\Auth;
 
 use App\Actions\Auth\SignIn;
-use App\Enums\Role;
 use App\Enums\AccountStatus;
+use App\Http\Requests\Auth\ForgotPasswordRequest;
+use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Requests\Auth\SignInRequest;
 use App\Http\Resources\Auth\AuthenticatedUserResource;
-use App\Http\Resources\ErrorResource;
+use App\Models\ActivityLog;
 use App\Models\User;
-use function Illuminate\Support\str;
-use Illuminate\Auth\Notifications\ResetPassword as ResetPasswordNotification;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class AuthController
 {
@@ -44,53 +48,56 @@ class AuthController
     /**
      * POST /api/v1/auth/sign-in
      *
-     * Returns the same shape as /me on success. One generic email error whether
-     * the account exists (SEC-AUTH-05). 429 with Retry-After on lockout
-     * (SEC-AUTH-04).
+     * Logs the account in on the session guard and returns the same shape as /me (docs/api/auth.md). Pending,
+     * Denied and Suspended accounts may sign in: the frontend sends them to their status screen (FR2, FR19).
+     * One generic error whether the account exists (SEC-AUTH-05); "This account was closed." only after the right
+     * password; 429 with Retry-After once an email + IP pair is locked out (SEC-AUTH-04).
      */
     public function signIn(SignInRequest $request): JsonResponse
     {
-        $email = $request->validated()['email'];
-        $password = $request->validated()['password'];
-        $ip = $request->ip();
+        ['email' => $email, 'password' => $password] = $request->validated();
+        $ip = (string) $request->ip();
 
         if ($this->signIn->isLockedOut($email, $ip)) {
             return response()->json([
-                'message' => 'Too many sign-in attempts. Please try again later.',
-            ], 429, ['Retry-After' => '900']);
+                'message' => 'Too many failed attempts. Sign-in is paused for 15 minutes.',
+                'code' => 'rate_limited',
+            ], 429, ['Retry-After' => (string) $this->signIn->secondsUntilUnlocked($email, $ip)]);
         }
 
-        $user = $this->signIn->attempt($email, $password, $ip);
+        $user = $this->signIn->attempt($email, $password, $ip, $request->userAgent());
 
         if (! $user) {
-            // One generic message whether the account exists (SEC-AUTH-05).
-            return response()->json([
-                'message' => 'That email and password don\'t match. Try again.',
-                'errors' => [
-                    'email' => ['That email and password don\'t match. Try again.'],
-                ],
-            ], 422);
+            return $this->signInError("That email and password don't match. Try again.");
         }
 
-        // Regenerate the session on sign-in (SEC-AUTH-07). The request already
-        // has an active session by this point (statefulApi), so we're rotating
-        // the ID for the just-authenticated user.
+        if ($user->status === AccountStatus::Deactivated) {
+            // Deactivated accounts can't sign in (AU-03). Said only to someone who knows the password.
+            return $this->signInError('This account was closed.');
+        }
+
+        Auth::guard('web')->login($user, $request->boolean('remember'));
+        // A fresh session ID on sign-in (SEC-AUTH-07).
         $request->session()->regenerate();
 
-        return response()->json([
-            'data' => AuthenticatedUserResource::make($user),
-        ]);
+        $user->loadMissing(['pet', 'homeProfile']);
+
+        return response()->json(['data' => AuthenticatedUserResource::make($user)]);
     }
 
     /**
      * POST /api/v1/auth/sign-out
      *
-     * Invalidate the session (SEC-AUTH-07) and return 204.
+     * Logs out, invalidates the session and rotates the CSRF token (SEC-AUTH-07). 204, also when already signed out.
      */
     public function signOut(Request $request): JsonResponse
     {
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        Auth::guard('web')->logout();
+
+        if ($request->hasSession()) {
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
 
         return response()->json(null, 204);
     }
@@ -98,63 +105,63 @@ class AuthController
     /**
      * POST /api/v1/auth/forgot-password
      *
-     * Sends a single-use, 30-minute reset link (SEC-AUTH-08) and returns the
-     * same generic shape as /me so the frontend can display a success screen.
-     * SEC-AUTH-05: identical response whether or not the email exists.
+     * Emails a single-use, 30-minute reset link (SEC-AUTH-08) when the account exists. Always the same 200 answer,
+     * whether it exists, doesn't, or asked too recently (SEC-AUTH-05, AU-05).
      */
-    public function forgotPassword(Request $request): JsonResponse
+    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
-        $email = $request->validated(['email'])['email'] ?? null;
-
-        $status = Password::sendResetLink(
-            $request->validate(['email' => 'required|email'])
-        );
+        Password::sendResetLink($request->only('email'));
 
         return response()->json([
-            'message' => $status === Password::RESET_LINK_SENT
-                ? 'If an account exists with this email, we\'ve sent a password reset link.'
-                : 'If an account exists with this email, we\'ve sent a password reset link.',
-            'status' => $status,
+            'message' => "If an account exists for that email, we've sent a link to reset the password. It expires in 30 minutes.",
         ]);
     }
 
     /**
      * POST /api/v1/auth/reset-password
      *
-     * Resets the password with a single-use, 30-minute token (SEC-AUTH-08).
-     *
-     * @throws \Illuminate\Auth\AuthenticationException
-     * @throws \Illuminate\Validation\ValidationException
+     * Sets a new password with the emailed token (single use, 30 minutes, SEC-AUTH-08). Every session of the account
+     * ends and its remember-me token is rotated, so other devices are signed out (SEC-AUTH-07). The visitor is not
+     * signed in: AU-06 sends them to sign in with the new password.
      */
-    public function resetPassword(Request $request): JsonResponse
+    public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
-        $request->validate([
-            'token' => 'required',
-            'email' => 'required|email',
-            'password' => 'required|string|confirmed|min:8',
-        ]);
-
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user, string $password) {
-                $user->forceFill([
-                    'password' => Hash::make($password),
-                ])->setRememberToken(Str::random(10));
-
+            function (User $user, string $password) use ($request): void {
+                $user->forceFill(['password' => Hash::make($password)])
+                    ->setRememberToken(Str::random(60));
                 $user->save();
 
-                // SEC-AUTH-07: regenerate the session on password change so a
-                // stolen session cookie is invalidated.
-                $request->session()->invalidate();
-                $request->session()->regenerateToken();
+                if (config('session.driver') === 'database') {
+                    DB::table(config('session.table', 'sessions'))->where('user_id', $user->id)->delete();
+                }
+
+                ActivityLog::create([
+                    'actor_user_id' => $user->id,
+                    'type' => 'security',
+                    'action' => 'password_reset',
+                    'subject_type' => User::class,
+                    'subject_id' => $user->id,
+                    'user_agent' => $request->userAgent() !== null ? mb_substr($request->userAgent(), 0, 255) : null,
+                ]);
+
+                event(new PasswordReset($user));
             }
         );
 
-        return response()->json([
-            'message' => $status === Password::PASSWORD_RESET
-                ? 'Your password has been reset.'
-                : 'We were unable to reset your password.',
-        ]);
+        if ($status !== Password::PASSWORD_RESET) {
+            // Invalid, used or expired token, or no such account: one message, nothing revealed (SEC-AUTH-05).
+            $message = 'This reset link is invalid or has expired. Ask for a new one.';
+
+            return response()->json([
+                'message' => $message,
+                'code' => 'validation',
+                'errors' => ['token' => [$message]],
+            ], 422);
+        }
+
+        return response()->json(['message' => 'Your password has been reset. Sign in with your new password.']);
     }
 
     /**
@@ -163,8 +170,8 @@ class AuthController
      * Creates an account. Available only to admins (SEC-AUTH-10, SEC-AUTHZ-07).
      * Role and status are system-set only — never through a request.
      *
-     * @throws \Illuminate\Auth\AuthenticationException
-     * @throws \Illuminate\Validation\ValidationException
+     * @throws AuthenticationException
+     * @throws ValidationException
      */
     public function createUser(Request $request): JsonResponse
     {
@@ -189,5 +196,14 @@ class AuthController
         return response()->json([
             'data' => AuthenticatedUserResource::make($user),
         ], 201);
+    }
+
+    private function signInError(string $message): JsonResponse
+    {
+        return response()->json([
+            'message' => $message,
+            'code' => 'validation',
+            'errors' => ['email' => [$message]],
+        ], 422);
     }
 }
