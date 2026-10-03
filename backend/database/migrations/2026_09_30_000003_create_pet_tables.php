@@ -26,7 +26,8 @@ return new class extends Migration
             $table->integer('approximate_age_months')->comment('locked; see open question Q5 (AU-09)');
             $table->enum('sex', ['female', 'male'])->nullable()->comment('until the résumé is edited (PR-03)');
             $table->enum('size', ['small', 'medium', 'large'])->nullable()->comment('until the résumé is edited (PR-03, FR6)');
-            $table->string('currently_at')->comment('where the pet is staying (AU-09, PR-03)');
+            $table->string('currently_at')->nullable()->comment('where the pet is staying (AU-09, PR-03)');
+
             $table->string('city')->comment('AU-09, PR-03');
             $table->string('province')->comment('AU-09, PR-03, same-province matching');
             $table->string('caretaker_name')->comment('AU-11, AC-01');

@@ -12,8 +12,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // SPA cookie-session authentication (Sanctum, SEC-AUTH-01): routes under
+        // /api/* from the frontend SPA get a session and CSRF checks, so the
+        // frontend's credentials: include + CSRF flow works.
+        $middleware->statefulApi();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->renderable(function (Throwable $e, $request) {
+            // The custom Handler translates every 4xx/5xx into the standard
+            // { "message", "code"?, "errors"? } JSON body.
+            return app(\App\Exceptions\Handler::class)->render($request, $e);
+        });
     })->create();
