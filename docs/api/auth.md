@@ -1,9 +1,10 @@
 # Auth & session endpoints
 
-Module 1, Authentication & Verification. **Status: built (BE-03)**, except the two sign-up endpoints at the end,
-which are planned for BE-04. The frontend uses these through
+Module 1, Authentication & Verification. **Status: built (BE-03)**, except the two sign-up endpoints (planned for
+BE-04) and the account-status endpoints at the end (BE-06, in progress). The frontend uses these through
 `frontend/src/lib/auth/` and `src/features/auth/api/`; the mock handlers in
-`frontend/src/lib/api/mock/handlers/auth.ts` answer the same way for mock mode. If anything here changes, update this
+`frontend/src/lib/api/mock/handlers/` (`auth.ts`, `sign-up.ts`, `account-status.ts`) answer the same way for mock
+mode. If anything here changes, update this
 file, the backend tests (`backend/tests/Feature/Auth/`), the mock and the types in the same PR.
 
 All writes need the Sanctum CSRF cookie first (`GET /sanctum/csrf-cookie`, see [README](README.md)). An expired or
@@ -171,3 +172,116 @@ Both endpoints:
   `security-guidelines.md` §12.
 - The sign-up is written to `activity_logs` (SEC-LOG-01) without the password, the ID or the contact number
   (SEC-LOG-03).
+
+## Account status: `GET /api/v1/account-status`
+
+`AU-18`, `AU-20`, `AU-21`, FR2, FR19, proposal §5.1. **Status: BE-06, not built yet.** The frontend screens (FE-08)
+are built against this contract through the mock (`frontend/src/lib/api/mock/handlers/account-status.ts`); BE-06
+implements it, or changes this section, the mock, the types (`frontend/src/types/account-status.ts`) and their tests
+in the same PR.
+
+- **Who:** any signed-in account, **whatever its status**. Like `GET /auth/me`, it is exempt from the Active-only
+  middleware (SEC-AUTHZ-06): it is how a blocked account learns why.
+- **200:**
+
+  ```json
+  {
+    "data": {
+      "status": "denied",
+      "denial_reason": "id_photo_unreadable",
+      "reason": "The ID photo is blurry and the name can't be read. Please upload a clearer photo.",
+      "submitted_at": "2026-09-27T02:15:00.000000Z",
+      "is_resubmission": false,
+      "documents": [
+        {
+          "document_type": "valid_id",
+          "id_type": "umid",
+          "mime_type": "image/jpeg",
+          "size_bytes": 1887437,
+          "uploaded_at": "2026-09-27T02:15:00.000000Z"
+        }
+      ]
+    }
+  }
+  ```
+
+  | Field | Meaning |
+  | --- | --- |
+  | `status` | The account status, as in `GET /auth/me` |
+  | `denial_reason` | Denied only: the latest submission's `denial_reason` (`id_photo_unreadable`, `name_mismatch`, `id_expired`, `under_18` or `other`, `AU-25`). Otherwise `null` |
+  | `reason` | Denied: the latest submission's `message_to_owner`. Suspended: the latest `account_actions` reason. Deactivated: `"This account was closed."`. Otherwise `null`. Shown as plain text (SEC-FE-01) |
+  | `submitted_at` | `submitted_at` of the latest `verification_submissions` row; `null` for accounts that never signed up (admins) |
+  | `is_resubmission` | `true` when that row isn't the account's first (sent again after a denial or an edit) |
+  | `documents` | The latest submission's `verification_documents`. `document_type` is `valid_id`, `pet_photo` or `vet_record_or_certificate`; `id_type` is set on a human's valid ID |
+
+- **Documents are described, never linked.** No `file_path`, URL or file name: the files are served to admins only
+  (SEC-PRIV-01, NFR4). `AU-19` in the LoFi shows the owner their ID photo; the frontend shows its kind, format and
+  date instead (`security-guidelines.md` §12).
+- **401:** signed out.
+
+## Submitted details: `GET` and `PATCH /api/v1/account/submission`
+
+`AU-19`, FR2, FR19. **Status: BE-06, not built yet** (see above).
+
+- **Who:** a signed-in pet or human account that is **Pending Verification or Denied**. It is exempt from the
+  Active-only middleware (SEC-AUTHZ-06). Anyone else (Active, Suspended, Deactivated, admins) gets **403**
+  `"Only accounts waiting for verification can edit their submitted details."` The account comes from the session,
+  never from an id in the request (SEC-AUTHZ-02).
+
+### `GET`
+
+- **200**, the account's own details from `pets` or `home_profiles`, with `role` telling which:
+
+  ```json
+  {
+    "data": {
+      "role": "pet",
+      "name": "Kulit",
+      "species": "cat",
+      "breed": "Puspin",
+      "approximate_age_months": 8,
+      "currently_at": "With the finder",
+      "city": "Pasig",
+      "province": "Metro Manila",
+      "caretaker_name": "Joy Lim",
+      "caretaker_contact_number": "09170000014",
+      "documents": []
+    }
+  }
+  ```
+
+  A human gets `role: "human"`, `full_name`, `birthdate` (`YYYY-MM-DD`), `contact_number`, `city`, `province`,
+  `street_address` and `documents`. `documents` has the same shape and the same rule as in `GET /account-status`.
+  The contact number and street address are the owner's own; no other endpoint reveals them before a confirmed
+  Meet & Greet (SEC-PRIV-02).
+
+### `PATCH`
+
+"Save and resubmit". A state change through an action, not a `status` field (FR27): the account becomes Pending
+Verification and re-enters the admin queue (`AU-22`).
+
+- **Body:** `multipart/form-data` with the same fields, rules and 422 messages as the role's sign-up endpoint above,
+  **without** `email`, `password`, `password_confirmation` and `terms_accepted`. `role`, `status` and any other field
+  are ignored (SEC-INPUT-04, SEC-AUTHZ-05).
+- **The files are optional.** A file that is left out keeps the one already sent:
+  - `valid_id` replaces the current ID. A human's `id_type` is still required and describes the ID on file.
+  - `vet_record` (pets) adds or replaces the vet record or shelter certificate.
+  - `photos[]` (pets): 1 to 3 photos that replace **all** the current ones.
+- **Sent as `POST` with `_method=PATCH`** in the form (Laravel method spoofing), because PHP reads a multipart body
+  only on `POST`. `frontend/src/features/auth/api/account-status.ts` adds the field.
+- **200** with the same body as `GET /auth/me`, `status: "pending_verification"` (`display_name` follows an edited
+  name). The frontend returns to the status screen (`AU-18`) with a toast.
+- **422** `errors` by field (`photos.<index>` for one photo). **403** as above. **413** when the upload is larger
+  than the server accepts. **429** with `Retry-After`: resubmissions are rate limited per account (SEC-AUTH-04).
+
+### For BE-06
+
+- A save creates a **new** `verification_submissions` row (`status: "pending"`, `submitted_at` now); earlier rounds
+  stay as history, so `AU-24` can show the previous denial reason. Documents that weren't replaced are carried over
+  to the new row.
+- A Pending account that saves stays Pending and goes to the back of the queue, as the LoFi says ("Saving puts it
+  back in the review queue").
+- Files follow the sign-up rules: checked by content, renamed, images re-encoded without EXIF, private disk
+  (SEC-FILE-01…05, SEC-PRIV-01).
+- The save is written to `activity_logs` with the status before and after (SEC-LOG-01), without the ID or the
+  contact number (SEC-LOG-03).

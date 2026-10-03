@@ -79,9 +79,12 @@ function checkTerms(form: FormData, errors: Errors): void {
   if (form.get("terms_accepted") !== "1") errors.terms_accepted = REQUIRED.terms_accepted;
 }
 
-function petErrors(form: FormData): Errors {
+/** Whether the files must be there (sign-up) or may be left out to keep the ones already sent (AU-19). */
+type Files = "required" | "optional";
+
+/** The pet's verification details: everything a pet sign-up sends but the login and the Terms. */
+export function petDetailErrors(form: FormData, fileRule: Files): Errors {
   const errors: Errors = {};
-  checkAccount(form, errors);
   requireText(form, errors, ["name", "breed", "currently_at", "city", "caretaker_name"]);
   requireOneOf(form, errors, "species", SPECIES);
   requireOneOf(form, errors, "province", PROVINCES);
@@ -91,7 +94,7 @@ function petErrors(form: FormData): Errors {
   if (ageProblem) errors.approximate_age_months = ageProblem;
 
   const photos = files(form, "photos[]");
-  if (photos.length === 0) errors.photos = REQUIRED.photos;
+  if (photos.length === 0 && fileRule === "required") errors.photos = REQUIRED.photos;
   else if (photos.length > MAX_SIGN_UP_PET_PHOTOS) errors.photos = `Add up to ${MAX_SIGN_UP_PET_PHOTOS} photos.`;
   // Laravel names an array item's error by its position: "photos.0".
   photos.forEach((photo, index) => {
@@ -101,15 +104,14 @@ function petErrors(form: FormData): Errors {
 
   const contactProblem = contactNumberProblem(text(form, "caretaker_contact_number"));
   if (contactProblem) errors.caretaker_contact_number = contactProblem;
-  checkDocument(form, errors, "valid_id", true);
+  checkDocument(form, errors, "valid_id", fileRule === "required");
   checkDocument(form, errors, "vet_record", false);
-  checkTerms(form, errors);
   return errors;
 }
 
-function humanErrors(form: FormData): Errors {
+/** The human's verification details: everything a human sign-up sends but the login and the Terms. */
+export function humanDetailErrors(form: FormData, fileRule: Files): Errors {
   const errors: Errors = {};
-  checkAccount(form, errors);
   requireText(form, errors, ["full_name", "city", "street_address"]);
   requireOneOf(form, errors, "province", PROVINCES);
   requireOneOf(form, errors, "id_type", ID_TYPES);
@@ -118,9 +120,18 @@ function humanErrors(form: FormData): Errors {
   if (birthProblem) errors.birthdate = birthProblem;
   const contactProblem = contactNumberProblem(text(form, "contact_number"));
   if (contactProblem) errors.contact_number = contactProblem;
-  checkDocument(form, errors, "valid_id", true);
-  checkTerms(form, errors);
+  checkDocument(form, errors, "valid_id", fileRule === "required");
   return errors;
+}
+
+function signUpErrors(details: (form: FormData, fileRule: Files) => Errors) {
+  return (form: FormData): Errors => {
+    const errors: Errors = {};
+    checkAccount(form, errors);
+    Object.assign(errors, details(form, "required"));
+    checkTerms(form, errors);
+    return errors;
+  };
 }
 
 // 201 with the new account, Pending Verification and already signed in, so the frontend can go straight to the
@@ -135,6 +146,6 @@ function signUp(validate: (form: FormData) => Errors, persona: MockPersonaId) {
 }
 
 export const signUpRoutes: MockRoute[] = [
-  route("POST", AUTH_ENDPOINTS.signUpPet, signUp(petErrors, "pet-pending"), "public"),
-  route("POST", AUTH_ENDPOINTS.signUpHuman, signUp(humanErrors, "human-pending"), "public"),
+  route("POST", AUTH_ENDPOINTS.signUpPet, signUp(signUpErrors(petDetailErrors), "pet-pending"), "public"),
+  route("POST", AUTH_ENDPOINTS.signUpHuman, signUp(signUpErrors(humanDetailErrors), "human-pending"), "public"),
 ];
