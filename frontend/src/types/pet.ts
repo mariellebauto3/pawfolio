@@ -5,7 +5,8 @@ import type { PetStatus } from "@/types/statuses";
 // 2026_09_30_000003). Private fields — caretaker contact number, vet records — are not part of this type: they reach
 // the frontend only through the endpoints that are allowed to reveal them (NFR4, SEC-PRIV-01/02).
 
-export type Species = "dog" | "cat" | "other";
+export const SPECIES = ["dog", "cat", "other"] as const;
+export type Species = (typeof SPECIES)[number];
 export type PetSex = "female" | "male";
 export type PetSize = "small" | "medium" | "large";
 export type EnergyLevel = "low" | "medium" | "high";
