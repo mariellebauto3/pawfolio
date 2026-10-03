@@ -2,7 +2,7 @@
 
 The Laravel API under `/api/v1`, used only by the Next.js frontend. This file holds the conventions every endpoint
 follows. Each module gets its own file listing its endpoints (method, path, role, request, response, errors, FR),
-starting with [auth.md](auth.md).
+starting with [auth.md](auth.md) and [discovery.md](discovery.md).
 
 Rules: `project-rules/backend-guidelines.md` §2 and `security-guidelines.md` §5 and §7.
 Frontend client: `frontend/src/lib/api/` ([ADR 0004](../decisions/0004-api-client-session-and-mocks.md)).
