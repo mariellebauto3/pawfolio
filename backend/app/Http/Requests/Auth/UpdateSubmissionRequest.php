@@ -88,7 +88,8 @@ class UpdateSubmissionRequest extends FormRequest
             'city' => ['required', 'string', 'max:80'],
             'province' => ['required', 'string', Rule::in(Provinces::LIST)],
             'street_address' => ['required', 'string', 'max:255'],
-            'id_type' => ['sometimes', 'nullable', 'string', Rule::in($idTypes)],
+            // Still required when the ID file is left out: it describes the ID on file (docs/api/auth.md).
+            'id_type' => ['required', 'string', Rule::in($idTypes)],
             'valid_id' => ['nullable', 'file'],
         ];
     }
@@ -115,6 +116,7 @@ class UpdateSubmissionRequest extends FormRequest
             'birthdate.required' => 'Enter your birthdate.',
             'contact_number.required' => 'Enter a mobile number.',
             'street_address.required' => 'Enter your street address.',
+            'id_type.required' => 'Choose the type of ID.',
             'id_type.in' => 'Choose the type of ID.',
         ];
     }
