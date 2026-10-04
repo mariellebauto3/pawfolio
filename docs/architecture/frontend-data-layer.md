@@ -127,6 +127,8 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
   Bea Navarro, then sign in as `bea.navarro@example.com` to read your reason on the Denied screen and resubmit.
   Documents are drawn on request (a PNG or a small PDF), whatever format the fixture names. To get the fixture queue
   back, run `document.cookie = "pf_mock_decisions=; path=/; max-age=0"`.
+- **No mock for the pet resume:** `/me` and `/resume/edit` (FE-10) were built on the real `/me/pet` endpoints. In mock
+  mode they show the error state; use `live` for them.
 - **Adding mocks:** add a file in `src/lib/api/mock/handlers/` and register it in `handlers/index.ts`. Follow the
   planned shape in `docs/api/` so switching to `live` changes nothing. Created records live in memory until reload.
 - All fixture data is made up (SEC-PRIV-06).
