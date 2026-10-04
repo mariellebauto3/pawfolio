@@ -44,7 +44,8 @@ Inside a shell, start a page with **`PageHeader`** (`layout/page-header.tsx`): t
 | `GuestTopBar`, `Footer` | `navigation/guest-top-bar.tsx`, `layout/footer.tsx` | Server components. Links go to landing-page sections (`LANDING_SECTIONS` in `src/constants/routes.ts`). Below `md` the bar shows the logo and `GuestMenu` (`navigation/guest-menu.tsx`): a menu button opening a `Drawer` with the section links, Join now and Sign in |
 | `Logo` | `navigation/logo.tsx` | Placeholder "P" mark + wordmark. `wordmark="responsive"` keeps only the mark below `lg` |
 | `NavCount` | `navigation/nav-count.tsx` | Blue count pill; "99+" above 99, nothing at 0; read as "3 unread" |
-| `SignOutButton` | `navigation/sign-out-button.tsx` | "Log out" button for bars without a Me menu. Both use `useSignOut()` (`src/hooks/`) |
+| `SignOutButton` | `navigation/sign-out-button.tsx` | "Log out" button for bars without a Me menu. Like the Me menu's item, it opens `LogOutDialog` |
+| `LogOutDialog` | `navigation/log-out-dialog.tsx` | "Log out of Pawfolio?" with Stay signed in / Log out, asked before every log out in every shell. Confirming runs `useSignOut()` (`src/hooks/`); if the API can't be reached the dialog stays open with a retry message |
 
 What each shell links to lives in **`navigation/nav-config.ts`** (`memberNavItems(role)`, `meMenuFor(role)`,
 `ADMIN_NAV`, `GUEST_NAV`), tested in `tests/unit/components/navigation/`. A new top-level page gets its link there.
