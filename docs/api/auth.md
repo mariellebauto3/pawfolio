@@ -1,10 +1,10 @@
 # Auth & session endpoints
 
 Module 1, Authentication & Verification. **Status: built (BE-03)**, except the two sign-up endpoints (planned for
-BE-04) and the account-status endpoints at the end (BE-06, in progress). The frontend uses these through
-`frontend/src/lib/auth/` and `src/features/auth/api/`; the mock handlers in
-`frontend/src/lib/api/mock/handlers/` (`auth.ts`, `sign-up.ts`, `account-status.ts`) answer the same way for mock
-mode. If anything here changes, update this
+BE-04), the account-status endpoints (BE-06, in progress) and the admin verification endpoints at the end (BE-08,
+planned). The frontend uses these through `frontend/src/lib/auth/` and `src/features/auth/api/`; the mock handlers in
+`frontend/src/lib/api/mock/handlers/` (`auth.ts`, `sign-up.ts`, `account-status.ts`, `admin-verification.ts`) answer
+the same way for mock mode. If anything here changes, update this
 file, the backend tests (`backend/tests/Feature/Auth/`), the mock and the types in the same PR.
 
 All writes need the Sanctum CSRF cookie first (`GET /sanctum/csrf-cookie`, see [README](README.md)). An expired or
@@ -285,3 +285,171 @@ Verification and re-enters the admin queue (`AU-22`).
   (SEC-FILE-01…05, SEC-PRIV-01).
 - The save is written to `activity_logs` with the status before and after (SEC-LOG-01), without the ID or the
   contact number (SEC-LOG-03).
+
+## Admin verification: `/api/v1/admin/verifications`
+
+`AU-22`…`AU-26`, FR33, NFR4, NFR9. **Status: planned (BE-08), not built yet.** The frontend screens (FE-09) are built
+against this contract through the mock (`frontend/src/lib/api/mock/handlers/admin-verification.ts`); BE-08 implements
+it, or changes this section, the mock, the types (`frontend/src/types/verification-review.ts`), the shared rules
+(`frontend/src/lib/auth/verification-review.ts`) and their tests in the same PR.
+
+- **Who:** Active admins only, on every endpoint below (SEC-AUTHZ-07). Signed out: **401**. Not Active: **403**
+  `account_not_active`. A pet or a human: **403** `"This page is for admins only."`, written to the security log
+  (SEC-LOG-02).
+- **`{accountId}`** is the `users.id` of a pet or human account. Every endpoint works on that account's **latest**
+  `verification_submissions` row. An id that doesn't exist, an admin's id, or an account that never submitted
+  answers **404** (SEC-AUTHZ-04). The record is loaded and checked on the server, never trusted from the id
+  (SEC-AUTHZ-02).
+
+| Method and path | What it does |
+| --- | --- |
+| `GET /admin/verifications` | The queue: accounts waiting for review (`AU-22`) |
+| `GET /admin/verifications/{accountId}` | One account's submission, to review or look back on (`AU-23`, `AU-24`) |
+| `GET /admin/verifications/{accountId}/documents/{documentId}` | A submitted file, streamed |
+| `POST /admin/verifications/{accountId}/approve` | Approve: the account becomes Active (`AU-26`) |
+| `POST /admin/verifications/{accountId}/deny` | Deny with a reason the owner sees (`AU-25`, `AU-20`) |
+
+### `GET /admin/verifications`
+
+Submissions with `status: "pending"`, one row per account, **oldest first** by `submitted_at` (the
+`status, submitted_at` index). The order is fixed; there is no sort parameter.
+
+| Query | Rules |
+| --- | --- |
+| `role` | `pet` \| `human`; leave out for both. Anything else: **422** `"Choose Pet or Human."` (allow-list, SEC-INPUT-03) |
+| `search` | Up to 100 characters, trimmed. Matches part of the pet's name, the human's full name or the caretaker's name, whatever the case, as a bound parameter (SEC-INPUT-02) |
+| `page`, `per_page` | As every list: default 20, max 50 (SEC-API-05) |
+
+- **200:**
+
+  ```json
+  {
+    "data": [
+      {
+        "account_id": 4,
+        "role": "pet",
+        "display_name": "Kulit",
+        "caretaker_name": "Joy Lim",
+        "submitted_at": "2026-09-29T06:48:00.000000Z",
+        "is_resubmission": false,
+        "documents": [
+          { "document_type": "valid_id", "id_type": null, "mime_type": "image/jpeg", "size_bytes": 1887437, "uploaded_at": "2026-09-29T06:48:00.000000Z" }
+        ]
+      }
+    ],
+    "meta": { "current_page": 1, "last_page": 2, "per_page": 20, "total": 23, "from": 1, "to": 20, "path": "/api/v1/admin/verifications" },
+    "links": { "first": "…", "last": "…", "prev": null, "next": "…" }
+  }
+  ```
+
+  `caretaker_name` is `null` for humans. `is_resubmission` and `documents` mean what they mean in
+  `GET /account-status`: the documents are described, never linked.
+- The admin sidebar's count is `meta.total` of this list, asked with `per_page=1`.
+
+### `GET /admin/verifications/{accountId}`
+
+- **200:**
+
+  ```json
+  {
+    "data": {
+      "account_id": 5,
+      "display_name": "Carla Mendoza",
+      "account_status": "pending_verification",
+      "status": "pending",
+      "submitted_at": "2026-10-03T01:05:00.000000Z",
+      "is_resubmission": true,
+      "previous_denial": {
+        "denial_reason": "id_photo_unreadable",
+        "message_to_owner": "The ID photo is blurry and the name can't be read. Please upload a clearer photo.",
+        "reviewed_at": "2026-09-28T03:40:00.000000Z"
+      },
+      "reviewed_at": null,
+      "reviewed_by": null,
+      "denial_reason": null,
+      "message_to_owner": null,
+      "details": {
+        "role": "human",
+        "full_name": "Carla Mendoza",
+        "birthdate": "1994-11-22",
+        "contact_number": "09170000015",
+        "city": "Pasig",
+        "province": "Metro Manila"
+      },
+      "documents": [
+        { "id": 51, "document_type": "valid_id", "id_type": "umid", "mime_type": "image/jpeg", "size_bytes": 1887437, "uploaded_at": "2026-09-27T02:15:00.000000Z" }
+      ],
+      "queue": { "position": 23, "total": 23, "next_account_id": 4 }
+    }
+  }
+  ```
+
+  | Field | Meaning |
+  | --- | --- |
+  | `account_status` | The account's status, as in `GET /auth/me` |
+  | `status` | The submission's: `pending` \| `approved` \| `denied`. Only a `pending` one can be approved or denied |
+  | `previous_denial` | The round before this one, when it was denied (`AU-24`); otherwise `null` |
+  | `reviewed_at`, `reviewed_by`, `denial_reason`, `message_to_owner` | Set once decided. `reviewed_by` is the admin's display name, `null` if that admin's row is gone |
+  | `details` | What the owner submitted. A pet: `role: "pet"`, `name`, `species`, `breed`, `approximate_age_months`, `currently_at`, `city`, `province`, `caretaker_name`, `caretaker_contact_number`. A human: the fields above |
+  | `documents` | As in the queue, plus the `id` that opens the file below |
+  | `queue.position` | 1 for the oldest waiting account; `null` once this one is decided |
+  | `queue.total` | How many accounts are waiting now |
+  | `queue.next_account_id` | The waiting account submitted next after this one, or the oldest when this is the newest; `null` when no other is waiting |
+
+- **A human's `street_address` is not sent.** The review compares the name, the age and the ID; the LoFi shows the
+  city only (SEC-PRIV-04). The contact number is shown to admins because verifying the account needs it
+  (SEC-PRIV-02).
+- **404** as above.
+
+### `GET /admin/verifications/{accountId}/documents/{documentId}`
+
+The file itself, read from the **private** disk and streamed through this endpoint. There is no public URL, signed
+URL or path for a verification document anywhere in the API (SEC-PRIV-01, SEC-FILE-04, NFR4).
+
+- **200** with the file as the body and:
+  - `Content-Type`: the stored `mime_type`, which is `image/jpeg`, `image/png` or `application/pdf` and nothing else
+    (SEC-FILE-01). The frontend refuses any other type (SEC-FE-09).
+  - `Content-Disposition: inline`, `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff`.
+- **404** when the document isn't one of that account's latest submission, the same answer as a document that
+  doesn't exist.
+- Errors are JSON like everywhere else. The frontend reads the file with `api.getFile()` (the session cookie, over
+  the CORS rules of every other endpoint) and shows it from memory.
+
+### `POST /admin/verifications/{accountId}/approve`
+
+- **Body:** none. Approving needs no reason (SEC-AUTHZ-07 lists the actions that do).
+- **200** with the same body as the `GET` above, now `status: "approved"`, `account_status: "active"`,
+  `reviewed_at`, `reviewed_by`, and `queue.position: null`.
+- **409** `{ "code": "verification_already_reviewed", "message": "This account was already approved by admin.mark." }`
+  when the submission is no longer pending (another admin decided first). The frontend shows the message and
+  reloads the page.
+- **404** as above.
+
+### `POST /admin/verifications/{accountId}/deny`
+
+- **Body** (JSON). `status`, `reviewed_by` and any other field are ignored (SEC-INPUT-04, SEC-AUTHZ-05):
+
+  | Field | Rules | 422 message |
+  | --- | --- | --- |
+  | `denial_reason` | required: `id_photo_unreadable` \| `name_mismatch` \| `id_expired` \| `under_18` \| `other` (FR33, SEC-AUTHZ-07) | `"Choose a reason."` |
+  | `message_to_owner` | text, trimmed, max 500; **required when the reason is `other`**, otherwise optional (`null` or left out) | `"Write a message so the owner knows what to correct."`, `"Keep the message to 500 characters or fewer."` |
+
+- **200** with the same body as the `GET`, now `status: "denied"`, `account_status: "denied"`, `denial_reason`,
+  `message_to_owner`, `reviewed_at` and `reviewed_by`. The owner reads the reason and the message on their Denied
+  screen (`GET /account-status`, `AU-20`), and can correct their details and resubmit (`AU-19`).
+- **409** and **404** as for approve.
+
+### For BE-08
+
+- Approve and deny are Actions in one transaction that locks the submission row, so two admins can't both decide
+  it: the second gets the 409. Each sets the submission's `status`, `reviewed_by_user_id` and `reviewed_at`, and the
+  account's status (FR27: no endpoint takes a `status`).
+- Each decision notifies the owner and writes an `activity_logs` entry: the admin, the action, the account, the
+  status before and after, and for a denial the reason (SEC-LOG-01, NFR9), without the documents or the contact
+  number (SEC-LOG-03). The logs are append-only (SEC-LOG-04).
+- The checklist on the review screen (`AU-23`) is the admin's working aid. It isn't sent or stored
+  (`security-guidelines.md` §12).
+- A human who turned 18 after signing up, or whose birthdate doesn't match the ID, is the admin's call: the age on
+  the screen is worked out from the submitted `birthdate`.
+- Seed a few Pending accounts for local development and the demo, with fake documents (SEC-PRIV-06), so the queue
+  has something to review.

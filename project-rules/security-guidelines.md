@@ -7,7 +7,7 @@
 | --- | --- |
 | **Owner** | The whole team; changes need review like any other rule |
 | **Applies to** | `frontend/`, `backend/`, database, deployment, and any new module or feature |
-| **Version** | 1.2 · 2026-10-03 — see the changelog at the end |
+| **Version** | 1.3 · 2026-10-04 — see the changelog at the end |
 
 ## 0. Baseline and cross-references
 
@@ -81,6 +81,7 @@ Review this table whenever a module is added or changed. New threats get the nex
 | T15 | Insecure deployment | Debug mode on in production; database open to the internet | SEC-DEPLOY-01…08 |
 | T16 | Open redirect | A phishing link `/sign-in?next=https://evil.example` sends a user to a fake site right after they sign in | SEC-FE-07 |
 | T17 | Client-side path traversal | A link to `/requests/..%2F..%2Fadmin%2Faccounts%2F5%2Fsuspend` makes the page send a signed-in write, CSRF token included, to another endpoint | SEC-FE-08 |
+| T18 | Active content in a served file | A file stored as an "ID" is really HTML or SVG; shown from a `blob:` address or in a new tab, its script runs as the admin's own page | SEC-FE-09, SEC-FILE-01 |
 
 ## 4. Architecture
 
@@ -134,6 +135,7 @@ Review this table whenever a module is added or changed. New threats get the nex
 - **SEC-FE-06 (SHOULD)** `proxy.ts` may redirect unauthenticated users early, but is never the only authorization check.
 - **SEC-FE-07 (MUST)** Redirect targets taken from the URL (e.g. `?next=` after sign-in) must be same-site paths; check them with `safeNextPath()` (`src/lib/auth/redirects.ts`) and fall back to the home page.
 - **SEC-FE-08 (MUST)** Build API paths that contain values with `apiPath` (`src/lib/api/core.ts`), which encodes each value; never splice route params or user input into a path string. The client refuses paths that `..`, `.`, `\`, `?` or `#` would change.
+- **SEC-FE-09 (MUST)** Read files the API serves (verification documents) with `api.getFile` and an `accept` list of the types the screen can show: JPG, PNG and PDF. The client refuses anything else. Show the file from memory (`blob:`), release it when the screen closes, and never give a document a URL of its own.
 
 ## 7. Backend, API and dependencies
 
@@ -222,6 +224,7 @@ Copy into the PR description for any feature that touches data, auth or files:
 - [ ] User content rendered as text; no `dangerouslySetInnerHTML` — SEC-FE-01
 - [ ] API paths with values built with `apiPath`; `?next=`-style redirects checked with `safeNextPath` — SEC-FE-07, SEC-FE-08
 - [ ] Uploads validated, renamed, stripped, stored in the right disk — SEC-FILE-01…05
+- [ ] Files from the API read with `api.getFile` and an allow-list of types, shown from memory only — SEC-FE-09
 - [ ] Abusable writes rate-limited — SEC-API-04
 - [ ] Admin actions require a reason and are logged — SEC-AUTHZ-07, SEC-LOG-01
 - [ ] Feature tests for: unauthenticated, wrong role, non-Active account, another user's record, invalid input
@@ -289,6 +292,8 @@ Update this table as risks are found, accepted or fixed.
 | 2026-09-28 | Production database and hosting not chosen | Apply §11 when the ADR is written |
 | 2026-10-01 | Frontend mock API mode (fixtures instead of Laravel) could hide missing server checks or ship to production | Development-only: forced off in production builds (`src/config/env.ts`); mocks enforce the same 401/403 gates; fixtures are fake (SEC-PRIV-06). ADR 0004 |
 | 2026-10-03 | LoFi `AU-19` shows the owner their current ID photo, but documents are admin-only (SEC-PRIV-01, NFR4) | The owner sees what was sent (kind, format, date), never the file; the API sends no path or URL for it. An owner preview would need its own authorized endpoint and a rule change here |
+| 2026-10-04 | The admin's checklist on `AU-23`/`AU-24` is ticked in the browser and isn't sent, so the API can't tell whether the checks were made | Accepted for the pilot: Approve asks for every check to be ticked first, and the decision is logged with the admin's name (SEC-LOG-01). Storing the checks would need a column and a rule change here |
+| 2026-10-04 | The document viewer (`AU-23`, `AU-24`) shows files from `blob:` addresses | When the Content-Security-Policy is written (SEC-DEPLOY-02), allow `blob:` in `img-src` and `frame-src` only |
 
 ## Changelog
 
@@ -297,3 +302,4 @@ Update this table as risks are found, accepted or fixed.
 | 1.0 | 2026-09-28 | First version, written during scaffolding |
 | 1.1 | 2026-10-01 | FE-04: threats T16 (open redirect) and T17 (client-side path traversal), rules SEC-FE-07 and SEC-FE-08; mock-mode decision in §12 |
 | 1.2 | 2026-10-03 | FE-08: decision in §12 that owners don't get their verification documents back on `AU-19` |
+| 1.3 | 2026-10-04 | FE-09: threat T18 (active content in a served file), rule SEC-FE-09 and its checklist line; decisions in §12 on the admin checklist and on `blob:` in the CSP |

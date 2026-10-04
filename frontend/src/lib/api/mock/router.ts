@@ -1,5 +1,6 @@
 import type { HttpMethod, Query } from "@/lib/api/core";
 import { ACCOUNT_NOT_ACTIVE_CODE } from "@/lib/api/errors";
+import type { MockDecisions } from "@/lib/api/mock/decisions";
 import type { MockPersonaId } from "@/lib/api/mock/personas";
 import type { Account } from "@/types/account";
 import type { Paginated } from "@/types/api";
@@ -15,6 +16,8 @@ export type MockContext = {
   query: Query;
   body: unknown;
   account: Account | null;
+  /** What the mock admin has decided so far (decisions.ts). */
+  decisions: MockDecisions;
 };
 
 export type MockResult = {
@@ -24,6 +27,10 @@ export type MockResult = {
   persona?: MockPersonaId;
   /** Seconds, sent as the Retry-After header (429 lockouts). */
   retryAfter?: number;
+  /** Answer with a file instead of JSON (the admin document endpoint). */
+  file?: { type: string; bytes: Uint8Array<ArrayBuffer> };
+  /** Remember the admin's decisions after an approve, a deny or a resubmission. */
+  decisions?: MockDecisions;
 };
 
 export type MockRoute = {
@@ -66,6 +73,7 @@ export function dispatch(
   routes: readonly MockRoute[],
   request: { method: HttpMethod; path: string; query?: Query; body?: unknown },
   account: Account | null,
+  decisions: MockDecisions = {},
 ): MockResult {
   const method = spoofedMethod(request) ?? request.method;
   for (const candidate of routes) {
@@ -74,7 +82,7 @@ export function dispatch(
     if (!params) continue;
     const denied = checkAccess(candidate.access, account);
     if (denied) return denied;
-    return candidate.handler({ params, query: request.query ?? {}, body: request.body, account });
+    return candidate.handler({ params, query: request.query ?? {}, body: request.body, account, decisions });
   }
   return fail(404, `No mock for ${method} ${request.path} yet. Add one in src/lib/api/mock/handlers/.`);
 }

@@ -20,6 +20,15 @@ export type RequestOptions = {
   skipAuthRedirect?: boolean;
 };
 
+export type FileRequestOptions = RequestOptions & {
+  /**
+   * The media types the caller can show safely, e.g. `["image/jpeg", "image/png", "application/pdf"]`. Any other
+   * answer is refused: a file shown from a blob: URL runs with this site's origin, so an HTML or SVG file stored as
+   * an "ID" must never get that far (SEC-FE-09).
+   */
+  accept: readonly string[];
+};
+
 export type TransportRequest = {
   method: HttpMethod;
   /** Path under /api/v1, starting with "/", e.g. "/adoption-requests/12/approve". */
@@ -28,11 +37,13 @@ export type TransportRequest = {
   /** A plain object is sent as JSON; FormData is sent as multipart (uploads). */
   body?: unknown;
   signal?: AbortSignal;
+  /** `blob` when a 2xx answer is a file to hand over as it is. Errors are JSON either way. Default `json`. */
+  responseType?: "json" | "blob";
 };
 
 export type TransportResponse = {
   status: number;
-  /** Parsed JSON, or null when the response had no JSON body. */
+  /** Parsed JSON, a Blob when one was asked for, or null when the response had no body to read. */
   body: unknown;
   retryAfter: string | null;
 };
@@ -45,6 +56,8 @@ export type ApiClient = {
   put<T = void>(path: string, body?: unknown, options?: RequestOptions): Promise<T>;
   patch<T = void>(path: string, body?: unknown, options?: RequestOptions): Promise<T>;
   delete<T = void>(path: string, options?: RequestOptions): Promise<T>;
+  /** A file the API serves to this account only (verification documents). Resolves to a Blob of an accepted type. */
+  getFile(path: string, options: FileRequestOptions): Promise<Blob>;
 };
 
 export type ApiErrorListener = (error: ApiError) => void;
@@ -60,11 +73,12 @@ export function createApiClient(transport: Transport, { onError }: ClientOptions
     path: string,
     body: unknown,
     { query, signal, skipAuthRedirect = false }: RequestOptions = {},
+    responseType: TransportRequest["responseType"] = "json",
   ): Promise<T> {
     assertSafePath(path);
     let response: TransportResponse;
     try {
-      response = await transport({ method, path, query, body, signal });
+      response = await transport({ method, path, query, body, signal, responseType });
     } catch (cause) {
       // The caller cancelled the request (or its own timeout fired): not an error to show, so pass it on as-is.
       if (signal?.aborted || isAbortError(cause)) throw cause;
@@ -83,7 +97,18 @@ export function createApiClient(transport: Transport, { onError }: ClientOptions
     throw error;
   }
 
+  async function getFile(path: string, { accept, ...options }: FileRequestOptions): Promise<Blob> {
+    const file = await request<unknown>("GET", path, undefined, options, "blob");
+    const type = file instanceof Blob ? mediaType(file.type) : "";
+    if (!(file instanceof Blob) || !accept.includes(type)) {
+      throw new ApiError({ kind: "server", status: 200, message: "We couldn't open that file." });
+    }
+    // A copy that carries the checked type and nothing else, so that is the type the browser shows it as.
+    return file.slice(0, file.size, type);
+  }
+
   return {
+    getFile,
     get: (path, options) => request("GET", path, undefined, options),
     post: (path, body, options) => request("POST", path, body, options),
     put: (path, body, options) => request("PUT", path, body, options),
@@ -149,6 +174,11 @@ export function encodeBody(body: unknown, headers: Headers): BodyInit | undefine
   if (body instanceof FormData) return body;
   headers.set("Content-Type", "application/json");
   return JSON.stringify(body);
+}
+
+/** "image/jpeg" from "Image/JPEG; charset=binary": the type without its parameters, in lower case. */
+function mediaType(contentType: string): string {
+  return contentType.split(";")[0].trim().toLowerCase();
 }
 
 export async function readBody(response: Response): Promise<unknown> {

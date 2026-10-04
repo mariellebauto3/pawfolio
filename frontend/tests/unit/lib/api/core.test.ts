@@ -146,3 +146,42 @@ describe("cancellation and bugs are not reported as network errors", () => {
     await expect(client.get("/pets")).rejects.toBe(bug);
   });
 });
+
+describe("files served by the API (SEC-FE-09)", () => {
+  const ACCEPT = ["image/jpeg", "image/png", "application/pdf"];
+  const file = (type: string) => answer(200, new Blob(["bytes"], { type }));
+
+  it("asks the transport for a blob and returns it", async () => {
+    const transport = vi.fn(file("image/png"));
+    const blob = await createApiClient(transport).getFile("/admin/verifications/4/documents/41", { accept: ACCEPT });
+    expect(transport).toHaveBeenCalledWith(expect.objectContaining({ method: "GET", responseType: "blob" }));
+    expect(blob.type).toBe("image/png");
+    await expect(blob.text()).resolves.toBe("bytes");
+  });
+
+  it("keeps the checked type only, without its parameters", async () => {
+    const blob = await createApiClient(file("Application/PDF; charset=binary")).getFile("/x", { accept: ACCEPT });
+    expect(blob.type).toBe("application/pdf");
+  });
+
+  it("refuses a file of a type the caller can't show safely", async () => {
+    for (const type of ["text/html", "image/svg+xml", "application/javascript", ""]) {
+      await expect(createApiClient(file(type)).getFile("/x", { accept: ACCEPT })).rejects.toMatchObject({
+        kind: "server",
+        message: "We couldn't open that file.",
+      });
+    }
+  });
+
+  it("refuses an answer that isn't a file", async () => {
+    await expect(createApiClient(answer(200, { data: {} })).getFile("/x", { accept: ACCEPT })).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it("reports a refused request like any other call", async () => {
+    const onError = vi.fn();
+    const client = createApiClient(answer(404, { message: "Not found." }), { onError });
+    await expect(client.getFile("/x", { accept: ACCEPT })).rejects.toMatchObject({ kind: "not_found" });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(() => client.getFile("/x/../y", { accept: ACCEPT })).rejects.toThrow("Unsafe API path");
+  });
+});

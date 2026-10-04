@@ -35,7 +35,8 @@ export function createServerTransport({ apiUrl, cookie, origin, fetch }: ServerT
 
     return {
       status: response.status,
-      body: await readBody(response),
+      // A file is handed over as it is; an error is JSON whatever was asked for.
+      body: request.responseType === "blob" && response.ok ? await response.blob() : await readBody(response),
       retryAfter: response.headers.get("Retry-After"),
     };
   };

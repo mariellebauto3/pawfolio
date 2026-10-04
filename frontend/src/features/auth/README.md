@@ -20,7 +20,8 @@ Sign-up, sign-in and the admin verification gate. Every new Pet and Human accoun
 
 ## Screens, dialogs and states to build
 
-Built: AU-01 to AU-06 (FE-06), AU-07 to AU-17 (FE-07) and AU-18 to AU-21 (FE-08). Endpoints: `docs/api/auth.md`.
+Built: AU-01 to AU-06 (FE-06), AU-07 to AU-17 (FE-07), AU-18 to AU-21 (FE-08) and AU-22 to AU-26 (FE-09).
+Endpoints: `docs/api/auth.md`.
 
 **Sign-up wizards (FE-07).** `forms/pet-sign-up-wizard.tsx` and `forms/human-sign-up-wizard.tsx` share
 `hooks/use-sign-up-wizard.ts`: typed values stay in React state only (no browser storage, no URL: SEC-FE-04), so a
@@ -39,6 +40,21 @@ use (`components/*-fields.tsx`) and the same checks (`schemas/submission-schemas
 leaving one out keeps the one on file. Saving returns to `/account-status` with a toast, Pending again. The owner
 never gets their documents back, only what was sent and when (SEC-PRIV-01). The endpoints are not built yet (BE-06),
 so the screens run against the mock.
+
+**Admin verification (FE-09).** Both pages are Server Components that read from the admin endpoints
+(`api/verification-review.ts`); the admin layout reads the queue size for the sidebar. `/admin/verification`
+(`AU-22`) renders `components/verification-queue.tsx`: the tabs All / Pet / Human, the search by name
+(`components/verification-search.tsx`) and the pages all live in the URL (`?tab=pet&q=carla&page=2`).
+`/admin/verification/[accountId]` (`AU-23`, `AU-24`) renders `components/verification-review-screen.tsx`: the
+submitted details, the documents and the decision, with the earlier denial on a resubmission and the place in the
+queue with Next. `components/review-documents.tsx` loads each file through the admin endpoint with
+`hooks/use-document-file.ts` and shows it from memory; `dialogs/document-viewer.tsx` opens it full size. No URL to a
+document exists, and only a JPG, PNG or PDF is ever shown (SEC-PRIV-01, SEC-FE-09). `components/review-decision.tsx`
+holds the checklist (a working aid: every check must be ticked before Approve, nothing is sent), Approve (`AU-26`
+toast) and `dialogs/deny-account-dialog.tsx` (`AU-25`: a reason is required, and a message when the reason is
+"Other"; rules in `src/lib/auth/verification-review.ts`). After a decision the page reloads what the API says: the
+outcome, the status badge and the sidebar count. The endpoints are not built yet (BE-08), so the screens run against
+the mock as the `admin` persona; the mock remembers decisions, so an approved owner can sign in to the member shell.
 
 | ID | Name | Type | Role | Route (planned) |
 | --- | --- | --- | --- | --- |

@@ -30,6 +30,7 @@ Frontend client: `frontend/src/lib/api/` ([ADR 0004](../decisions/0004-api-clien
 | One item | `{ "data": { … } }` |
 | List | `{ "data": [ … ], "meta": { current_page, last_page, per_page, total, from, to, path }, "links": { first, last, prev, next } }`. Always paginated: default 20, max 50 (SEC-API-05) |
 | No content | `204` with an empty body |
+| A file | The file as the body, with its `Content-Type`. Only the admin document endpoint answers this way (`auth.md`); the frontend reads it with `api.getFile()` |
 
 Field names are `snake_case`. Dates are ISO 8601 strings in UTC. Statuses are the `snake_case` enum values.
 

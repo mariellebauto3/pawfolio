@@ -40,6 +40,11 @@ export const ROUTES = {
   adminActivityLogs: "/admin/activity-logs",
 } as const;
 
+/** One account's review page, opened from the verification queue (AU-23, AU-24). */
+export function adminVerificationReviewPath(accountId: number): string {
+  return `${ROUTES.adminVerification}/${accountId}`;
+}
+
 /**
  * Section ids on the landing page (AU-01), linked from the guest top bar and footer. The landing page must give its
  * sections these ids.

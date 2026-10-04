@@ -1,9 +1,8 @@
 import { Icon } from "@/components/ui/icon";
+import { DOCUMENT_FORMAT_LABELS } from "@/constants/verification";
 import { summarizeDocuments } from "@/lib/auth/account-status";
 import { formatDate } from "@/lib/utils/format-date";
 import type { SubmittedDocument } from "@/types/account-status";
-
-const FORMATS: Record<string, string> = { "image/jpeg": "JPG", "image/png": "PNG", "application/pdf": "PDF" };
 
 type Props = {
   /** "Current ID", "Current photos". */
@@ -17,7 +16,7 @@ type Props = {
 // and when, not the file.
 export function CurrentDocuments({ label, documents }: Props) {
   const [first] = documents;
-  const formats = [...new Set(documents.map((document) => FORMATS[document.mime_type]).filter(Boolean))].join(", ");
+  const formats = [...new Set(documents.map((document) => DOCUMENT_FORMAT_LABELS[document.mime_type]).filter(Boolean))].join(", ");
 
   return (
     <div className="flex flex-col gap-1.5">

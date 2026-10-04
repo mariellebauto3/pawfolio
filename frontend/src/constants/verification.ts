@@ -23,3 +23,10 @@ export const VERIFICATION_DOCUMENT_LABELS = {
   pet_photo: "Pet photo",
   vet_record_or_certificate: "Vet record",
 } as const satisfies Record<VerificationDocumentType, string>;
+
+/** How a submitted file's format is written, by media type. */
+export const DOCUMENT_FORMAT_LABELS: Record<string, string> = {
+  "image/jpeg": "JPG",
+  "image/png": "PNG",
+  "application/pdf": "PDF",
+};
