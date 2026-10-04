@@ -11,7 +11,6 @@ class PetSpecialNeedRow extends Model
     protected $table = 'pet_special_needs';
 
     protected $fillable = [
-        'pet_id',
         'need',
     ];
 

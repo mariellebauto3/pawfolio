@@ -4,19 +4,19 @@ namespace App\Models;
 
 use App\Enums\ReportAction as ReportActionEnum;
 use App\Enums\ReportTargetType;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ReportAction extends Model
 {
+    use HasFactory;
+
     protected $table = 'report_actions';
 
     protected $fillable = [
-        'admin_user_id',
         'target_type',
-        'reported_user_id',
-        'post_id',
-        'comment_id',
         'action',
         'reason',
         'notify_reporters',
@@ -51,13 +51,18 @@ class ReportAction extends Model
         return $this->belongsTo(Comment::class);
     }
 
+    public function reports(): HasMany
+    {
+        return $this->hasMany(Report::class, 'report_action_id');
+    }
+
     public function getAction(): ReportActionEnum
     {
-        return ReportActionEnum::tryFrom($this->action) ?: ReportActionEnum::Dismiss;
+        return ReportActionEnum::tryFrom((string) $this->action) ?: ReportActionEnum::Dismiss;
     }
 
     public function getTargetType(): ReportTargetType
     {
-        return ReportTargetType::tryFrom($this->target_type) ?: ReportTargetType::Profile;
+        return ReportTargetType::tryFrom((string) $this->target_type) ?: ReportTargetType::Profile;
     }
 }

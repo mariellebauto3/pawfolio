@@ -16,7 +16,7 @@ class ActivityLogFactory extends Factory
     public function definition(): array
     {
         return [
-            'actor_user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['actor_user_id'] ?? null),
+            'actor_user_id' => UserFactory::new(),
             'type' => ActivityLogType::System->value,
             'action' => 'Example action',
             'subject_type' => null,
@@ -34,7 +34,7 @@ class ActivityLogFactory extends Factory
             'type' => ActivityLogType::Verification->value,
             'action' => 'verified',
             'subject_type' => 'App\\Models\\User',
-            'subject_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['subject_id'] ?? null),
+            'subject_id' => UserFactory::new(),
             'before_value' => null,
             'after_value' => 'active',
             'reason' => 'Admin approved the verification submission',
@@ -47,7 +47,7 @@ class ActivityLogFactory extends Factory
             'type' => ActivityLogType::Account->value,
             'action' => 'changed password',
             'subject_type' => 'App\\Models\\User',
-            'subject_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['subject_id'] ?? null),
+            'subject_id' => UserFactory::new(),
             'before_value' => null,
             'after_value' => null,
             'reason' => null,
@@ -61,7 +61,7 @@ class ActivityLogFactory extends Factory
             'type' => ActivityLogType::StatusChange->value,
             'action' => 'status changed',
             'subject_type' => 'App\\Models\\User',
-            'subject_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['subject_id'] ?? null),
+            'subject_id' => UserFactory::new(),
             'before_value' => 'pending_verification',
             'after_value' => 'active',
             'reason' => 'Admin approved',

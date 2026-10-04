@@ -17,8 +17,8 @@ class MeetAndGreetFactory extends Factory
     public function definition(): array
     {
         return [
-            'adoption_request_id' => AdoptionRequestFactory::new()->sequence(fn (array $attrs) => $attrs['adoption_request_id'] ?? null),
-            'meet_greet_slot_id' => MeetGreetSlotFactory::new()->sequence(fn (array $attrs) => $attrs['meet_greet_slot_id'] ?? null),
+            'adoption_request_id' => AdoptionRequestFactory::new(),
+            'meet_greet_slot_id' => MeetGreetSlotFactory::new(),
             'status' => MeetAndGreetStatus::Booked->value,
             'booked_at' => now(),
             'confirmed_at' => null,
@@ -43,7 +43,7 @@ class MeetAndGreetFactory extends Factory
         return $this->state(fn (array $attrs) => [
             'status' => MeetAndGreetStatus::Ended->value,
             'ended_at' => now(),
-            'ended_by_user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['ended_by_user_id'] ?? null),
+            'ended_by_user_id' => UserFactory::new(),
             'end_reason' => fake()->randomElement([MeetAndGreetEndReason::ScheduleConflict->value, MeetAndGreetEndReason::Other->value, MeetAndGreetEndReason::PetUnwell->value]),
             'end_details' => fake()->sentence(),
         ]);

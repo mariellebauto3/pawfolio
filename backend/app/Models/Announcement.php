@@ -3,20 +3,21 @@
 namespace App\Models;
 
 use App\Enums\AnnouncementAudience;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Announcement extends Model
 {
+    use HasFactory;
+
     protected $table = 'announcements';
 
     protected $fillable = [
-        'admin_user_id',
         'title',
         'message',
         'audience',
         'publish_at',
-        'published_at',
     ];
 
     protected $casts = [
@@ -33,7 +34,7 @@ class Announcement extends Model
 
     public function audience(): AnnouncementAudience
     {
-        return AnnouncementAudience::tryFrom($this->audience) ?: AnnouncementAudience::Everyone;
+        return AnnouncementAudience::tryFrom((string) $this->audience) ?: AnnouncementAudience::Everyone;
     }
 
     public function isPublished(): bool
@@ -41,18 +42,21 @@ class Announcement extends Model
         return $this->published_at !== null;
     }
 
-    public function isAllAudience(): bool
+    public function isScheduled(): bool
     {
-        return $this->audience() === AnnouncementAudience::Everyone;
+        return $this->publish_at !== null && $this->published_at === null;
     }
 
-    public function isPetsAudience(): bool
+    public function scopePublished($query)
     {
-        return $this->audience() === AnnouncementAudience::Pets;
+        return $query->whereNotNull('published_at');
     }
 
-    public function isHumansAudience(): bool
+    public function scopeDue($query)
     {
-        return $this->audience() === AnnouncementAudience::Humans;
+        return $query->whereNull('published_at')
+            ->where(function ($q) {
+                $q->whereNull('publish_at')->orWhere('publish_at', '<=', now());
+            });
     }
 }

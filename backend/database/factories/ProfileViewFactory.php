@@ -16,9 +16,9 @@ class ProfileViewFactory extends Factory
     public function definition(): array
     {
         return [
-            'viewer_user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['viewer_user_id'] ?? null),
-            'pet_id' => PetFactory::new()->sequence(fn (array $attrs) => $attrs['pet_id'] ?? null),
-            'home_profile_id' => HomeProfileFactory::new()->sequence(fn (array $attrs) => $attrs['home_profile_id'] ?? null),
+            'viewer_user_id' => UserFactory::new(),
+            'pet_id' => PetFactory::new(),
+            'home_profile_id' => HomeProfileFactory::new(),
             'source' => ProfileViewSource::Browse->value,
         ];
     }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\EncryptedOrPlaintext;
 use App\Enums\PetEnergyLevel;
 use App\Enums\PetExperienceNeeded;
 use App\Enums\PetGoodWith;
@@ -10,41 +11,11 @@ use App\Enums\PetSize;
 use App\Enums\PetSpaceNeeds;
 use App\Enums\PetStatus;
 use App\Enums\PetTimeAlone;
-use App\Enums\PetSpecialNeed;
-use App\Enums\PetSkill;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-
-/** @property int $id */
-/** @property int $user_id */
-/** @property string|null $name */
-/** @property string $species */
-/** @property string|null $breed */
-/** @property int|null $approximate_age_months */
-/** @property string|null $sex */
-/** @property string|null $size */
-/** @property string|null $currently_at */
-/** @property string|null $city */
-/** @property string|null $province */
-/** @property string|null $caretaker_name */
-/** @property string|null $caretaker_contact_number */
-/** @property string|null $bio */
-/** @property string|null $energy_level */
-/** @property string|null $good_with_kids */
-/** @property string|null $good_with_dogs */
-/** @property string|null $good_with_cats */
-/** @property string|null $time_alone */
-/** @property string|null $space_needs */
-/** @property string|null $experience_needed */
-/** @property string|null $health_notes */
-/** @property string|null $cover_photo_path */
-/** @property string $status */
-/** @property string|null $published_at */
-/** @property \Illuminate\Support\Carbon|null $created_at */
-/** @property \Illuminate\Support\Carbon|null $updated_at */
 
 class Pet extends Model
 {
@@ -55,7 +26,6 @@ class Pet extends Model
     protected $table = self::TABLE;
 
     protected $fillable = [
-        'user_id',
         'name',
         'species',
         'breed',
@@ -77,8 +47,6 @@ class Pet extends Model
         'experience_needed',
         'health_notes',
         'cover_photo_path',
-        'status',
-        'published_at',
     ];
 
     protected $casts = [
@@ -96,6 +64,7 @@ class Pet extends Model
         'experience_needed' => PetExperienceNeeded::class,
         'status' => PetStatus::class,
         'published_at' => 'datetime',
+        'caretaker_contact_number' => EncryptedOrPlaintext::class,
     ];
 
     public function user(): BelongsTo
@@ -105,7 +74,7 @@ class Pet extends Model
 
     public function photos(): HasMany
     {
-        return $this->hasMany(PetPhoto::class);
+        return $this->hasMany(PetPhoto::class)->orderBy('sort_order');
     }
 
     public function temperamentTags(): HasMany
@@ -128,9 +97,34 @@ class Pet extends Model
         return $this->hasMany(PetVetRecord::class);
     }
 
-    public function adoption(): ?HasOne
+    public function adoptionRequests(): HasMany
     {
-        return $this->hasOne(Adoption::class);
+        return $this->hasMany(AdoptionRequest::class);
+    }
+
+    public function invites(): HasMany
+    {
+        return $this->hasMany(Invite::class);
+    }
+
+    public function matchScores(): HasMany
+    {
+        return $this->hasMany(MatchScore::class);
+    }
+
+    public function bookmarks(): HasMany
+    {
+        return $this->hasMany(Bookmark::class);
+    }
+
+    public function profileViews(): HasMany
+    {
+        return $this->hasMany(ProfileView::class);
+    }
+
+    public function adoption(): HasOne
+    {
+        return $this->hasOne(Adoption::class)->whereNull('link_removed_at');
     }
 
     public function adoptions(): HasMany
@@ -138,21 +132,42 @@ class Pet extends Model
         return $this->hasMany(Adoption::class);
     }
 
-    public function publishedAdoption(): ?HasOne
+    public function publishedAdoption(): HasOne
     {
-        return $this->hasOne(Adoption::class)->whereNotNull('adopted_at');
+        return $this->hasOne(Adoption::class)->whereNotNull('adopted_at')->whereNull('link_removed_at');
+    }
+
+    public function resolutions(): HasMany
+    {
+        return $this->hasMany(AdoptionResolution::class);
+    }
+
+    public function scopeLookingForAHome($query)
+    {
+        return $query->where('status', PetStatus::LookingForAHome);
     }
 
     public function scopeActiveForAdoption($query)
     {
         return $query->where('status', PetStatus::LookingForAHome)
-            ->where('published_at', '<=', now())
-            ->whereNull('cover_photo_path');
+            ->whereNotNull('published_at');
+    }
+
+    public function getStatusEnum(): PetStatus
+    {
+        return $this->status instanceof PetStatus
+            ? $this->status
+            : (PetStatus::tryFrom((string) $this->status) ?: PetStatus::Draft);
+    }
+
+    public function getStatus(): PetStatus
+    {
+        return $this->getStatusEnum();
     }
 
     public function isPublished(): bool
     {
-        return $this->status === PetStatus::LookingForAHome
+        return $this->getStatusEnum() === PetStatus::LookingForAHome
             && $this->published_at !== null;
     }
 }

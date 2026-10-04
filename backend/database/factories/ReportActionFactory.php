@@ -16,9 +16,9 @@ class ReportActionFactory extends Factory
     public function definition(): array
     {
         return [
-            'admin_user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['admin_user_id'] ?? null),
+            'admin_user_id' => UserFactory::new(),
             'target_type' => ReportTargetType::Profile->value,
-            'reported_user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['reported_user_id'] ?? null),
+            'reported_user_id' => UserFactory::new(),
             'post_id' => null,
             'comment_id' => null,
             'action' => ReportActionEnum::RemoveContent->value,

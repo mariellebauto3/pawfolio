@@ -2,18 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Bookmark extends Model
 {
+    use HasFactory;
+
     protected $table = 'bookmarks';
 
-    protected $fillable = [
-        'user_id',
-        'pet_id',
-        'home_profile_id',
-    ];
+    protected $fillable = [];
 
     protected $casts = [
         'id' => 'integer',
@@ -37,12 +36,12 @@ class Bookmark extends Model
         return $this->belongsTo(HomeProfile::class);
     }
 
-    public function isOnPet(): bool
+    public function isPetBookmark(): bool
     {
         return $this->pet_id !== null;
     }
 
-    public function isOnHome(): bool
+    public function isHomeBookmark(): bool
     {
         return $this->home_profile_id !== null;
     }

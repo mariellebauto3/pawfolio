@@ -15,7 +15,7 @@ class NotificationPreferenceFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['user_id'] ?? null),
+            'user_id' => UserFactory::new(),
             'requests_and_invites' => true,
             'meet_and_greets' => true,
             'post_activity' => true,

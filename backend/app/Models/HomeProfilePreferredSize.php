@@ -11,7 +11,6 @@ class HomeProfilePreferredSize extends Model
     protected $table = 'home_profile_preferred_sizes';
 
     protected $fillable = [
-        'home_profile_id',
         'size',
     ];
 

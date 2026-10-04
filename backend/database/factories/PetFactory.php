@@ -10,8 +10,8 @@ use App\Enums\PetSize;
 use App\Enums\PetSpaceNeeds;
 use App\Enums\PetStatus;
 use App\Enums\PetTimeAlone;
-use App\Enums\PetSpecialNeed;
 use App\Models\Pet;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -24,19 +24,19 @@ class PetFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['user_id'] ?? null),
-            'name' => fake()->words(2, true),
+            'user_id' => User::factory()->petAccount(),
+            'name' => fake()->firstName(),
             'species' => fake()->randomElement(['dog', 'cat', 'other']),
-            'breed' => fake()->optional()->word(),
+            'breed' => 'Aspin',
             'approximate_age_months' => fake()->numberBetween(1, 120),
             'sex' => fake()->randomElement([PetSex::Female->value, PetSex::Male->value]),
             'size' => fake()->randomElement([PetSize::Small->value, PetSize::Medium->value, PetSize::Large->value]),
-            'currently_at' => fake()->optional()->word(),
-            'city' => fake()->cityName(),
-            'province' => fake()->word(),
+            'currently_at' => 'Foster home',
+            'city' => 'Quezon City',
+            'province' => 'Metro Manila',
             'caretaker_name' => fake()->name(),
-            'caretaker_contact_number' => '09' . fake()->numerify('### ### ###'),
-            'bio' => fake()->optional()->paragraph(),
+            'caretaker_contact_number' => '09'.fake()->numerify('#########'),
+            'bio' => fake()->paragraph(),
             'energy_level' => fake()->randomElement([PetEnergyLevel::Low->value, PetEnergyLevel::Medium->value, PetEnergyLevel::High->value]),
             'good_with_kids' => fake()->randomElement([PetGoodWith::Yes->value, PetGoodWith::No->value, PetGoodWith::Unknown->value]),
             'good_with_dogs' => fake()->randomElement([PetGoodWith::Yes->value, PetGoodWith::No->value, PetGoodWith::Unknown->value]),
@@ -44,16 +44,24 @@ class PetFactory extends Factory
             'time_alone' => fake()->randomElement([PetTimeAlone::UpTo2Hrs->value, PetTimeAlone::UpTo4Hrs->value, PetTimeAlone::UpTo6Hrs->value, PetTimeAlone::EightPlusHrs->value]),
             'space_needs' => fake()->randomElement([PetSpaceNeeds::ApartmentOk->value, PetSpaceNeeds::NeedsYardOrDailyWalks->value, PetSpaceNeeds::GroundFloor->value]),
             'experience_needed' => fake()->randomElement([PetExperienceNeeded::FirstTimeOk->value, PetExperienceNeeded::SomeExperience->value, PetExperienceNeeded::ExperiencedOnly->value]),
-            'health_notes' => fake()->optional()->sentence(),
-            'cover_photo_path' => fake()->optional()->word(),
+            'health_notes' => fake()->sentence(),
+            'cover_photo_path' => null,
             'status' => PetStatus::Draft->value,
             'published_at' => null,
         ];
     }
 
+    public function draft(): static
+    {
+        return $this->state(fn () => [
+            'status' => PetStatus::Draft->value,
+            'published_at' => null,
+        ]);
+    }
+
     public function lookingForAHome(): static
     {
-        return $this->state(fn (array $attrs) => [
+        return $this->state(fn () => [
             'status' => PetStatus::LookingForAHome->value,
             'published_at' => now(),
         ]);
@@ -61,9 +69,9 @@ class PetFactory extends Factory
 
     public function adopted(): static
     {
-        return $this->state(fn (array $attrs) => [
+        return $this->state(fn () => [
             'status' => PetStatus::AdoptedHired->value,
-            'published_at' => null,
+            'published_at' => now()->subMonth(),
         ]);
     }
 }

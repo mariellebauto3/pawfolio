@@ -16,7 +16,7 @@ class MeetGreetSlotFactory extends Factory
     public function definition(): array
     {
         return [
-            'home_profile_id' => HomeProfileFactory::new()->sequence(fn (array $attrs) => $attrs['home_profile_id'] ?? null),
+            'home_profile_id' => HomeProfileFactory::new(),
             'starts_at' => now()->addDays(fake()->numberBetween(1, 30))->addHours(fake()->numberBetween(9, 17))->addMinutes(fake()->numberBetween(0, 59)),
             'place_type' => MeetGreetPlaceType::PublicSpot->value,
             'place_details' => fake()->optional()->word(),

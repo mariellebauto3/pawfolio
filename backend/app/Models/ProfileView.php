@@ -3,17 +3,17 @@
 namespace App\Models;
 
 use App\Enums\ProfileViewSource;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProfileView extends Model
 {
+    use HasFactory;
+
     protected $table = 'profile_views';
 
     protected $fillable = [
-        'viewer_user_id',
-        'pet_id',
-        'home_profile_id',
         'source',
     ];
 
@@ -41,6 +41,6 @@ class ProfileView extends Model
 
     public function source(): ProfileViewSource
     {
-        return ProfileViewSource::tryFrom($this->source) ?: ProfileViewSource::Browse;
+        return ProfileViewSource::tryFrom((string) $this->source) ?: ProfileViewSource::Browse;
     }
 }

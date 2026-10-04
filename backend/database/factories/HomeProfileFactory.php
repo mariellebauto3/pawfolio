@@ -3,16 +3,13 @@
 namespace Database\Factories;
 
 use App\Enums\ActivityLevel;
-use App\Enums\AnnouncementAudience;
-use App\Enums\AcceptedSpecies;
-use App\Enums\HoursAway;
 use App\Enums\HomeType;
-use App\Enums\OtherPetType;
+use App\Enums\HoursAway;
+use App\Enums\OutdoorSpace;
 use App\Enums\PetExperience;
-use App\Enums\PetSex;
-use App\Enums\PetSize;
 use App\Enums\SpecialNeedsWillingness;
 use App\Models\HomeProfile;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -25,19 +22,19 @@ class HomeProfileFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['user_id'] ?? null),
+            'user_id' => User::factory()->humanAccount(),
             'full_name' => fake()->name(),
-            'birthdate' => fake()->optional()->date(),
-            'contact_number' => '09' . fake()->numerify('### ### ###'),
-            'city' => fake()->cityName(),
-            'province' => fake()->word(),
-            'street_address' => fake()->optional()->word(),
+            'birthdate' => '1992-05-14',
+            'contact_number' => '09'.fake()->numerify('#########'),
+            'city' => 'Quezon City',
+            'province' => 'Metro Manila',
+            'street_address' => fake()->streetAddress(),
             'headline' => fake()->optional()->sentence(),
             'about_home' => fake()->optional()->paragraph(),
-            'profile_photo_path' => fake()->optional()->word(),
-            'cover_photo_path' => fake()->optional()->word(),
+            'profile_photo_path' => null,
+            'cover_photo_path' => null,
             'home_type' => fake()->randomElement([HomeType::House->value, HomeType::Condo->value, HomeType::Apartment->value, HomeType::Townhouse->value]),
-            'outdoor_space' => fake()->randomElement([ActivityLevel::Relaxed->value, OutdoorSpace::None->value, OutdoorSpace::Balcony->value, ActivityLevel::Active->value]),
+            'outdoor_space' => fake()->randomElement([OutdoorSpace::None->value, OutdoorSpace::Balcony->value, OutdoorSpace::SmallYard->value, OutdoorSpace::LargeYard->value]),
             'activity_level' => fake()->randomElement([ActivityLevel::Relaxed->value, ActivityLevel::Moderate->value, ActivityLevel::Active->value, ActivityLevel::VeryActive->value]),
             'hours_away' => fake()->randomElement([HoursAway::ZeroToTwo->value, HoursAway::ThreeToFive->value, HoursAway::SixToEight->value, HoursAway::NinePlus->value]),
             'pet_experience' => fake()->randomElement([PetExperience::FirstTime->value, PetExperience::Some->value, PetExperience::Experienced->value]),
@@ -50,7 +47,7 @@ class HomeProfileFactory extends Factory
 
     public function openToAdopt(): static
     {
-        return $this->state(fn (array $attrs) => [
+        return $this->state(fn () => [
             'is_open_to_adopt' => true,
             'quiz_completed_at' => now(),
         ]);
@@ -58,9 +55,8 @@ class HomeProfileFactory extends Factory
 
     public function withQuizCompleted(): static
     {
-        return $this->state(fn (array $attrs) => [
+        return $this->state(fn () => [
             'quiz_completed_at' => now(),
-            'furparent_at' => null,
         ]);
     }
 }

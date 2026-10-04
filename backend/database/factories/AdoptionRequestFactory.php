@@ -16,10 +16,10 @@ class AdoptionRequestFactory extends Factory
     public function definition(): array
     {
         return [
-            'pet_id' => PetFactory::new()->sequence(fn (array $attrs) => $attrs['pet_id'] ?? null),
-            'home_profile_id' => HomeProfileFactory::new()->sequence(fn (array $attrs) => $attrs['home_profile_id'] ?? null),
+            'pet_id' => PetFactory::new(),
+            'home_profile_id' => HomeProfileFactory::new(),
             'status' => AdoptionRequestStatus::Sent->value,
-            'cover_letter' => fake()->optional()->paragraph(),
+            'cover_letter' => fake()->paragraph(),
             'caretaker_notes' => null,
             'approval_message' => null,
             'decline_reason' => null,

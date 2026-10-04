@@ -2,17 +2,18 @@
 
 namespace App\Models;
 
-use App\Enums\AccountAction;
+use App\Enums\AccountAction as AccountActionEnum;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AccountAction extends Model
 {
+    use HasFactory;
+
     protected $table = 'account_actions';
 
     protected $fillable = [
-        'user_id',
-        'performed_by_user_id',
         'action',
         'reason',
     ];
@@ -33,13 +34,10 @@ class AccountAction extends Model
         return $this->belongsTo(User::class, 'performed_by_user_id');
     }
 
-    public function scopeCreatedSince($query, $date)
+    public function getAction(): AccountActionEnum
     {
-        return $query->where('created_at', '>=', $date);
-    }
-
-    public function getAction(): AccountAction
-    {
-        return AccountAction::tryFrom($this->action) ?: AccountAction::Deactivate;
+        return $this->action instanceof AccountActionEnum
+            ? $this->action
+            : (AccountActionEnum::tryFrom((string) $this->action) ?: AccountActionEnum::Deactivate);
     }
 }

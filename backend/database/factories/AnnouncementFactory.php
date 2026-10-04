@@ -16,7 +16,7 @@ class AnnouncementFactory extends Factory
     public function definition(): array
     {
         return [
-            'admin_user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['admin_user_id'] ?? null),
+            'admin_user_id' => UserFactory::new(),
             'title' => fake()->sentence(),
             'message' => fake()->paragraph(),
             'audience' => AnnouncementAudience::Everyone->value,

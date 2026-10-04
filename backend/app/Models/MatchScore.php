@@ -2,16 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MatchScore extends Model
 {
+    use HasFactory;
+
     protected $table = 'match_scores';
 
     protected $fillable = [
-        'pet_id',
-        'home_profile_id',
         'score',
         'activity_points',
         'hours_away_points',
@@ -20,7 +21,6 @@ class MatchScore extends Model
         'size_age_points',
         'compatibility_points',
         'special_needs_points',
-        'calculated_at',
     ];
 
     protected $casts = [
