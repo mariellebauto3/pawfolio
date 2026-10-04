@@ -17,6 +17,18 @@ Copy `frontend/.env.example` to `frontend/.env.local`.
 Typed access: `import { env } from "@/config/env"`. It throws at startup on a malformed URL, or on plain `http` to a
 non-local host in production.
 
+### Running against the real API (`live`)
+
+- Start Laravel (`php artisan serve`) with this app's origin in its `SANCTUM_STATEFUL_DOMAINS` and
+  `CORS_ALLOWED_ORIGINS`, then set `NEXT_PUBLIC_API_MODE=live` and restart `npm run dev`.
+- Run `php artisan storage:link` once in `backend/`. Uploaded photos are served from
+  `${NEXT_PUBLIC_API_URL}/storage/…`; without the link they answer 404.
+- `next.config.ts` lets `next/image` load photos from that path and from nowhere else. A photo from another origin
+  needs its own entry there.
+- The demo accounts (`DemoSeeder`) all sign in with the password `password`, e.g. `mochi@example.com` (Active pet),
+  `kulit@example.com` (Pending), `carla.mendoza@example.com` (Denied), `biscuit@example.com` (Suspended),
+  `admin@example.com`. Local databases only.
+
 ## Calling the API
 
 ```ts

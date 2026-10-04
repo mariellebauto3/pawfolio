@@ -1,8 +1,8 @@
 # Auth & session endpoints
 
-Module 1, Authentication & Verification. **Status: built (BE-03)**, except the two sign-up endpoints (planned for
-BE-04), the account-status endpoints (BE-06, in progress) and the admin verification endpoints at the end (BE-08,
-planned). The frontend uses these through `frontend/src/lib/auth/` and `src/features/auth/api/`; the mock handlers in
+Module 1, Authentication & Verification. **Status: built (BE-03, BE-04, BE-06)** and checked against the frontend
+in live mode on 2026-10-04, except the admin verification endpoints at the end: BE-08 is built but doesn't follow
+that section yet. The frontend uses these through `frontend/src/lib/auth/` and `src/features/auth/api/`; the mock handlers in
 `frontend/src/lib/api/mock/handlers/` (`auth.ts`, `sign-up.ts`, `account-status.ts`, `admin-verification.ts`) answer
 the same way for mock mode. If anything here changes, update this
 file, the backend tests (`backend/tests/Feature/Auth/`), the mock and the types in the same PR.
@@ -97,10 +97,10 @@ The signed-in account. Used by `SessionProvider` and `proxy.ts`.
 
 ## Sign-up: `POST /api/v1/auth/sign-up/pet` and `POST /api/v1/auth/sign-up/human`
 
-`AU-08`…`AU-17`, FR1, FR18. **Status: planned (BE-04), not built yet.** The frontend wizards (FE-07) are built against
-this contract through the mock (`frontend/src/lib/api/mock/handlers/sign-up.ts`); BE-04 implements it, or changes
-this section, the mock, the client checks (`frontend/src/features/auth/schemas/sign-up-schemas.ts`,
-`frontend/src/lib/auth/sign-up-rules.ts`) and their tests in the same PR.
+`AU-08`…`AU-17`, FR1, FR18. **Status: built (BE-04).** The frontend wizards (FE-07) run against it, and the mock
+(`frontend/src/lib/api/mock/handlers/sign-up.ts`) answers the same way. A change here also changes the mock, the
+client checks (`frontend/src/features/auth/schemas/sign-up-schemas.ts`, `frontend/src/lib/auth/sign-up-rules.ts`)
+and the tests on both sides in the same PR.
 
 - **Who:** visitors only. A signed-in account gets **403** `"You're already signed in. Log out to create another
   account."`
@@ -164,6 +164,13 @@ Both endpoints:
 - Files are checked by content, renamed, and images re-encoded without EXIF (SEC-FILE-01…05). The ID, the vet record
   and the sign-up photos go to the **private** disk (SEC-PRIV-01, SEC-FILE-04); the frontend's own file checks are
   for quick feedback only.
+- **Not as written yet (found 2026-10-04):**
+  - The sign-up photos are stored on the **public** disk and become the pet's first gallery photos, so
+    `avatar_url` is set from sign-up. The ID and the vet record are private. To be settled with the BE-08 fix.
+  - A file's content is checked after every other field has passed, so a wrong file type or size comes back in a
+    422 of its own, not together with the other fields' errors.
+  - A text field over its length answers with Laravel's default wording. The wizard's inputs stop at the limit,
+    so the frontend never sends one.
 - **Pet photos are JPG or PNG only.** The LoFi's `AU-10` caption says "JPG, PNG, PDF", but SEC-FILE-01 keeps PDF for
   documents, so a PDF is refused as a photo.
 - **The "email already exists" message tells a visitor that an email has an account.** SEC-AUTH-05 names sign-in
@@ -175,10 +182,10 @@ Both endpoints:
 
 ## Account status: `GET /api/v1/account-status`
 
-`AU-18`, `AU-20`, `AU-21`, FR2, FR19, proposal §5.1. **Status: BE-06, not built yet.** The frontend screens (FE-08)
-are built against this contract through the mock (`frontend/src/lib/api/mock/handlers/account-status.ts`); BE-06
-implements it, or changes this section, the mock, the types (`frontend/src/types/account-status.ts`) and their tests
-in the same PR.
+`AU-18`, `AU-20`, `AU-21`, FR2, FR19, proposal §5.1. **Status: built (BE-06).** The frontend screens (FE-08) run
+against it, and the mock (`frontend/src/lib/api/mock/handlers/account-status.ts`) answers the same way. A change
+here also changes the mock, the types (`frontend/src/types/account-status.ts`) and the tests on both sides in the
+same PR.
 
 - **Who:** any signed-in account, **whatever its status**. Like `GET /auth/me`, it is exempt from the Active-only
   middleware (SEC-AUTHZ-06): it is how a blocked account learns why.
@@ -221,7 +228,7 @@ in the same PR.
 
 ## Submitted details: `GET` and `PATCH /api/v1/account/submission`
 
-`AU-19`, FR2, FR19. **Status: BE-06, not built yet** (see above).
+`AU-19`, FR2, FR19. **Status: built (BE-06)** (see above).
 
 - **Who:** a signed-in pet or human account that is **Pending Verification or Denied**. It is exempt from the
   Active-only middleware (SEC-AUTHZ-06). Anyone else (Active, Suspended, Deactivated, admins) gets **403**

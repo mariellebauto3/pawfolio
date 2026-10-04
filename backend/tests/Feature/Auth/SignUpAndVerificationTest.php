@@ -240,6 +240,53 @@ class SignUpAndVerificationTest extends TestCase
         $this->assertSame(AccountStatus::Active, $carla->fresh()->getStatus());
     }
 
+    public function test_a_human_resubmission_needs_the_id_type_and_a_refused_save_changes_nothing(): void
+    {
+        $this->postJson('/api/v1/auth/sign-up/human', [
+            'full_name' => 'Bea Navarro',
+            'birthdate' => '1991-02-14',
+            'contact_number' => '09175556666',
+            'city' => 'Pasig',
+            'province' => 'Metro Manila',
+            'street_address' => '5 Emerald Ave',
+            'id_type' => 'umid',
+            'valid_id' => UploadedFile::fake()->image('umid.jpg', 800, 600),
+            'email' => 'bea@example.com',
+            'password' => 'safePass123',
+            'password_confirmation' => 'safePass123',
+            'terms_accepted' => '1',
+        ])->assertCreated();
+
+        $bea = User::query()->where('email', 'bea@example.com')->firstOrFail();
+        $details = [
+            'full_name' => 'Bea Navarro',
+            'birthdate' => '1991-02-14',
+            'contact_number' => '09175556666',
+            'city' => 'Pasig',
+            'province' => 'Metro Manila',
+            'street_address' => '5 Emerald Ave',
+        ];
+
+        // The ID file may be left out to keep the one on file, but its type is still asked for (AU-19).
+        foreach ([$details, [...$details, 'id_type' => ''], [...$details, 'id_type' => 'library_card']] as $body) {
+            $this->actingAs($bea)->patchJson('/api/v1/account/submission', $body)
+                ->assertUnprocessable()
+                ->assertJsonPath('errors.id_type.0', 'Choose the type of ID.');
+        }
+
+        $this->assertSame(1, $bea->verificationSubmissions()->count());
+
+        $this->actingAs($bea)->patchJson('/api/v1/account/submission', [...$details, 'id_type' => 'passport'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'pending_verification');
+
+        $this->assertSame(2, $bea->verificationSubmissions()->count());
+        $this->actingAs($bea->fresh())->getJson('/api/v1/account-status')
+            ->assertOk()
+            ->assertJsonPath('data.documents.0.document_type', 'valid_id')
+            ->assertJsonPath('data.documents.0.id_type', 'passport');
+    }
+
     public function test_create_admin_artisan_command_creates_admin_account(): void
     {
         $this->artisan('pawfolio:create-admin', [
