@@ -20,23 +20,24 @@ class WriteNotification implements ShouldQueue
         $preference = $event->recipient->notificationPreference
             ?? new NotificationPreference;
 
-        $categories = match ($event->type) {
+        // Account and security notices (verification_approved, verification_denied,
+        // account_suspended, account_reactivated, report_outcome) always send (BE-10).
+        $categoryToggle = match ($event->type) {
             'request_received', 'request_approved', 'request_under_review',
-            'request_declined', 'invite_sent' => 'requests_and_invites',
-            'meet_greet_booked', 'meet_greet_cancelled' => 'meet_and_greets',
-            'verification_approved', 'verification_denied' => 'post_activity',
-            'account_action', 'announcement' => 'announcements',
+            'request_declined', 'request_withdrawn', 'request_expired',
+            'request_on_hold', 'invite_sent', 'invite_received',
+            'adoption_complete', 'not_adopted' => 'requests_and_invites',
+            'meet_greet_booked', 'meet_greet_confirmed', 'meet_greet_rescheduled',
+            'meet_greet_cancelled', 'meet_greet_reminder', 'decision_needed' => 'meet_and_greets',
+            'post_reaction', 'post_comment', 'comment_reply' => 'post_activity',
+            'announcement' => 'announcements',
             default => null,
         };
 
-        // SEC-AUTHZ-08 / announcement gate: the user must explicitly opt in to
-        // platform-wide messages (NT-08/09).
-        if ($categories !== null && ! $preference->{$categories}()) {
+        if ($categoryToggle !== null && ! $preference->{$categoryToggle}()) {
             return;
         }
 
-        // Guard: no raw PII in the title/body; the queue worker owns the
-        // plaintext delivery. The stored row carries the safe payload only.
         $this->notificationService->store(
             $event->recipient,
             $event->type,
