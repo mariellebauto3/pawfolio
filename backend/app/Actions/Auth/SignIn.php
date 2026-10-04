@@ -3,108 +3,83 @@
 namespace App\Actions\Auth;
 
 use App\Enums\AccountStatus;
-use App\Models\ActivityLog;
+use App\Enums\ActivityLogType;
 use App\Models\User;
-use Illuminate\Contracts\Cache\Repository as CacheStore;
-use Illuminate\Support\Facades\Cache;
+use App\Services\ActivityLogs\ActivityLogger;
+use Illuminate\Contracts\Cache\Repository as Cache;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 /**
- * Sign-in check (SEC-AUTH-04, SEC-AUTH-05, SEC-LOG-02). The controller logs the user in.
- *
- * - 5 failed attempts for one email from one IP pause sign-in for that pair for 15 minutes (SEC-AUTH-04, AU-03).
- *   Keyed on email + IP, so one shared IP (a school, an office) can't lock out everyone behind it.
- * - The caller gets one generic message whether the account exists (SEC-AUTH-05). A deactivated account is only
- *   told so after the right password, so the message reveals nothing to someone guessing.
- * - Successful, failed and locked-out attempts are written to activity_logs as `security` (SEC-LOG-02, LG-02),
- *   with the user agent and never the password.
- *
- * Attempt counters live in a cache store, injected so tests can use an isolated array store.
+ * Signs a user in and handles the 5-attempt, 15-minute lockout (AU-02, AU-03; SEC-AUTH-02, -03, -06, -09).
  */
 class SignIn
 {
-    public const MAX_ATTEMPTS = 5;
+    private const MAX_ATTEMPTS = 5;
 
-    public const LOCKOUT_SECONDS = 15 * 60;
+    private const LOCKOUT_SECONDS = 900;
 
-    public function __construct(
-        private readonly ?CacheStore $store = null,
-    ) {}
+    private const BAD_CREDENTIALS = "That email and password don't match. Try again.";
 
-    public function store(): CacheStore
+    private const CLOSED_ACCOUNT = 'This account was closed.';
+
+    public function __construct(private readonly Cache $cache) {}
+
+    public function __invoke(Request $request, string $email, string $password, bool $remember = false): User
     {
-        return $this->store ?? Cache::store();
-    }
+        $normalized = strtolower(trim($email));
+        $key = 'sign-in:'.sha1($normalized.'|'.$request->ip());
 
-    public function isLockedOut(string $email, string $ip): bool
-    {
-        return (int) $this->store()->get($this->key($email, $ip), 0) >= self::MAX_ATTEMPTS;
-    }
-
-    /** Seconds until a locked-out pair may try again (for Retry-After). */
-    public function secondsUntilUnlocked(string $email, string $ip): int
-    {
-        $lockedAt = (int) $this->store()->get($this->key($email, $ip).':at', 0);
-
-        return max(1, $lockedAt + self::LOCKOUT_SECONDS - time());
-    }
-
-    /**
-     * The user when the email and password match, otherwise null. A match on a deactivated account returns the
-     * user too: the controller turns it away with "This account was closed."
-     */
-    public function attempt(string $email, string $password, string $ip, ?string $userAgent): ?User
-    {
-        $user = User::whereEmail($email)->first();
-
-        if (! $user || ! Hash::check($password, $user->password)) {
-            $this->recordFailure($email, $ip, $user, $userAgent);
-
-            return null;
+        $until = (int) $this->cache->get("$key:until", 0);
+        if ($until > time()) {
+            throw new ThrottleRequestsException(headers: ['Retry-After' => max(1, $until - time())]);
         }
 
-        $this->store()->forget($this->key($email, $ip));
-        $this->store()->forget($this->key($email, $ip).':at');
+        $user = User::whereRaw('LOWER(email) = ?', [$normalized])->first();
 
-        $this->log($user, $user->status === AccountStatus::Deactivated ? 'sign_in_closed_account' : 'signed_in', $userAgent);
+        if (! $user || ! Hash::check($password, $user->password)) {
+            $tries = (int) $this->cache->get("$key:tries", 0) + 1;
+            $this->cache->put("$key:tries", $tries, self::LOCKOUT_SECONDS);
+            if ($tries >= self::MAX_ATTEMPTS) {
+                $this->cache->put("$key:until", time() + self::LOCKOUT_SECONDS, self::LOCKOUT_SECONDS);
+            }
+            $this->log($request, $user, 'sign_in_failed');
+
+            throw ValidationException::withMessages(['email' => [self::BAD_CREDENTIALS]]);
+        }
+
+        $this->cache->forget("$key:tries");
+        $this->cache->forget("$key:until");
+
+        // Deactivated accounts are told only after the right password, so email probing learns nothing (SEC-AUTH-03).
+        if ($user->getStatus() === AccountStatus::Deactivated) {
+            $this->log($request, $user, 'sign_in_refused_deactivated');
+
+            throw ValidationException::withMessages(['email' => [self::CLOSED_ACCOUNT]]);
+        }
+
+        Auth::guard('web')->login($user, $remember);
+
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+        }
+
+        $this->log($request, $user, 'signed_in');
 
         return $user;
     }
 
-    private function recordFailure(string $email, string $ip, ?User $user, ?string $userAgent): void
+    private function log(Request $request, ?User $user, string $action): void
     {
-        $key = $this->key($email, $ip);
-
-        // add() only sets a missing key; otherwise count one more. (Doing both counted every failure twice.)
-        if (! $this->store()->add($key, 1, self::LOCKOUT_SECONDS)) {
-            $this->store()->increment($key);
-        }
-
-        $attempts = (int) $this->store()->get($key, 0);
-        $lockedNow = $attempts === self::MAX_ATTEMPTS;
-        if ($lockedNow) {
-            $this->store()->put($key.':at', time(), self::LOCKOUT_SECONDS);
-        }
-
-        // Unknown emails are logged without the address, so the log can't be used to collect them.
-        $this->log($user, $lockedNow ? 'sign_in_locked_out' : 'sign_in_failed', $userAgent);
-    }
-
-    private function log(?User $user, string $action, ?string $userAgent): void
-    {
-        ActivityLog::create([
-            'actor_user_id' => $user?->id,
-            'type' => 'security',
-            'action' => $action,
-            'subject_type' => $user ? User::class : null,
-            'subject_id' => $user?->id,
-            'user_agent' => $userAgent !== null ? mb_substr($userAgent, 0, 255) : null,
-        ]);
-    }
-
-    private function key(string $email, string $ip): string
-    {
-        // Hash the email so the cache key isn't the raw address (defence in depth, not a secret).
-        return 'signin:'.sha1(mb_strtolower(trim($email))).':'.$ip;
+        ActivityLogger::log(
+            type: ActivityLogType::Security,
+            action: $action,
+            actor: $user,
+            subject: $user,
+            userAgent: $request->userAgent(),
+        );
     }
 }
