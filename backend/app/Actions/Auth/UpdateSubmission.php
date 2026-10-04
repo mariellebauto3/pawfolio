@@ -35,7 +35,7 @@ class UpdateSubmission
             /** @var list<UploadedFile> $photos */
             $photos = array_values($request->file('photos', []));
             foreach ($photos as $index => $photo) {
-                $storedPhotos[] = $this->uploads->storePublicPhoto($photo, 'pets/photos', "photos.{$index}");
+                $storedPhotos[] = $this->uploads->storePrivatePhoto($photo, 'verification/pet-photos', "photos.{$index}");
             }
         }
 
@@ -72,17 +72,6 @@ class UpdateSubmission
                 $pet->save();
 
                 $user->name = $pet->name;
-
-                if (! empty($storedPhotos)) {
-                    $pet->photos()->delete();
-                    foreach ($storedPhotos as $idx => $photoMeta) {
-                        $pet->photos()->create([
-                            'file_path' => $photoMeta['file_path'],
-                            'caption' => null,
-                            'sort_order' => $idx + 1,
-                        ]);
-                    }
-                }
 
                 if ($storedVetRecord !== null) {
                     $pet->vetRecords()->create([
