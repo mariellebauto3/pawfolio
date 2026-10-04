@@ -1,9 +1,13 @@
 import { XSRF_COOKIE, XSRF_HEADER, readCookie } from "@/lib/api/cookies";
 import { type Transport, baseHeaders, buildApiUrl, encodeBody, isWriteMethod, readBody } from "@/lib/api/core";
+import { networkError } from "@/lib/api/errors";
 
 // Talks to Laravel from the Next.js server (Server Components, proxy.ts) on behalf of the browser that made the
 // request: it forwards that browser's cookies, and sends our own origin so Sanctum treats the call as coming from
 // the first-party SPA. Cookies Laravel sets in its answer are not passed back to the browser, so use it to read.
+
+/** How long the Next.js server waits for Laravel to answer one call. */
+export const SERVER_CALL_TIMEOUT_MS = 10_000;
 
 export type ServerTransportDeps = {
   apiUrl: string;
@@ -12,9 +16,11 @@ export type ServerTransportDeps = {
   /** This frontend's origin, e.g. http://localhost:3000. Must be in Laravel's SANCTUM_STATEFUL_DOMAINS. */
   origin: string;
   fetch: typeof fetch;
+  /** Defaults to SERVER_CALL_TIMEOUT_MS. */
+  timeoutMs?: number;
 };
 
-export function createServerTransport({ apiUrl, cookie, origin, fetch }: ServerTransportDeps): Transport {
+export function createServerTransport({ apiUrl, cookie, origin, fetch, timeoutMs = SERVER_CALL_TIMEOUT_MS }: ServerTransportDeps): Transport {
   return async (request) => {
     const headers = baseHeaders();
     headers.set("Origin", origin);
@@ -25,13 +31,24 @@ export function createServerTransport({ apiUrl, cookie, origin, fetch }: ServerT
     const token = isWriteMethod(request.method) && cookie ? readCookie(cookie, XSRF_COOKIE) : null;
     if (token) headers.set(XSRF_HEADER, token);
 
-    const response = await fetch(buildApiUrl(apiUrl, request.path, request.query), {
-      method: request.method,
-      headers,
-      body,
-      signal: request.signal,
-      cache: "no-store",
-    });
+    // A page waits for these calls before it renders. Without a limit, an API that accepts the connection but never
+    // answers would leave the visitor on the loading skeleton for good.
+    const timeout = AbortSignal.timeout(timeoutMs);
+    let response: Response;
+    try {
+      response = await fetch(buildApiUrl(apiUrl, request.path, request.query), {
+        method: request.method,
+        headers,
+        body,
+        signal: request.signal ? AbortSignal.any([request.signal, timeout]) : timeout,
+        cache: "no-store",
+      });
+    } catch (cause) {
+      // No answer in time is the same to the visitor as no answer at all: the page shows "couldn't reach Pawfolio"
+      // with Try again. The caller's own cancellation is passed on as it is.
+      if (timeout.aborted && !request.signal?.aborted) throw networkError();
+      throw cause;
+    }
 
     return {
       status: response.status,

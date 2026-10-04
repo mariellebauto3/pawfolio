@@ -56,6 +56,9 @@ import { getServerApi } from "@/lib/api/server";
 const { data } = await (await getServerApi()).get<ApiResource<Pet>>(apiPath`/pets/${petId}`);
 ```
 
+A server-side call gives up after 10 seconds (`SERVER_CALL_TIMEOUT_MS`) and fails as a network error, so a page
+whose API doesn't answer shows its error state with "Try again" instead of a loading skeleton that never ends.
+
 - Paths are relative to `/api/v1` and start with `/`. Never call `fetch` on the API directly.
 - **Build any path that contains a value with `apiPath`** (it encodes each value). The client refuses a path that
   `..`, `.`, `\`, `?` or `#` would redirect to another endpoint, and throws before sending (SEC-FE-08). Query values
