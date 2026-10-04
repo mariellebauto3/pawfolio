@@ -1,0 +1,42 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { EmptyState } from "@/components/feedback/empty-state";
+import { PageHeader } from "@/components/layout/page-header";
+import { ROUTES } from "@/constants/routes";
+import { getLatestPosts, getOwnPet, getSimilarPets } from "@/features/profiles/api/resume";
+import { MyResume } from "@/features/profiles/components/my-resume";
+import { getServerApi } from "@/lib/api/server";
+import { homePathFor, signInPath } from "@/lib/auth/redirects";
+import { fetchSession } from "@/lib/auth/session";
+
+export const metadata: Metadata = { title: "My profile" };
+
+// "/me" is the signed-in account's own profile: a pet's resume (PR-01, PR-02), a human's Home Profile (PR-11).
+export default async function MePage() {
+  const api = await getServerApi();
+  const account = await fetchSession(api);
+  if (!account) redirect(signInPath(ROUTES.me));
+  if (account.role === "admin") redirect(homePathFor(account));
+
+  if (account.role === "human") {
+    // Placeholder until the Home Profile screens (PR-11…PR-20) are built.
+    return (
+      <>
+        <PageHeader title="My Home Profile" />
+        <EmptyState icon="home" title="Your Home Profile is on its way" description="Your household, lifestyle quiz and Open to Adopt switch will live here." />
+      </>
+    );
+  }
+
+  const pet = await getOwnPet(api);
+  // The two side cards are extras: the resume shows even when one of them can't be loaded.
+  const [posts, similar] = await Promise.allSettled([getLatestPosts(api, account.id), getSimilarPets(api, pet)]);
+
+  return (
+    <MyResume
+      pet={pet}
+      posts={posts.status === "fulfilled" ? posts.value : null}
+      similar={similar.status === "fulfilled" ? similar.value : null}
+    />
+  );
+}
