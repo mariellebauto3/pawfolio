@@ -1,8 +1,13 @@
 # Pawfolio API
 
 The Laravel API under `/api/v1`, used only by the Next.js frontend. This file holds the conventions every endpoint
-follows. Each module gets its own file listing its endpoints (method, path, role, request, response, errors, FR),
-starting with [auth.md](auth.md) and [discovery.md](discovery.md).
+follows. Each module gets its own file listing its endpoints (method, path, role, request, response, errors, FR):
+
+- [auth.md](auth.md) — Session, Sign-Up, Account Status, and Admin Verification (`BE-03`–`BE-08`)
+- [discovery.md](discovery.md) — Discovery, Search, Profile Detail, Vet Records, and Recently Hired (`BE-14`)
+- [profiles-and-matching.md](profiles-and-matching.md) — Pet Résumé, Home Profile Quiz, Compatibility Matches, Bookmarks, and Invites (`BE-11`–`BE-13`, `BE-15`)
+- [adoption-and-meet-greet.md](adoption-and-meet-greet.md) — Adoption Requests, Meet & Greet, Adoption Decisions, and Admin Resolution (`BE-16`–`BE-20`)
+- [community-reports-and-admin.md](community-reports-and-admin.md) — Community Feed, Reports, Account Settings, Announcements, Analytics, and Activity Logs (`BE-10`, `BE-21`–`BE-26`)
 
 Rules: `project-rules/backend-guidelines.md` §2 and `security-guidelines.md` §5 and §7.
 Frontend client: `frontend/src/lib/api/` ([ADR 0004](../decisions/0004-api-client-session-and-mocks.md)).
