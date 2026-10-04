@@ -398,7 +398,7 @@ class PetResumeController extends Controller
                     $post->author_user_id = $user->id;
                     $post->type = PostType::ForHire->value;
                     $post->title = "{$pet->name} is Looking for a Home!";
-                    $post->body = "I'm officially #LookingForAHome! Check out my résumé to see if we're a match.";
+                    $post->body = "I'm officially #LookingForAHome! Check out my resume to see if we're a match.";
                     $post->save();
 
                     $firstPhoto = $pet->photos()->orderBy('sort_order')->first();
@@ -417,7 +417,7 @@ class PetResumeController extends Controller
                     subject: $pet,
                     before: $beforeStatus,
                     after: PetStatus::LookingForAHome->value,
-                    reason: 'Owner completed and published résumé',
+                    reason: 'Owner completed and published resume',
                     userAgent: $request->userAgent(),
                 );
             }
