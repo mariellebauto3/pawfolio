@@ -136,3 +136,26 @@ describe("browser transport", () => {
     await expect(client.post("/x")).rejects.toMatchObject({ kind: "server", status: 500 });
   });
 });
+
+describe("browser transport: files", () => {
+  const png = () => new Response(new Uint8Array([137, 80, 78, 71]), { status: 200, headers: { "Content-Type": "image/png" } });
+
+  it("hands a file over as a blob, read with the session cookie", async () => {
+    const { client, calls } = setup({ responses: [png()] });
+
+    const blob = await client.getFile("/admin/verifications/4/documents/41", { accept: ["image/png"] });
+
+    expect(blob.type).toBe("image/png");
+    expect(blob.size).toBe(4);
+    expect(calls[0].url).toBe(`${API_URL}/api/v1/admin/verifications/4/documents/41`);
+    expect(calls[0].init.credentials).toBe("include");
+  });
+
+  it("still reads an error as JSON when a file was asked for", async () => {
+    const { client } = setup({ responses: [json(403, { message: "This page is for admins only." })] });
+    await expect(client.getFile("/admin/verifications/4/documents/41", { accept: ["image/png"] })).rejects.toMatchObject({
+      kind: "forbidden",
+      message: "This page is for admins only.",
+    });
+  });
+});
