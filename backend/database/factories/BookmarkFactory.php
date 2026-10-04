@@ -15,16 +15,16 @@ class BookmarkFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['user_id'] ?? null),
-            'pet_id' => PetFactory::new()->sequence(fn (array $attrs) => $attrs['pet_id'] ?? null),
-            'home_profile_id' => HomeProfileFactory::new()->sequence(fn (array $attrs) => $attrs['home_profile_id'] ?? null),
+            'user_id' => UserFactory::new(),
+            'pet_id' => PetFactory::new(),
+            'home_profile_id' => HomeProfileFactory::new(),
         ];
     }
 
     public function onPet(): static
     {
         return $this->state(fn (array $attrs) => [
-            'pet_id' => PetFactory::new()->sequence(fn (array $attrs) => $attrs['pet_id'] ?? null),
+            'pet_id' => PetFactory::new(),
             'home_profile_id' => null,
         ]);
     }
@@ -33,7 +33,7 @@ class BookmarkFactory extends Factory
     {
         return $this->state(fn (array $attrs) => [
             'pet_id' => null,
-            'home_profile_id' => HomeProfileFactory::new()->sequence(fn (array $attrs) => $attrs['home_profile_id'] ?? null),
+            'home_profile_id' => HomeProfileFactory::new(),
         ]);
     }
 }

@@ -11,7 +11,6 @@ class HomeProfilePreferredAge extends Model
     protected $table = 'home_profile_preferred_ages';
 
     protected $fillable = [
-        'home_profile_id',
         'age_group',
     ];
 

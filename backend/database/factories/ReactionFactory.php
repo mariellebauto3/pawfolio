@@ -15,16 +15,16 @@ class ReactionFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['user_id'] ?? null),
-            'post_id' => PostFactory::new()->sequence(fn (array $attrs) => $attrs['post_id'] ?? null),
-            'comment_id' => CommentFactory::new()->sequence(fn (array $attrs) => $attrs['comment_id'] ?? null),
+            'user_id' => UserFactory::new(),
+            'post_id' => PostFactory::new(),
+            'comment_id' => CommentFactory::new(),
         ];
     }
 
     public function onPost(): static
     {
         return $this->state(fn (array $attrs) => [
-            'post_id' => PostFactory::new()->sequence(fn (array $attrs) => $attrs['post_id'] ?? null),
+            'post_id' => PostFactory::new(),
             'comment_id' => null,
         ]);
     }
@@ -33,7 +33,7 @@ class ReactionFactory extends Factory
     {
         return $this->state(fn (array $attrs) => [
             'post_id' => null,
-            'comment_id' => CommentFactory::new()->sequence(fn (array $attrs) => $attrs['comment_id'] ?? null),
+            'comment_id' => CommentFactory::new(),
         ]);
     }
 }

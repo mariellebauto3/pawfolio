@@ -1,10 +1,18 @@
 <?php
 
+use App\Exceptions\Handler;
+use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Middleware\EnsureRole;
+use App\Http\Middleware\SecurityHeaders;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 
 return Application::configure(basePath: dirname(__DIR__))
+    ->withSingletons([
+        ExceptionHandler::class => Handler::class,
+    ])
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
@@ -12,15 +20,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // SPA cookie-session authentication (Sanctum, SEC-AUTH-01): routes under
-        // /api/* from the frontend SPA get a session and CSRF checks, so the
-        // frontend's credentials: include + CSRF flow works.
         $middleware->statefulApi();
+        $middleware->append(SecurityHeaders::class);
+        $middleware->alias([
+            'active' => EnsureAccountIsActive::class,
+            'role' => EnsureRole::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->renderable(function (Throwable $e, $request) {
-            // The custom Handler translates every 4xx/5xx into the standard
-            // { "message", "code"?, "errors"? } JSON body.
-            return app(\App\Exceptions\Handler::class)->render($request, $e);
-        });
+        //
     })->create();

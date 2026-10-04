@@ -4,30 +4,27 @@ namespace App\Models;
 
 use App\Enums\MeetAndGreetEndReason;
 use App\Enums\MeetAndGreetStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MeetAndGreet extends Model
 {
+    use HasFactory;
+
     protected $table = 'meet_and_greets';
 
     protected $fillable = [
-        'adoption_request_id',
-        'meet_greet_slot_id',
-        'status',
-        'booked_at',
-        'confirmed_at',
-        'ended_at',
-        'ended_by_user_id',
         'end_reason',
         'end_details',
-        'proposed_slot_id',
     ];
 
     protected $casts = [
         'id' => 'integer',
         'adoption_request_id' => 'integer',
         'meet_greet_slot_id' => 'integer',
+        'ended_by_user_id' => 'integer',
+        'proposed_slot_id' => 'integer',
         'booked_at' => 'datetime',
         'confirmed_at' => 'datetime',
         'ended_at' => 'datetime',
@@ -55,17 +52,27 @@ class MeetAndGreet extends Model
 
     public function getStatus(): MeetAndGreetStatus
     {
-        return MeetAndGreetStatus::tryFrom($this->status) ?: MeetAndGreetStatus::Booked;
+        return $this->status instanceof MeetAndGreetStatus
+            ? $this->status
+            : (MeetAndGreetStatus::tryFrom((string) $this->status) ?: MeetAndGreetStatus::Booked);
     }
 
     public function getEndReason(): ?MeetAndGreetEndReason
     {
-        return MeetAndGreetEndReason::tryFrom($this->end_reason);
+        return $this->end_reason !== null ? MeetAndGreetEndReason::tryFrom((string) $this->end_reason) : null;
     }
 
     public function isActive(): bool
     {
         return $this->getStatus() === MeetAndGreetStatus::Booked
             || $this->getStatus() === MeetAndGreetStatus::Confirmed;
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->whereIn('status', [
+            MeetAndGreetStatus::Booked->value,
+            MeetAndGreetStatus::Confirmed->value,
+        ]);
     }
 }

@@ -37,6 +37,6 @@ class SendNotification implements ShouldQueue
             actionUrl: $actionUrl,
         );
 
-        NotificationSent::dispatch($event);
+        event($event);
     }
 }

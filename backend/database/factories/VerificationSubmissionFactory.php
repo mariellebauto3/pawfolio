@@ -16,7 +16,7 @@ class VerificationSubmissionFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['user_id'] ?? null),
+            'user_id' => UserFactory::new(),
             'status' => VerificationSubmissionStatus::Pending->value,
             'submitted_at' => now(),
             'reviewed_by_user_id' => null,
@@ -35,7 +35,7 @@ class VerificationSubmissionFactory extends Factory
     {
         return $this->state(fn (array $attrs) => [
             'status' => VerificationSubmissionStatus::Approved->value,
-            'reviewed_by_user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['reviewed_by_user_id'] ?? null),
+            'reviewed_by_user_id' => UserFactory::new(),
             'reviewed_at' => now(),
         ]);
     }
@@ -44,7 +44,7 @@ class VerificationSubmissionFactory extends Factory
     {
         return $this->state(fn (array $attrs) => [
             'status' => VerificationSubmissionStatus::Denied->value,
-            'reviewed_by_user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['reviewed_by_user_id'] ?? null),
+            'reviewed_by_user_id' => UserFactory::new(),
             'reviewed_at' => now(),
             'denial_reason' => fake()->randomElement(['id_photo_unreadable', 'name_mismatch', 'id_expired', 'under_18', 'other']),
             'message_to_owner' => fake()->sentence(),

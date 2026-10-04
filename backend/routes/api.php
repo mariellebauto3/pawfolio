@@ -52,7 +52,6 @@ Route::prefix('v1')->group(function () {
             continue;
         }
 
-        throw new \RuntimeException("Unroutable module directory: {$path}");
+        throw new RuntimeException("Unroutable module directory: {$path}");
     }
 });
-

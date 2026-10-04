@@ -18,9 +18,9 @@ class ReportFactory extends Factory
     public function definition(): array
     {
         return [
-            'reporter_user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['reporter_user_id'] ?? null),
+            'reporter_user_id' => UserFactory::new(),
             'target_type' => ReportTargetType::Profile->value,
-            'reported_user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['reported_user_id'] ?? null),
+            'reported_user_id' => UserFactory::new(),
             'post_id' => null,
             'comment_id' => null,
             'reason' => ReportReason::SomethingElse->value,
@@ -34,7 +34,7 @@ class ReportFactory extends Factory
     {
         return $this->state(fn (array $attrs) => [
             'target_type' => ReportTargetType::Post->value,
-            'post_id' => PostFactory::new()->sequence(fn (array $attrs) => $attrs['post_id'] ?? null),
+            'post_id' => PostFactory::new(),
             'comment_id' => null,
         ]);
     }
@@ -44,7 +44,7 @@ class ReportFactory extends Factory
         return $this->state(fn (array $attrs) => [
             'target_type' => ReportTargetType::Comment->value,
             'post_id' => null,
-            'comment_id' => CommentFactory::new()->sequence(fn (array $attrs) => $attrs['comment_id'] ?? null),
+            'comment_id' => CommentFactory::new(),
         ]);
     }
 
@@ -61,7 +61,7 @@ class ReportFactory extends Factory
     {
         return $this->state(fn (array $attrs) => [
             'status' => ReportStatus::Resolved->value,
-            'report_action_id' => ReportActionFactory::new()->sequence(fn (array $attrs) => $attrs['report_action_id'] ?? null),
+            'report_action_id' => ReportActionFactory::new(),
         ]);
     }
 }

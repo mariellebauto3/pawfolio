@@ -28,8 +28,6 @@ class NotificationService
             'action_url' => $actionUrl,
         ]);
 
-        // NFR9 / SEC-LOG-04: the notification thread is an append-only record
-        // of what was sent. Only the sender/recipient + timestamp is preserved.
         Log::debug('notification.stored', [
             'notification_id' => $notification->id,
             'recipient_id' => $recipient->id,

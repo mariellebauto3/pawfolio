@@ -4,39 +4,44 @@ namespace App\Models;
 
 use App\Enums\AccountStatus;
 use App\Enums\Role;
-use Illuminate\Contracts\Auth\Authenticatable as UserAuthenticatable;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
-/**
- * One account per Pet, Human or Admin (ERD §3, proposal §2).
- *
- * Status and role are set by the system / admin flows only — never through
- * a sign-in or member request (SEC-INPUT-04, FR27). The sign-in endpoint
- * reads the account and returns the shape in docs/api/auth.md.
- */
-class User extends Authenticatable implements UserAuthenticatable
+class User extends Authenticatable
 {
+    /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
+    /**
+     * `role` and `status` are never fillable: they are set only by the system
+     * or by admin actions (FR27, SEC-INPUT-04).
+     *
+     * @var list<string>
+     */
     protected $fillable = [
         'name',
         'email',
         'password',
     ];
 
+    /** @var list<string> */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
+    /** @return array<string, string> */
     protected function casts(): array
     {
         return [
+            'id' => 'integer',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'role' => Role::class,
@@ -45,7 +50,95 @@ class User extends Authenticatable implements UserAuthenticatable
         ];
     }
 
-    // ── role-shape relationships ────────────────────────────────────────────────
+    public function getRole(): Role
+    {
+        return $this->role instanceof Role
+            ? $this->role
+            : (Role::tryFrom((string) $this->role) ?: Role::Human);
+    }
+
+    public function getStatus(): AccountStatus
+    {
+        return $this->status instanceof AccountStatus
+            ? $this->status
+            : (AccountStatus::tryFrom((string) $this->status) ?: AccountStatus::PendingVerification);
+    }
+
+    public function isPet(): bool
+    {
+        return $this->getRole() === Role::Pet;
+    }
+
+    public function isHuman(): bool
+    {
+        return $this->getRole() === Role::Human;
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->getRole() === Role::Admin;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->getStatus() === AccountStatus::Active;
+    }
+
+    public function isPendingVerification(): bool
+    {
+        return $this->getStatus() === AccountStatus::PendingVerification;
+    }
+
+    public function isDenied(): bool
+    {
+        return $this->getStatus() === AccountStatus::Denied;
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->getStatus() === AccountStatus::Suspended;
+    }
+
+    public function isDeactivated(): bool
+    {
+        return $this->getStatus() === AccountStatus::Deactivated;
+    }
+
+    public function displayName(): string
+    {
+        return match ($this->getRole()) {
+            Role::Pet => $this->pet?->name ?? $this->name ?? '',
+            Role::Human => $this->homeProfile?->full_name ?? $this->name ?? '',
+            Role::Admin => $this->name ?? '',
+        };
+    }
+
+    public function getDisplayNameAttribute(): string
+    {
+        return $this->displayName();
+    }
+
+    public function profileId(): ?int
+    {
+        return match ($this->getRole()) {
+            Role::Pet => $this->pet?->id,
+            Role::Human => $this->homeProfile?->id,
+            Role::Admin => null,
+        };
+    }
+
+    public function avatarUrl(): ?string
+    {
+        return match ($this->getRole()) {
+            Role::Pet => ($first = $this->pet?->photos()->orderBy('sort_order')->first())
+                ? Storage::disk('public')->url($first->file_path)
+                : null,
+            Role::Human => $this->homeProfile?->profile_photo_path
+                ? Storage::disk('public')->url($this->homeProfile->profile_photo_path)
+                : null,
+            Role::Admin => null,
+        };
+    }
 
     public function pet(): HasOne
     {
@@ -57,70 +150,29 @@ class User extends Authenticatable implements UserAuthenticatable
         return $this->hasOne(HomeProfile::class);
     }
 
-    // ── verification & admin flows ──────────────────────────────────────────────
-
-    public function verificationSubmission(): ?HasOne
+    public function verificationSubmission(): HasOne
     {
-        return $this->hasOne(VerificationSubmission::class);
+        return $this->hasOne(VerificationSubmission::class)->latestOfMany('submitted_at');
     }
 
-    public function verificationDocuments(): HasMany
+    public function verificationSubmissions(): HasMany
     {
-        return $this->hasMany(VerificationDocument::class);
+        return $this->hasMany(VerificationSubmission::class);
     }
 
-    public function detailChangeRequests(): HasMany
+    public function latestVerificationSubmission(): HasOne
     {
-        return $this->hasMany(DetailChangeRequest::class);
+        return $this->hasOne(VerificationSubmission::class)->latestOfMany('submitted_at');
+    }
+
+    public function verificationDocuments(): HasManyThrough
+    {
+        return $this->hasManyThrough(VerificationDocument::class, VerificationSubmission::class);
     }
 
     public function accountActions(): HasMany
     {
         return $this->hasMany(AccountAction::class);
-    }
-
-    public function notificationPreferences(): HasOne
-    {
-        return $this->hasOne(NotificationPreference::class);
-    }
-
-    // ── adoption & Meet & Greet ─────────────────────────────────────────────────
-
-    public function adoptionRequests(): HasMany
-    {
-        return $this->hasMany(AdoptionRequest::class);
-    }
-
-    public function meetGreetSlots(): HasMany
-    {
-        return $this->hasMany(MeetGreetSlot::class);
-    }
-
-    public function meetAndGreetBookings(): HasMany
-    {
-        return $this->hasMany(MeetAndGreet::class);
-    }
-
-    public function adoptions(): HasMany
-    {
-        return $this->hasMany(Adoption::class);
-    }
-
-    public function adoptionResolution(): ?HasOne
-    {
-        return $this->hasOne(AdoptionResolution::class);
-    }
-
-    // ── discovery, matching, bookmarks, views ───────────────────────────────────
-
-    public function invitations(): HasMany
-    {
-        return $this->hasMany(Invite::class);
-    }
-
-    public function matchScore(): ?HasOne
-    {
-        return $this->hasOne(MatchScore::class);
     }
 
     public function bookmarks(): HasMany
@@ -130,19 +182,12 @@ class User extends Authenticatable implements UserAuthenticatable
 
     public function profileViews(): HasMany
     {
-        return $this->hasMany(ProfileView::class);
+        return $this->hasMany(ProfileView::class, 'viewer_user_id');
     }
 
-    // ── community feed ──────────────────────────────────────────────────────────
-
-    public function feedPosts(): HasMany
+    public function posts(): HasMany
     {
-        return $this->hasMany(Post::class)->where('type', PostType::Post);
-    }
-
-    public function adoptionStories(): HasMany
-    {
-        return $this->hasMany(Post::class)->where('type', PostType::AdoptionStory);
+        return $this->hasMany(Post::class, 'author_user_id');
     }
 
     public function comments(): HasMany
@@ -155,81 +200,58 @@ class User extends Authenticatable implements UserAuthenticatable
         return $this->hasMany(Reaction::class);
     }
 
-    // ── reporting & moderation ─────────────────────────────────────────────────
-
-    public function reports(): HasMany
+    public function reportsFiled(): HasMany
     {
-        return $this->hasMany(Report::class)->where('target_type', ReportTargetType::Account);
+        return $this->hasMany(Report::class, 'reporter_user_id');
+    }
+
+    public function reportsAgainst(): HasMany
+    {
+        return $this->hasMany(Report::class, 'reported_user_id');
     }
 
     public function reportActions(): HasMany
     {
-        return $this->hasMany(ReportAction::class);
+        return $this->hasMany(ReportAction::class, 'admin_user_id');
     }
 
-    // ── notifications & announcements ───────────────────────────────────────────
+    public function detailChangeRequests(): HasMany
+    {
+        return $this->hasMany(DetailChangeRequest::class);
+    }
+
+    public function announcements(): HasMany
+    {
+        return $this->hasMany(Announcement::class, 'admin_user_id');
+    }
 
     public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class);
     }
 
-    public function announcements(): HasMany
+    public function notificationPreference(): HasOne
     {
-        return $this->hasMany(Announcement::class);
+        return $this->hasOne(NotificationPreference::class);
     }
 
-    public function activityLogs(): HasMany
+    public function notificationPreferences(): HasOne
     {
-        return $this->hasMany(ActivityLog::class);
-    }
-
-    public function activityLog(): ?HasOne
-    {
-        return $this->hasOne(ActivityLog::class);
-    }
-
-    // ── display helpers ─────────────────────────────────────────────────────────
-
-    /** Display name for the /auth/me shape: pet name, human full name, or admin name. */
-    public function displayName(): string
-    {
-        return match ($this->role) {
-            Role::Pet => $this->pet?->name ?? $this->name,
-            Role::Human => $this->homeProfile?->full_name ?? $this->name,
-            Role::Admin => $this->name,
-        };
-    }
-
-    /** profile_id for the /auth/me shape: pet id, home profile id, or null for admins. */
-    public function profileId(): ?int
-    {
-        return match ($this->role) {
-            Role::Pet => $this->pet?->id,
-            Role::Human => $this->homeProfile?->id,
-            Role::Admin => null,
-        };
-    }
-
-    /** Active accounts can use the platform (proposal §5.1, SEC-AUTHZ-06). */
-    /** Active accounts can use the platform (proposal �5.1, SEC-AUTHZ-06). */
-    public function isActive(): bool
-    {
-        return $this->status === AccountStatus::Active;
-    }
-
-    public function getNotificationPreferenceAttribute(): ?NotificationPreference
-    {
-        return $this->notificationPreferences;
+        return $this->hasOne(NotificationPreference::class);
     }
 
     public function createNotificationPreference(): NotificationPreference
     {
-        return $this->notificationPreferences()->create([
+        return $this->notificationPreference()->create([
             'requests_and_invites' => true,
             'meet_and_greets' => true,
             'post_activity' => true,
             'announcements' => true,
         ]);
+    }
+
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(ActivityLog::class, 'actor_user_id');
     }
 }

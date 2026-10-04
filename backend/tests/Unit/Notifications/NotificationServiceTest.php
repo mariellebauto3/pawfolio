@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Notifications;
 
 use App\Models\Notification;
-use App\Models\NotificationPreference;
 use App\Models\User;
 use App\Services\Notifications\NotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,7 +20,7 @@ class NotificationServiceTest extends TestCase
     {
         parent::setUp();
 
-        $this->service = new NotificationService();
+        $this->service = new NotificationService;
     }
 
     public function test_store_creates_notification_row(): void

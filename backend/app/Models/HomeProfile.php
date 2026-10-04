@@ -2,60 +2,23 @@
 
 namespace App\Models;
 
-use App\Enums\ActivityLevel;
-use App\Enums\AnnouncementAudience;
-use App\Enums\AcceptedSpecies;
-use App\Enums\ActivityLogType;
-use App\Enums\HoursAway;
-use App\Enums\HomeType;
-use App\Enums\OtherPetType;
-use App\Enums\PetExperience;
-use App\Enums\PetSex;
-use App\Enums\PetSize;
-use App\Enums\SpecialNeedsWillingness;
-use App\Enums\PostType;
+use App\Casts\EncryptedOrPlaintext;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
-/** @property int $id */
-/** @property int $user_id */
-/** @property string|null $full_name */
-/** @property string|null $birthdate */
-/** @property string|null $contact_number */
-/** @property string|null $city */
-/** @property string|null $province */
-/** @property string|null $street_address */
-/** @property string|null $headline */
-/** @property string|null $about_home */
-/** @property string|null $profile_photo_path */
-/** @property string|null $cover_photo_path */
-/** @property string|null $home_type */
-/** @property string|null $outdoor_space */
-/** @property string|null $activity_level */
-/** @property string|null $hours_away */
-/** @property string|null $pet_experience */
-/** @property string|null $special_needs_willingness */
-/** @property bool $is_open_to_adopt */
-/** @property string|null $quiz_completed_at */
-/** @property string|null $furparent_at */
-/** @property \Illuminate\Support\Carbon|null $created_at */
-/** @property \Illuminate\Support\Carbon|null $updated_at */
-
-class HomeProfile extends Authenticatable
+class HomeProfile extends Model
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasFactory;
 
     public const TABLE = 'home_profiles';
 
     protected $table = self::TABLE;
 
     protected $fillable = [
-        'user_id',
         'full_name',
         'birthdate',
         'contact_number',
@@ -73,17 +36,17 @@ class HomeProfile extends Authenticatable
         'pet_experience',
         'special_needs_willingness',
         'is_open_to_adopt',
-        'quiz_completed_at',
-        'furparent_at',
     ];
 
     protected $casts = [
         'id' => 'integer',
         'user_id' => 'integer',
-        'birthdate' => 'date',
+        'birthdate' => 'date:Y-m-d',
         'is_open_to_adopt' => 'boolean',
         'quiz_completed_at' => 'datetime',
         'furparent_at' => 'datetime',
+        'contact_number' => EncryptedOrPlaintext::class,
+        'street_address' => EncryptedOrPlaintext::class,
     ];
 
     public function user(): BelongsTo
@@ -116,19 +79,9 @@ class HomeProfile extends Authenticatable
         return $this->hasMany(HomeProfilePreferredAge::class);
     }
 
-    public function feedPosts(): HasMany
+    public function adoption(): HasOne
     {
-        return $this->hasMany(Post::class)->where('type', PostType::ForHire);
-    }
-
-    public function adoptedPosts(): HasMany
-    {
-        return $this->hasMany(Post::class)->where('type', PostType::AdoptionStory);
-    }
-
-    public function adoption(): ?HasOne
-    {
-        return $this->hasOne(Adoption::class)->whereNotNull('adopted_at');
+        return $this->hasOne(Adoption::class)->whereNotNull('adopted_at')->whereNull('link_removed_at');
     }
 
     public function adoptions(): HasMany
@@ -136,9 +89,14 @@ class HomeProfile extends Authenticatable
         return $this->hasMany(Adoption::class);
     }
 
-    public function matchScore(): ?HasOne
+    public function activeAdoptions(): HasMany
     {
-        return $this->hasOne(MatchScore::class);
+        return $this->hasMany(Adoption::class)->whereNull('link_removed_at');
+    }
+
+    public function matchScores(): HasMany
+    {
+        return $this->hasMany(MatchScore::class);
     }
 
     public function requests(): HasMany
@@ -146,14 +104,29 @@ class HomeProfile extends Authenticatable
         return $this->hasMany(AdoptionRequest::class);
     }
 
+    public function adoptionRequests(): HasMany
+    {
+        return $this->hasMany(AdoptionRequest::class);
+    }
+
+    public function invites(): HasMany
+    {
+        return $this->hasMany(Invite::class);
+    }
+
+    public function bookmarks(): HasMany
+    {
+        return $this->hasMany(Bookmark::class);
+    }
+
     public function meetAndGreetSlots(): HasMany
     {
         return $this->hasMany(MeetGreetSlot::class);
     }
 
-    public function meetAndGreetBookings(): HasMany
+    public function meetAndGreetBookings(): HasManyThrough
     {
-        return $this->hasMany(MeetAndGreet::class);
+        return $this->hasManyThrough(MeetAndGreet::class, AdoptionRequest::class);
     }
 
     public function viewLogs(): HasMany
@@ -161,18 +134,28 @@ class HomeProfile extends Authenticatable
         return $this->hasMany(ProfileView::class);
     }
 
-    public function reports(): HasMany
+    public function profileViews(): HasMany
     {
-        return $this->hasMany(Report::class)->where('target_type', ReportTargetType::Profile);
+        return $this->hasMany(ProfileView::class);
     }
 
-    public function announcement(): ?HasOne
+    public function scopeOpenToAdopt($query)
     {
-        return $this->hasOne(Announcement::class);
+        return $query->where('is_open_to_adopt', true);
     }
 
     public function isOpenToAdopt(): bool
     {
         return (bool) $this->is_open_to_adopt;
+    }
+
+    public function isFurparent(): bool
+    {
+        return $this->furparent_at !== null;
+    }
+
+    public function hasCompletedQuiz(): bool
+    {
+        return $this->quiz_completed_at !== null;
     }
 }

@@ -15,9 +15,9 @@ class AdoptionFactory extends Factory
     public function definition(): array
     {
         return [
-            'pet_id' => PetFactory::new()->sequence(fn (array $attrs) => $attrs['pet_id'] ?? null),
-            'home_profile_id' => HomeProfileFactory::new()->sequence(fn (array $attrs) => $attrs['home_profile_id'] ?? null),
-            'adoption_request_id' => AdoptionRequestFactory::new()->sequence(fn (array $attrs) => $attrs['adoption_request_id'] ?? null),
+            'pet_id' => PetFactory::new(),
+            'home_profile_id' => HomeProfileFactory::new(),
+            'adoption_request_id' => AdoptionRequestFactory::new(),
             'adopted_at' => now(),
             'link_removed_at' => null,
         ];

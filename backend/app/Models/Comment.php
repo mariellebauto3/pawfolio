@@ -2,19 +2,19 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Comment extends Model
 {
+    use HasFactory;
+
     protected $table = 'comments';
 
     protected $fillable = [
-        'post_id',
-        'user_id',
-        'parent_comment_id',
         'body',
-        'removed_at',
     ];
 
     protected $casts = [
@@ -22,6 +22,7 @@ class Comment extends Model
         'post_id' => 'integer',
         'user_id' => 'integer',
         'parent_comment_id' => 'integer',
+        'removed_at' => 'datetime',
     ];
 
     public function post(): BelongsTo
@@ -31,7 +32,12 @@ class Comment extends Model
 
     public function author(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function parent(): BelongsTo
@@ -42,6 +48,16 @@ class Comment extends Model
     public function replies(): HasMany
     {
         return $this->hasMany(Comment::class, 'parent_comment_id');
+    }
+
+    public function reactions(): HasMany
+    {
+        return $this->hasMany(Reaction::class);
+    }
+
+    public function scopeVisible($query)
+    {
+        return $query->whereNull('removed_at');
     }
 
     public function getRemovedAt(): ?\DateTimeInterface

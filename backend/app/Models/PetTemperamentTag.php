@@ -10,7 +10,6 @@ class PetTemperamentTag extends Model
     protected $table = 'pet_temperament_tags';
 
     protected $fillable = [
-        'pet_id',
         'tag',
     ];
 

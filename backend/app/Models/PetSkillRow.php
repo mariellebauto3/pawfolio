@@ -11,7 +11,6 @@ class PetSkillRow extends Model
     protected $table = 'pet_skills';
 
     protected $fillable = [
-        'pet_id',
         'skill',
     ];
 
