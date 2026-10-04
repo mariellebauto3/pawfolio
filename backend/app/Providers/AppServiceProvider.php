@@ -50,8 +50,20 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(20)->by($request->ip());
         });
 
+        RateLimiter::for('signup', function (Request $request) {
+            return Limit::perMinutes(15, 10)->by($request->ip());
+        });
+
+        RateLimiter::for('writes', function (Request $request) {
+            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
+
         // SEC-AUTH-04: forgot-password and reset-password are rate-limited too, per IP.
         RateLimiter::for('forgot-password', function (Request $request) {
+            return Limit::perMinutes(15, 5)->by($request->ip());
+        });
+
+        RateLimiter::for('password-email', function (Request $request) {
             return Limit::perMinutes(15, 5)->by($request->ip());
         });
 

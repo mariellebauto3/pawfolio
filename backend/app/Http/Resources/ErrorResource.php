@@ -2,147 +2,107 @@
 
 namespace App\Http\Resources;
 
-use Illuminate\Contracts\Support\Responsable;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Standard error body: `{ "message": string, "code"?: string, "errors"?: { field: string[] } }`
+ * Standard error response resource (backend-guidelines §2).
  *
- * Matches docs/api/README.md. Used for 4xx responses as the single source of truth
- * for what the frontend receives. See project-rules/security-guidelines.md §7.1 (SEC-API-02).
+ * Usage:
+ *   return ErrorResource::forbidden('You must be verified to perform this action.');
+ *   return ErrorResource::conflict('You already have 3 open adoption requests.', 'open_request_limit');
  */
-class ErrorResource implements Responsable
+class ErrorResource extends JsonResource
 {
-    public const CODE_UNAUTHENTICATED = 'unauthenticated';
+    public static $wrap = null;
 
-    public const CODE_FORBIDDEN = 'forbidden';
+    protected int $statusCode = 400;
 
-    public const CODE_NOT_FOUND = 'not_found';
+    protected ?string $errorCode = null;
 
-    public const CODE_CONFLICT = 'conflict';
-
-    public const CODE_VALIDATION = 'validation';
-
-    public const CODE_PAYLOAD_TOO_LARGE = 'payload_too_large';
-
-    public const CODE_RATE_LIMITED = 'rate_limited';
-
-    public const CODE_BAD_REQUEST = 'bad_request';
-
-    public const CODE_SERVER = 'server';
-
-    public const CODE_ACCOUNT_NOT_ACTIVE = 'account_not_active';
-
-    public const CODE_SESSION_EXPIRED = 'session_expired';
+    protected array $errors = [];
 
     public function __construct(
-        public readonly string $message,
-        public readonly ?string $code = null,
-        public readonly array $errors = [],
-        private array $headers = [],
-    ) {}
-
-    /** Response headers to send along, e.g. Retry-After on a 429 (only that one is kept). */
-    public function withHeaders(array $headers): self
-    {
-        $retryAfter = $headers['retry-after'] ?? null;
-        $this->headers = $retryAfter !== null ? ['Retry-After' => (string) (is_array($retryAfter) ? $retryAfter[0] : $retryAfter)] : [];
-
-        return $this;
+        string $message,
+        int $statusCode = 400,
+        ?string $errorCode = null,
+        array $errors = []
+    ) {
+        parent::__construct(['message' => $message]);
+        $this->statusCode = $statusCode;
+        $this->errorCode = $errorCode;
+        $this->errors = $errors;
     }
 
-    public static function sessionExpired(string $message = 'Your session expired. Please try again.'): self
+    public function toArray(Request $request): array
     {
-        return new self($message, self::CODE_SESSION_EXPIRED);
+        $payload = [
+            'message' => $this->resource['message'],
+        ];
+
+        if ($this->errorCode !== null) {
+            $payload['code'] = $this->errorCode;
+        }
+
+        if (! empty($this->errors)) {
+            $payload['errors'] = $this->errors;
+        }
+
+        return $payload;
     }
 
-    public static function unauthorized(string $message = 'Unauthenticated.'): self
+    public function withResponse(Request $request, $response): void
     {
-        return new self($message, self::CODE_UNAUTHENTICATED);
+        $response->setStatusCode($this->statusCode);
     }
 
-    public static function forbidden(string $message = 'Forbidden.'): self
+    public static function unauthenticated(string $message = 'Unauthenticated.'): self
     {
-        return new self($message, self::CODE_FORBIDDEN);
+        return new self($message, 401, 'unauthenticated');
     }
 
-    public static function notFound(string $message = 'Resource not found.'): self
+    public static function forbidden(string $message = 'This action is unauthorized.', ?string $code = null): self
     {
-        return new self($message, self::CODE_NOT_FOUND);
+        return new self($message, 403, $code);
     }
 
-    public static function conflict(string $message = 'Conflict.'): self
+    public static function accountNotActive(string $message = 'Your account is not active.'): self
     {
-        return new self($message, self::CODE_CONFLICT);
+        return new self($message, 403, 'account_not_active');
     }
 
-    public static function validation(ValidationException $e): self
+    public static function notFound(string $message = 'Not found.'): self
+    {
+        return new self($message, 404, 'not_found');
+    }
+
+    public static function conflict(string $message, string $code): self
+    {
+        return new self($message, 409, $code);
+    }
+
+    public static function unprocessable(string $message, array $errors = []): self
+    {
+        return new self($message, 422, 'validation_failed', $errors);
+    }
+
+    public static function sessionExpired(string $message = 'Your session expired. Refresh and try again.'): self
+    {
+        return new self($message, 419, 'session_expired');
+    }
+
+    public static function rateLimited(int $retryAfter = 60): self
     {
         return new self(
-            $e->getMessage() ?: 'The given data was invalid.',
-            self::CODE_VALIDATION,
-            $e->errors(),
+            'Too many attempts. Please wait before trying again.',
+            429,
+            'rate_limited',
+            ['retry_after' => $retryAfter]
         );
     }
 
-    public static function tooLarge(string $message = 'The uploaded file exceeds the maximum allowed size.'): self
+    public static function serverError(string $message = 'Something went wrong. Please try again.'): self
     {
-        return new self($message, self::CODE_PAYLOAD_TOO_LARGE);
-    }
-
-    public static function rateLimited(string $message = 'Too many requests. Please try again later.'): self
-    {
-        return new self($message, self::CODE_RATE_LIMITED);
-    }
-
-    public static function badRequest(string $message = 'Bad request.'): self
-    {
-        return new self($message, self::CODE_BAD_REQUEST);
-    }
-
-    public static function accountNotActive(string $message = 'Your account can\'t do this until it\'s active.'): self
-    {
-        return new self($message, self::CODE_ACCOUNT_NOT_ACTIVE);
-    }
-
-    public function toResponse($request): JsonResponse
-    {
-        $body = [
-            'message' => $this->message,
-        ];
-
-        if ($this->code !== null) {
-            $body['code'] = $this->code;
-        }
-
-        if ($this->errors !== []) {
-            $body['errors'] = $this->errors;
-        }
-
-        // Log the error (without leaking internals to the client — SEC-API-02).
-        if ($this->code === self::CODE_SERVER) {
-            Log::error('Unhandled exception', ['exception' => $request->exception]);
-        }
-
-        return response()->json($body, $this->responseStatus(), $this->headers);
-    }
-
-    private function responseStatus(): int
-    {
-        return match ($this->code) {
-            self::CODE_UNAUTHENTICATED => 401,
-            self::CODE_FORBIDDEN, self::CODE_ACCOUNT_NOT_ACTIVE => 403,
-            self::CODE_NOT_FOUND => 404,
-            self::CODE_BAD_REQUEST => 400,
-            self::CODE_CONFLICT => 409,
-            self::CODE_PAYLOAD_TOO_LARGE => 413,
-            self::CODE_SESSION_EXPIRED => 419,
-            self::CODE_VALIDATION => 422,
-            self::CODE_RATE_LIMITED => 429,
-            self::CODE_SERVER => 500,
-            default => 400,
-        };
+        return new self($message, 500, 'server');
     }
 }
