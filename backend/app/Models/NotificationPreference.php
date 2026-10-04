@@ -2,15 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class NotificationPreference extends Model
 {
+    use HasFactory;
+
     protected $table = 'notification_preferences';
 
     protected $fillable = [
-        'user_id',
         'requests_and_invites',
         'meet_and_greets',
         'post_activity',
@@ -58,7 +60,6 @@ class NotificationPreference extends Model
         return (bool) $this->getAttribute('announcements');
     }
 
-    /** Category-gate accessors used by the WriteNotification queue listener (NT-08). */
     public function requests_and_invites(): bool
     {
         return (bool) $this->getAttribute('requests_and_invites');

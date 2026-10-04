@@ -2,16 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class RequestMessage extends Model
 {
+    use HasFactory;
+
     protected $table = 'request_messages';
 
     protected $fillable = [
-        'adoption_request_id',
-        'sender_user_id',
         'body',
     ];
 

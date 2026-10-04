@@ -2,20 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Adoption extends Model
 {
+    use HasFactory;
+
     protected $table = 'adoptions';
 
-    protected $fillable = [
-        'pet_id',
-        'home_profile_id',
-        'adoption_request_id',
-        'adopted_at',
-        'link_removed_at',
-    ];
+    protected $fillable = [];
 
     protected $casts = [
         'id' => 'integer',
@@ -36,13 +33,18 @@ class Adoption extends Model
         return $this->belongsTo(HomeProfile::class);
     }
 
-    public function adoptionRequest(): BelongsTo
+    public function request(): BelongsTo
     {
         return $this->belongsTo(AdoptionRequest::class, 'adoption_request_id');
     }
 
-    public function isActive(): bool
+    public function isActiveLink(): bool
     {
         return $this->link_removed_at === null;
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->whereNull('link_removed_at');
     }
 }

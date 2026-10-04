@@ -2,8 +2,10 @@
 
 namespace Database\Factories;
 
+use App\Models\Post;
 use App\Models\PostPhoto;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 /**
  * @extends Factory<PostPhoto>
@@ -15,8 +17,8 @@ class PostPhotoFactory extends Factory
     public function definition(): array
     {
         return [
-            'post_id' => PostFactory::new()->sequence(fn (array $attrs) => $attrs['post_id'] ?? null),
-            'file_path' => 'posts/' . bin2hex(fake()->hexify(16)) . '.' . fake()->randomElement(['jpg', 'png']),
+            'post_id' => Post::factory(),
+            'file_path' => 'posts/'.Str::uuid()->toString().'.jpg',
             'sort_order' => 1,
         ];
     }

@@ -15,8 +15,8 @@ class CommentFactory extends Factory
     public function definition(): array
     {
         return [
-            'post_id' => PostFactory::new()->sequence(fn (array $attrs) => $attrs['post_id'] ?? null),
-            'user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['user_id'] ?? null),
+            'post_id' => PostFactory::new(),
+            'user_id' => UserFactory::new(),
             'parent_comment_id' => null,
             'body' => fake()->sentence(),
             'removed_at' => null,
@@ -26,7 +26,7 @@ class CommentFactory extends Factory
     public function reply(): static
     {
         return $this->state(fn (array $attrs) => [
-            'parent_comment_id' => CommentFactory::new()->sequence(fn (array $attrs) => $attrs['parent_comment_id'] ?? null),
+            'parent_comment_id' => CommentFactory::new(),
         ]);
     }
 

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Notifications;
 
-use App\Enums\NotificationType;
-use App\Enums\NotificationUrgency;
 use App\Models\Notification;
 use App\Models\NotificationPreference;
 use App\Models\User;
@@ -138,7 +136,6 @@ class NotificationControllerTest extends TestCase
 
         $response = $this->patchJson('/api/v1/notifications/'.$notification->id.'/read');
         $this->assertEquals(404, $response->getStatusCode());
-        $response->dump();
     }
 
     public function test_mark_as_unread_toggles_read_flag_back(): void

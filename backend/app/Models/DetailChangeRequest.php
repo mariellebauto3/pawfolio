@@ -3,22 +3,21 @@
 namespace App\Models;
 
 use App\Enums\DetailChangeRequestStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DetailChangeRequest extends Model
 {
+    use HasFactory;
+
     protected $table = 'detail_change_requests';
 
     protected $fillable = [
-        'user_id',
         'field',
         'new_value',
         'reason',
         'document_path',
-        'status',
-        'reviewed_by_user_id',
-        'reviewed_at',
     ];
 
     protected $casts = [
@@ -40,16 +39,16 @@ class DetailChangeRequest extends Model
 
     public function scopePending($query)
     {
-        return $query->where('status', DetailChangeRequestStatus::Pending);
+        return $query->where('status', DetailChangeRequestStatus::Pending->value);
     }
 
     public function scopeApproved($query)
     {
-        return $query->where('status', DetailChangeRequestStatus::Approved);
+        return $query->where('status', DetailChangeRequestStatus::Approved->value);
     }
 
     public function scopeDenied($query)
     {
-        return $query->where('status', DetailChangeRequestStatus::Denied);
+        return $query->where('status', DetailChangeRequestStatus::Denied->value);
     }
 }

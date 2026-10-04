@@ -1,52 +1,51 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Auth\AccountStatusController;
+use App\Http\Controllers\Api\V1\Auth\AdminVerificationController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
-use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Controllers\Api\V1\Auth\SignUpController;
 use Illuminate\Support\Facades\Route;
 
 /*
- * Authentication & Verification (module 1).
- *
- * Contract: docs/api/auth.md and docs/api/README.md. These endpoints are the
- * session backbone: the frontend SessionProvider + proxy.ts call GET /auth/me
- * on every navigation, and sign in / out through these.
- *
- * Role for each endpoint:
- *   auth  = any authenticated role (pet, human, admin).
- *   admin = the admin account-create command only (SEC-AUTH-10).
- */
+|--------------------------------------------------------------------------
+| Module 1 — Authentication & Verification (BE-03, BE-04, BE-06, BE-08)
+|--------------------------------------------------------------------------
+*/
 
-// ── Current user ────────────────────────────────────────────────────────────────
-
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/auth/me', [AuthController::class, 'me'])
-        ->name('auth.me')
-        ->withoutMiddleware([EnsureAccountIsActive::class]);
-});
-
-// ── Sign in / sign out ──────────────────────────────────────────────────────────
-
-Route::post('/auth/sign-in', [AuthController::class, 'signIn'])
-    ->name('auth.sign-in')
+Route::post('auth/sign-in', [AuthController::class, 'signIn'])
     ->middleware('throttle:sign-in');
+Route::post('auth/sign-out', [AuthController::class, 'signOut']);
 
-Route::post('/auth/sign-out', [AuthController::class, 'signOut'])
-    ->name('auth.sign-out');
+Route::post('auth/sign-up/pet', [SignUpController::class, 'signUpPet'])
+    ->middleware('throttle:signup');
+Route::post('auth/sign-up/human', [SignUpController::class, 'signUpHuman'])
+    ->middleware('throttle:signup');
 
-// ── Forgot / reset password ─────────────────────────────────────────────────────
-
-Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])
-    ->name('auth.forgot-password')
+Route::post('auth/forgot-password', [AuthController::class, 'forgotPassword'])
     ->middleware('throttle:forgot-password');
-
-Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])
-    ->name('auth.reset-password')
+Route::post('auth/reset-password', [AuthController::class, 'resetPassword'])
     ->middleware('throttle:reset-password');
 
-// ── Admin: create accounts only, SEC-AUTH-10 ────────────────────────────────────
+// Exempt from EnsureAccountIsActive so Pending, Denied, and Suspended accounts
+// can load their identity, view their status, and resubmit (SEC-AUTHZ-06, AU-18..AU-21).
+Route::middleware('auth:sanctum')->group(function (): void {
+    Route::get('auth/me', [AuthController::class, 'me']);
 
-Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
-    Route::post('/users', [AuthController::class, 'createUser'])
-        ->name('auth.admin.create-user')
-        ->middleware('can:create,App\\Models\\User');
+    Route::get('account-status', [AccountStatusController::class, 'status']);
+    Route::get('account/submission', [AccountStatusController::class, 'showSubmission']);
+    Route::patch('account/submission', [AccountStatusController::class, 'updateSubmission'])
+        ->middleware('throttle:writes');
+    Route::post('account/submission', [AccountStatusController::class, 'updateSubmission'])
+        ->middleware('throttle:writes');
+});
+
+// Admin verification queue & review (BE-08, AU-22..AU-26, SEC-AUTHZ-02).
+Route::middleware(['auth:sanctum', 'active', 'role:admin'])->group(function (): void {
+    Route::get('admin/verification', [AdminVerificationController::class, 'index']);
+    Route::get('admin/verification/{account}', [AdminVerificationController::class, 'show']);
+    Route::get('admin/verification-documents/{document}', [AdminVerificationController::class, 'streamDocument']);
+    Route::post('admin/verification/{account}/approve', [AdminVerificationController::class, 'approve'])
+        ->middleware('throttle:writes');
+    Route::post('admin/verification/{account}/deny', [AdminVerificationController::class, 'deny'])
+        ->middleware('throttle:writes');
 });

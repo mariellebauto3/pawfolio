@@ -11,7 +11,6 @@ class HomeProfileHouseholdMember extends Model
     protected $table = 'home_profile_household_members';
 
     protected $fillable = [
-        'home_profile_id',
         'member',
     ];
 

@@ -16,7 +16,7 @@ class DetailChangeRequestFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['user_id'] ?? null),
+            'user_id' => UserFactory::new(),
             'field' => 'full_name',
             'new_value' => fake()->name(),
             'reason' => fake()->sentence(),
@@ -36,7 +36,7 @@ class DetailChangeRequestFactory extends Factory
     {
         return $this->state(fn (array $attrs) => [
             'status' => DetailChangeRequestStatus::Approved->value,
-            'reviewed_by_user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['reviewed_by_user_id'] ?? null),
+            'reviewed_by_user_id' => UserFactory::new(),
             'reviewed_at' => now(),
         ]);
     }
@@ -45,7 +45,7 @@ class DetailChangeRequestFactory extends Factory
     {
         return $this->state(fn (array $attrs) => [
             'status' => DetailChangeRequestStatus::Denied->value,
-            'reviewed_by_user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['reviewed_by_user_id'] ?? null),
+            'reviewed_by_user_id' => UserFactory::new(),
             'reviewed_at' => now(),
         ]);
     }

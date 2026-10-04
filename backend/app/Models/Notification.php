@@ -11,14 +11,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * @property Ulid $id
+ * @property string $id
  * @property int $user_id
  * @property string $type
  * @property string $title
  * @property string $body
- * @property array $data
- * @property string|null $read_at
- * @property string|null $dismissed_at
+ * @property array|null $data
+ * @property Carbon|null $read_at
+ * @property Carbon|null $dismissed_at
  * @property string $urgency
  * @property string|null $action_url
  * @property Carbon $created_at
@@ -35,14 +35,11 @@ class Notification extends Model
         'system' => 'system',
     ];
 
-    public $fillable = [
-        'user_id',
+    protected $fillable = [
         'type',
         'title',
         'body',
         'data',
-        'read_at',
-        'dismissed_at',
         'urgency',
         'action_url',
     ];
@@ -88,7 +85,6 @@ class Notification extends Model
 
     public function getIsReadAttribute(): bool
     {
-        // true when the thread has been read (read_at is set).
         return $this->read_at !== null;
     }
 
@@ -99,31 +95,34 @@ class Notification extends Model
 
     public function getActionUrlAttribute(?string $url = null): ?string
     {
-        return $url ?: ($this->data['action'] ?? null);
+        return $url ?: ($this->data['action'] ?? $this->data['link'] ?? null);
     }
 
     public function getSenderAttribute(): string
     {
-        return $this->user->display_name ?? $this->user->email ?? 'system';
+        return $this->user?->display_name ?? $this->user?->email ?? 'system';
     }
 
     public function markAsRead(): self
     {
-        $this->update(['read_at' => now()]);
+        $this->read_at = now();
+        $this->save();
 
         return $this;
     }
 
     public function markAsUnread(): self
     {
-        $this->update(['read_at' => null]);
+        $this->read_at = null;
+        $this->save();
 
         return $this;
     }
 
     public function dismiss(): self
     {
-        $this->update(['dismissed_at' => now()]);
+        $this->dismissed_at = now();
+        $this->save();
 
         return $this;
     }

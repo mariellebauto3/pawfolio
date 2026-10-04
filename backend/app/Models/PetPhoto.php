@@ -10,7 +10,6 @@ class PetPhoto extends Model
     protected $table = 'pet_photos';
 
     protected $fillable = [
-        'pet_id',
         'file_path',
         'caption',
         'sort_order',

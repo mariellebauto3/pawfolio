@@ -10,7 +10,6 @@ class PetVetRecord extends Model
     protected $table = 'pet_vet_records';
 
     protected $fillable = [
-        'pet_id',
         'file_path',
         'mime_type',
         'size_bytes',

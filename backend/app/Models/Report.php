@@ -5,23 +5,20 @@ namespace App\Models;
 use App\Enums\ReportReason;
 use App\Enums\ReportStatus;
 use App\Enums\ReportTargetType;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Report extends Model
 {
+    use HasFactory;
+
     protected $table = 'reports';
 
     protected $fillable = [
-        'reporter_user_id',
         'target_type',
-        'reported_user_id',
-        'post_id',
-        'comment_id',
         'reason',
         'details',
-        'status',
-        'report_action_id',
     ];
 
     protected $casts = [
@@ -60,21 +57,26 @@ class Report extends Model
 
     public function getReason(): ReportReason
     {
-        return ReportReason::tryFrom($this->reason) ?: ReportReason::SomethingElse;
+        return ReportReason::tryFrom((string) $this->reason) ?: ReportReason::SomethingElse;
     }
 
     public function getStatus(): ReportStatus
     {
-        return ReportStatus::tryFrom($this->status) ?: ReportStatus::Open;
+        return ReportStatus::tryFrom((string) $this->status) ?: ReportStatus::Open;
     }
 
     public function getTargetType(): ReportTargetType
     {
-        return ReportTargetType::tryFrom($this->target_type) ?: ReportTargetType::Profile;
+        return ReportTargetType::tryFrom((string) $this->target_type) ?: ReportTargetType::Profile;
     }
 
     public function scopeOpen($query)
     {
-        return $query->where('status', ReportStatus::Open);
+        return $query->where('status', ReportStatus::Open->value);
+    }
+
+    public function scopeResolved($query)
+    {
+        return $query->where('status', ReportStatus::Resolved->value);
     }
 }

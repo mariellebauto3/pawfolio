@@ -11,7 +11,6 @@ class HomeProfileOtherPet extends Model
     protected $table = 'home_profile_other_pets';
 
     protected $fillable = [
-        'home_profile_id',
         'pet_type',
     ];
 

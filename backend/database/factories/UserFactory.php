@@ -38,6 +38,11 @@ class UserFactory extends Factory
         ]);
     }
 
+    public function pet(): static
+    {
+        return $this->petAccount();
+    }
+
     public function humanAccount(): static
     {
         return $this->state(fn (array $attrs) => [
@@ -46,10 +51,27 @@ class UserFactory extends Factory
         ]);
     }
 
+    public function human(): static
+    {
+        return $this->humanAccount();
+    }
+
     public function adminAccount(): static
     {
         return $this->state(fn (array $attrs) => [
             'role' => Role::Admin->value,
+            'status' => AccountStatus::Active->value,
+        ]);
+    }
+
+    public function admin(): static
+    {
+        return $this->adminAccount();
+    }
+
+    public function active(): static
+    {
+        return $this->state(fn (array $attrs) => [
             'status' => AccountStatus::Active->value,
         ]);
     }

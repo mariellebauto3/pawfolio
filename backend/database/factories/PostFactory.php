@@ -16,7 +16,7 @@ class PostFactory extends Factory
     public function definition(): array
     {
         return [
-            'author_user_id' => UserFactory::new()->sequence(fn (array $attrs) => $attrs['author_user_id'] ?? null),
+            'author_user_id' => UserFactory::new(),
             'type' => PostType::Post->value,
             'title' => fake()->optional()->sentence(),
             'body' => fake()->paragraph(),
@@ -46,7 +46,7 @@ class PostFactory extends Factory
         return $this->state(fn (array $attrs) => [
             'type' => PostType::AdoptionStory->value,
             'title' => fake()->sentence(),
-            'adopted_pet_id' => PetFactory::new()->sequence(fn (array $attrs) => $attrs['adopted_pet_id'] ?? null),
+            'adopted_pet_id' => PetFactory::new(),
         ]);
     }
 

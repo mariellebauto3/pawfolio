@@ -15,8 +15,8 @@ class InviteFactory extends Factory
     public function definition(): array
     {
         return [
-            'home_profile_id' => HomeProfileFactory::new()->sequence(fn (array $attrs) => $attrs['home_profile_id'] ?? null),
-            'pet_id' => PetFactory::new()->sequence(fn (array $attrs) => $attrs['pet_id'] ?? null),
+            'home_profile_id' => HomeProfileFactory::new(),
+            'pet_id' => PetFactory::new(),
             'note' => fake()->optional()->sentence(),
             'dismissed_at' => null,
         ];

@@ -19,13 +19,11 @@ class AuthenticatedUserResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'role' => $this->role->value,
-            'status' => $this->status->value,
+            'role' => $this->resource->getRole()->value,
+            'status' => $this->resource->getStatus()->value,
             'email' => $this->email,
             'display_name' => $this->resource->displayName(),
-            'avatar_url' => $this->whenLoaded('pet', fn () => $this->pet?->cover_photo_path)
-                ?? $this->whenLoaded('homeProfile', fn () => $this->homeProfile?->profile_photo_path)
-                ?? null,
+            'avatar_url' => $this->resource->avatarUrl(),
             'profile_id' => $this->resource->profileId(),
         ];
     }
