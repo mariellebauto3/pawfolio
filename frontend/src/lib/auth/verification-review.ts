@@ -5,6 +5,7 @@ import { DENIAL_REASONS, type DenialReason } from "@/types/verification";
 import type { VerifiedRole } from "@/types/verification-review";
 
 export { formatAgeMonths } from "@/lib/utils/format-age";
+export { formatFileSize } from "@/lib/utils/format-file-size";
 
 // Admin verification rules (AU-22…AU-26) shared by the deny dialog's checks and the mock API, mirroring the deny
 // Form Request and its messages (docs/api/auth.md), plus how a review writes out what was submitted. The checks give
@@ -60,13 +61,6 @@ export function documentLabels(documents: readonly SubmittedDocument[]): string[
 export function formatContactNumber(number: string): string {
   const match = /^(\d{4})(\d{3})(\d{4})$/.exec(number);
   return match ? `${match[1]} ${match[2]} ${match[3]}` : number;
-}
-
-/** "1.8 MB", "420 KB". */
-export function formatFileSize(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) return "";
-  const kb = bytes / 1024;
-  return kb < 1000 ? `${Math.max(Math.round(kb), 1)} KB` : `${(kb / 1024).toFixed(1)} MB`;
 }
 
 /** The queue page's query parameters (AU-22): `?tab=pet&q=carla&page=2`. */
