@@ -4,6 +4,8 @@ import type { SubmittedDocument } from "@/types/account-status";
 import { DENIAL_REASONS, type DenialReason } from "@/types/verification";
 import type { VerifiedRole } from "@/types/verification-review";
 
+export { formatAgeMonths } from "@/lib/utils/format-age";
+
 // Admin verification rules (AU-22…AU-26) shared by the deny dialog's checks and the mock API, mirroring the deny
 // Form Request and its messages (docs/api/auth.md), plus how a review writes out what was submitted. The checks give
 // quick feedback; the API is the authority.
@@ -36,16 +38,6 @@ export function denialProblems(input: { denial_reason: unknown; message_to_owner
   if (message.length > DENIAL_MESSAGE_MAX) errors.message_to_owner = DENIAL_MESSAGE_TOO_LONG;
   else if (!message && input.denial_reason === "other") errors.message_to_owner = DENIAL_MESSAGE_REQUIRED;
   return errors;
-}
-
-/** "8 months", "1 year", "5 years", "1 year 2 months" from the pet's approximate age in months. */
-export function formatAgeMonths(months: number): string {
-  if (!Number.isFinite(months) || months < 0) return "";
-  const count = (n: number, unit: string) => `${n} ${unit}${n === 1 ? "" : "s"}`;
-  const years = Math.floor(months / 12);
-  const rest = Math.round(months % 12);
-  if (years === 0) return count(rest, "month");
-  return rest === 0 ? count(years, "year") : `${count(years, "year")} ${count(rest, "month")}`;
 }
 
 /**

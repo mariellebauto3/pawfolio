@@ -23,6 +23,9 @@ const BASE: Omit<Pet, "id" | "name" | "species" | "breed" | "approximate_age_mon
   cover_photo_url: null,
   photos: [],
   published_at: null,
+  hired_by: null,
+  views_count: 0,
+  bookmarks_count: 0,
 };
 
 export const PETS: Pet[] = [
