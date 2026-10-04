@@ -1,5 +1,5 @@
-// Auth endpoints under /api/v1 (contract: docs/api/auth.md). Implemented by the backend in BE-03; the two sign-up
-// endpoints are BE-04 and the account-status ones BE-06, answered by the mock until then.
+// Auth endpoints under /api/v1 (contract: docs/api/auth.md). Implemented by the backend in BE-03 (session and
+// password), BE-04 (sign-up) and BE-06 (account status); the mock answers the same way in mock mode.
 export const AUTH_ENDPOINTS = {
   /** The signed-in account, or 401 when signed out. Reachable whatever the account status. */
   me: "/auth/me",
