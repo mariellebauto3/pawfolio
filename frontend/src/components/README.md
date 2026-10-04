@@ -127,6 +127,7 @@ Dialogs with typed input don't close on a backdrop click. Nothing closes while a
 | --- | --- | --- |
 | `Table` | `table.tsx` | Admin lists and histories. Typed `columns` (`cell`, `align`, `wrap`, `rowHeader`, `headerHidden`), `rows`, `rowKey`, `empty`. Scrolls sideways inside its own frame on phones, wherever it's placed; `framed={false}` inside a `Card padding="none"` |
 | `Timeline` | `timeline.tsx` | Request and adoption history, oldest first. Each event: `title`, `when` + `dateTime`, `description`, `status` (badge + dot) or `tone`, `upcoming`. Dots follow the badges: hollow while moving, yellow Adopted, blue needs a decision, dark gray ended |
+| `PetResume` | `pet-resume.tsx` | A pet's resume as a profile page (PR-01, DS-04): cover, photo, name and read-only status badge, then About, Photos, Temperament, Skills, Compatibility & needs, Health. `actions` (buttons under the name), `notice` (above, e.g. the Draft banner), `aside` (right column, below on phones). `owner` shows "Not added yet" for empty sections; other viewers only get sections with content |
 
 ### `navigation/`
 
