@@ -49,6 +49,7 @@ use App\Services\ActivityLogs\ActivityLogger;
 use App\Services\Matching\MatchScoreCalculator;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 /**
@@ -305,29 +306,37 @@ class DemoSeeder extends Seeder
             $mg->save();
         }
 
-        // Adopted request & Alumni record: Luna -> Elena Garcia
-        if (! Adoption::query()->where('pet_id', $luna->id)->exists()) {
-            $arAdopted = new AdoptionRequest;
-            $arAdopted->pet_id = $luna->id;
-            $arAdopted->home_profile_id = $garciaHome->id;
-            $arAdopted->status = AdoptionRequestStatus::Adopted->value;
-            $arAdopted->cover_letter = 'Hi Elena! I am Luna, a calm indoor Puspin who loves sunny windowsills and quiet company.';
-            $arAdopted->sent_at = now()->subDays(20);
-            $arAdopted->approved_at = now()->subDays(17);
-            $arAdopted->meet_scheduled_at = now()->subDays(14);
-            $arAdopted->awaiting_decision_at = now()->subDays(11);
-            $arAdopted->closed_at = now()->subDays(10);
-            $arAdopted->save();
+        // Adopted requests & alumni records, newest first. Luna -> Elena Garcia is the LoFi's; the other three give
+        // the landing page's Recently Hired gallery (AU-01) and the admin alumni list more than one pet to show.
+        $this->seedAdoption(
+            pet: $luna,
+            home: $garciaHome,
+            adoptedDaysAgo: 10,
+            coverLetter: 'Hi Elena! I am Luna, a calm indoor Puspin who loves sunny windowsills and quiet company.',
+        );
 
-            $garciaHome->furparent_at = now()->subDays(10);
-            $garciaHome->save();
+        $alumni = [
+            ['choco.jr@example.com', 'Choco Jr.', 'dog', 'Aspin', 30, 'Pasig', $cruzHome, 16, 'Hi Marco! I am Choco Jr., a cheerful Aspin who loves morning walks and already knows sit and stay.'],
+            ['brownie@example.com', 'Brownie', 'dog', 'Beagle Mix', 48, 'Pasig', $cruzHome, 25, 'Hi Marco! I am Brownie, a gentle Beagle mix who gets along with other dogs and naps through the afternoon.'],
+            ['pancit@example.com', 'Pancit', 'cat', 'Puspin', 14, 'Makati', $garciaHome, 38, 'Hi Elena! I am Pancit, a curious Puspin who is litter trained and happy to share a home with another cat.'],
+        ];
 
-            $adoption = new Adoption;
-            $adoption->pet_id = $luna->id;
-            $adoption->home_profile_id = $garciaHome->id;
-            $adoption->adoption_request_id = $arAdopted->id;
-            $adoption->adopted_at = now()->subDays(10);
-            $adoption->save();
+        foreach ($alumni as [$email, $name, $species, $breed, $ageMonths, $city, $home, $adoptedDaysAgo, $coverLetter]) {
+            [, $alumnus] = $this->upsertPetAccount(
+                email: $email,
+                name: $name,
+                accountStatus: AccountStatus::Active,
+                petStatus: PetStatus::AdoptedHired,
+                species: $species,
+                breed: $breed,
+                ageMonths: $ageMonths,
+                city: $city,
+                province: 'Metro Manila',
+                passwordHash: $passwordHash,
+                completeResume: true,
+            );
+
+            $this->seedAdoption($alumnus, $home, $adoptedDaysAgo, $coverLetter);
         }
 
         // 15. Community post & Announcement
@@ -434,6 +443,8 @@ class DemoSeeder extends Seeder
             }
         }
 
+        $this->storeDemoPhotos($pet, $species);
+
         if ($completeResume && $pet->temperamentTags()->count() === 0) {
             foreach (['Friendly', 'Gentle', 'Playful'] as $tag) {
                 $pet->temperamentTags()->create(['tag' => $tag]);
@@ -459,6 +470,66 @@ class DemoSeeder extends Seeder
         }
 
         return [$user, $pet];
+    }
+
+    /**
+     * Puts a sample photo behind each demo photo row, so resumes and the landing page have pictures to show.
+     * The files in database/seeders/assets/pets are stock photos (see the README there), not real Pawfolio pets
+     * (SEC-PRIV-06).
+     */
+    private function storeDemoPhotos(Pet $pet, string $species): void
+    {
+        $kind = $species === 'cat' ? 'cat' : 'dog';
+
+        foreach ($pet->photos()->orderBy('sort_order')->get() as $photo) {
+            if (! str_starts_with($photo->file_path, 'pets/photos/demo-') || Storage::disk('public')->exists($photo->file_path)) {
+                continue;
+            }
+
+            // Three samples per kind, started at a different one for each pet.
+            $sample = (($pet->id + $photo->sort_order) % 3) + 1;
+            Storage::disk('public')->put(
+                $photo->file_path,
+                (string) file_get_contents(database_path("seeders/assets/pets/{$kind}-{$sample}.jpg")),
+            );
+        }
+    }
+
+    /**
+     * A finished adoption: the Adopted request, the alumni record, and the human's Furparent date.
+     */
+    private function seedAdoption(Pet $pet, HomeProfile $home, int $adoptedDaysAgo, string $coverLetter): void
+    {
+        if (Adoption::query()->where('pet_id', $pet->id)->exists()) {
+            return;
+        }
+
+        $adoptedAt = now()->subDays($adoptedDaysAgo);
+
+        $request = new AdoptionRequest;
+        $request->pet_id = $pet->id;
+        $request->home_profile_id = $home->id;
+        $request->status = AdoptionRequestStatus::Adopted->value;
+        $request->cover_letter = $coverLetter;
+        $request->sent_at = now()->subDays($adoptedDaysAgo + 10);
+        $request->approved_at = now()->subDays($adoptedDaysAgo + 7);
+        $request->meet_scheduled_at = now()->subDays($adoptedDaysAgo + 4);
+        $request->awaiting_decision_at = now()->subDays($adoptedDaysAgo + 1);
+        $request->closed_at = $adoptedAt;
+        $request->save();
+
+        // A Furparent since their first adoption.
+        if ($home->furparent_at === null || $adoptedAt->lt($home->furparent_at)) {
+            $home->furparent_at = $adoptedAt;
+            $home->save();
+        }
+
+        $adoption = new Adoption;
+        $adoption->pet_id = $pet->id;
+        $adoption->home_profile_id = $home->id;
+        $adoption->adoption_request_id = $request->id;
+        $adoption->adopted_at = $adoptedAt;
+        $adoption->save();
     }
 
     /**
