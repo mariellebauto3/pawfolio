@@ -2,7 +2,7 @@ import { env } from "@/config/env";
 import { createBrowserTransport } from "@/lib/api/browser-transport";
 import { readBrowserCookie } from "@/lib/api/cookies";
 import { type ApiClient, type ApiErrorListener, createApiClient } from "@/lib/api/core";
-import { createMockTransport, writeBrowserMockPersona } from "@/lib/api/mock/transport";
+import { createMockTransport, writeBrowserMockDecisions, writeBrowserMockPersona } from "@/lib/api/mock/transport";
 
 // The one HTTP client for Laravel in the browser. Use it from client components and feature `api/` folders:
 //   const { data } = await api.get<ApiResource<Pet>>(`/pets/${petId}`);
@@ -22,8 +22,12 @@ export function onApiError(listener: ApiErrorListener): () => void {
 
 const transport =
   env.apiMode === "mock"
-    ? createMockTransport({ readCookie: readBrowserCookie, writePersona: writeBrowserMockPersona })
-    : // Wrapped so fetch is always called with the global `this`; a detached reference throws "Illegal invocation".
+    ? createMockTransport({
+        readCookie: readBrowserCookie,
+        writePersona: writeBrowserMockPersona,
+        writeDecisions: writeBrowserMockDecisions,
+      })
+    :// Wrapped so fetch is always called with the global `this`; a detached reference throws "Illegal invocation".
       createBrowserTransport({ apiUrl: env.apiUrl, fetch: (input, init) => fetch(input, init), readCookie: readBrowserCookie });
 
 export const api: ApiClient = createApiClient(transport, {

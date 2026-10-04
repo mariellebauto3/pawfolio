@@ -53,6 +53,11 @@ const { data } = await (await getServerApi()).get<ApiResource<Pet>>(apiPath`/pet
   always safe to show.
 - A cancelled request (your `signal` aborted, or your timeout fired) rejects with the abort reason itself, not an
   `ApiError`. A bug, such as an unsafe path, throws a plain `Error`. Only real network failures become `network`.
+- **Files the API serves to one account** (verification documents) are read with
+  `api.getFile(path, { accept: [...] })`, which resolves to a `Blob`. `accept` is required: the media types the
+  screen can show safely. Any other answer is refused, because a file shown from a `blob:` address runs with this
+  site's origin (SEC-FE-09). Show it with `URL.createObjectURL()` and release it with `URL.revokeObjectURL()` when
+  the screen closes (`features/auth/hooks/use-document-file.ts`); never build a URL to the file itself.
 
 ## Session
 
@@ -104,6 +109,12 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
   their screen at `/account-status` (`AU-18`, `AU-20`, `AU-21`, closed). "Save and resubmit" on `/account/edit` as
   `human-denied` signs you in as `human-resubmitted` (the same account, Pending again); what was typed isn't stored.
   Sign in as `carla.mendoza@example.com` to see the denial again.
+- **Admin verification:** as `admin`, `/admin/verification` lists 23 waiting accounts (two pages). Approving or
+  denying one is remembered in the `pf_mock_decisions` cookie, so the pages rendered on the server, the sidebar count
+  and a later sign-in agree: approve Kulit, then sign in as `kulit@example.com` to land in the member shell; deny
+  Bea Navarro, then sign in as `bea.navarro@example.com` to read your reason on the Denied screen and resubmit.
+  Documents are drawn on request (a PNG or a small PDF), whatever format the fixture names. To get the fixture queue
+  back, run `document.cookie = "pf_mock_decisions=; path=/; max-age=0"`.
 - **Adding mocks:** add a file in `src/lib/api/mock/handlers/` and register it in `handlers/index.ts`. Follow the
   planned shape in `docs/api/` so switching to `live` changes nothing. Created records live in memory until reload.
 - All fixture data is made up (SEC-PRIV-06).

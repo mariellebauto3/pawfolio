@@ -1,3 +1,4 @@
+import { withMockDecision } from "@/lib/api/mock/decisions";
 import { MOCK_PASSWORD, findMockPersonaByEmail, resolveMockAccount } from "@/lib/api/mock/personas";
 import { type MockRoute, fail, ok, route, validationFailed } from "@/lib/api/mock/router";
 import { AUTH_ENDPOINTS } from "@/lib/auth/endpoints";
@@ -37,7 +38,7 @@ export const authRoutes: MockRoute[] = [
   route(
     "POST",
     AUTH_ENDPOINTS.signIn,
-    ({ body }) => {
+    ({ body, decisions }) => {
       const { email, password } = (body ?? {}) as SignInBody;
       const errors: Record<string, string> = {};
       if (typeof email !== "string" || !email.trim()) errors.email = "Enter your email.";
@@ -64,7 +65,8 @@ export const authRoutes: MockRoute[] = [
       }
       failures.delete(key);
 
-      const account = resolveMockAccount(persona);
+      // Approved or denied by the mock admin since: the account signs in with the status that left it with.
+      const account = withMockDecision(resolveMockAccount(persona), decisions);
       // Told only after the right password, like the API.
       if (account?.status === "deactivated") return validationFailed({ email: "This account was closed." });
       return { ...ok(account), persona };
