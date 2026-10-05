@@ -30,11 +30,13 @@ class SignUpPet
 
     public function __invoke(SignUpPetRequest $request): User
     {
+        // Sent for verification, so admin-only like the ID (SEC-PRIV-01). ApproveVerification copies them into the
+        // pet's public gallery when the account is approved.
         /** @var list<UploadedFile> $photos */
         $photos = array_values($request->file('photos', []));
         $storedPhotos = [];
         foreach ($photos as $index => $photo) {
-            $storedPhotos[] = $this->uploads->storePublicPhoto($photo, 'pets/photos', "photos.{$index}");
+            $storedPhotos[] = $this->uploads->storePrivatePhoto($photo, 'verification/pet-photos', "photos.{$index}");
         }
 
         /** @var UploadedFile $validIdFile */
@@ -90,13 +92,7 @@ class SignUpPet
                 'size_bytes' => $storedValidId['size_bytes'],
             ]);
 
-            foreach ($storedPhotos as $idx => $photoMeta) {
-                $pet->photos()->create([
-                    'file_path' => $photoMeta['file_path'],
-                    'caption' => null,
-                    'sort_order' => $idx + 1,
-                ]);
-
+            foreach ($storedPhotos as $photoMeta) {
                 $submission->documents()->create([
                     'document_type' => VerificationDocumentType::PetPhoto->value,
                     'id_type' => null,

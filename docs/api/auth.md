@@ -1,8 +1,7 @@
 # Auth & session endpoints
 
-Module 1, Authentication & Verification. **Status: built (BE-03, BE-04, BE-06)** and checked against the frontend
-in live mode on 2026-10-04, except the admin verification endpoints at the end: BE-08 is built but doesn't follow
-that section yet. The frontend uses these through `frontend/src/lib/auth/` and `src/features/auth/api/`; the mock handlers in
+Module 1, Authentication & Verification. **Status: built (BE-03, BE-04, BE-06, BE-08)** and checked against the
+frontend in live mode on 2026-10-04. The frontend uses these through `frontend/src/lib/auth/` and `src/features/auth/api/`; the mock handlers in
 `frontend/src/lib/api/mock/handlers/` (`auth.ts`, `sign-up.ts`, `account-status.ts`, `admin-verification.ts`) answer
 the same way for mock mode. If anything here changes, update this
 file, the backend tests (`backend/tests/Feature/Auth/`), the mock and the types in the same PR.
@@ -151,7 +150,8 @@ Both endpoints:
 
 ### Answers
 
-- **201** with the same body as `GET /auth/me`: the new account, `status: "pending_verification"`. The account is
+- **201** with the same body as `GET /auth/me`: the new account, `status: "pending_verification"`, and for a pet
+  `avatar_url: null` (its photos are private until an admin approves the account). The account is
   **signed in** on the session (session ID regenerated, SEC-AUTH-07), so the frontend goes straight to the
   account-status screen (`AU-18`), the only page a Pending account can open (FR2, FR19). A `verification_submissions`
   row with `status: "pending"` puts it in the admin queue (`AU-22`).
@@ -164,9 +164,11 @@ Both endpoints:
 - Files are checked by content, renamed, and images re-encoded without EXIF (SEC-FILE-01…05). The ID, the vet record
   and the sign-up photos go to the **private** disk (SEC-PRIV-01, SEC-FILE-04); the frontend's own file checks are
   for quick feedback only.
+- **Sign-up photos become the gallery on approval.** They are `pet_photo` verification documents on the private
+  disk, like the ID. When an admin approves the account they are copied to the public disk as the pet's first
+  gallery photos (the first one is its avatar); the private copies stay as what the admin saw. A denied or still
+  pending account has nothing public.
 - **Not as written yet (found 2026-10-04):**
-  - The sign-up photos are stored on the **public** disk and become the pet's first gallery photos, so
-    `avatar_url` is set from sign-up. The ID and the vet record are private. To be settled with the BE-08 fix.
   - A file's content is checked after every other field has passed, so a wrong file type or size comes back in a
     422 of its own, not together with the other fields' errors.
   - A text field over its length answers with Laravel's default wording. The wizard's inputs stop at the limit,
@@ -295,10 +297,10 @@ Verification and re-enters the admin queue (`AU-22`).
 
 ## Admin verification: `/api/v1/admin/verifications`
 
-`AU-22`…`AU-26`, FR33, NFR4, NFR9. **Status: planned (BE-08), not built yet.** The frontend screens (FE-09) are built
-against this contract through the mock (`frontend/src/lib/api/mock/handlers/admin-verification.ts`); BE-08 implements
-it, or changes this section, the mock, the types (`frontend/src/types/verification-review.ts`), the shared rules
-(`frontend/src/lib/auth/verification-review.ts`) and their tests in the same PR.
+`AU-22`…`AU-26`, FR33, NFR4, NFR9. **Status: built (BE-08).** The frontend screens (FE-09) run against it, and the
+mock (`frontend/src/lib/api/mock/handlers/admin-verification.ts`) answers the same way. A change here also changes
+the mock, the types (`frontend/src/types/verification-review.ts`), the shared rules
+(`frontend/src/lib/auth/verification-review.ts`) and the tests on both sides in the same PR.
 
 - **Who:** Active admins only, on every endpoint below (SEC-AUTHZ-07). Signed out: **401**. Not Active: **403**
   `account_not_active`. A pet or a human: **403** `"This page is for admins only."`, written to the security log
@@ -319,12 +321,13 @@ it, or changes this section, the mock, the types (`frontend/src/types/verificati
 ### `GET /admin/verifications`
 
 Submissions with `status: "pending"`, one row per account, **oldest first** by `submitted_at` (the
-`status, submitted_at` index). The order is fixed; there is no sort parameter.
+`status, submitted_at` index). The order is fixed; there is no sort parameter. An account that edited its details
+while Pending has several rows; only its latest counts, so an edit sends it to the back of the queue.
 
 | Query | Rules |
 | --- | --- |
 | `role` | `pet` \| `human`; leave out for both. Anything else: **422** `"Choose Pet or Human."` (allow-list, SEC-INPUT-03) |
-| `search` | Up to 100 characters, trimmed. Matches part of the pet's name, the human's full name or the caretaker's name, whatever the case, as a bound parameter (SEC-INPUT-02) |
+| `search` | Up to 100 characters, trimmed; longer: **422** `"Search for 100 characters or fewer."` Matches part of the pet's name, the human's full name or the caretaker's name, whatever the case, as a bound parameter (SEC-INPUT-02). `%` and `_` are searched for as typed |
 | `page`, `per_page` | As every list: default 20, max 50 (SEC-API-05) |
 
 - **200:**
@@ -395,7 +398,7 @@ Submissions with `status: "pending"`, one row per account, **oldest first** by `
   | --- | --- |
   | `account_status` | The account's status, as in `GET /auth/me` |
   | `status` | The submission's: `pending` \| `approved` \| `denied`. Only a `pending` one can be approved or denied |
-  | `previous_denial` | The round before this one, when it was denied (`AU-24`); otherwise `null` |
+  | `previous_denial` | The last round an admin decided before this one, when it was a denial (`AU-24`); otherwise `null`. Rows the owner replaced by editing before anyone reviewed them don't count as rounds |
   | `reviewed_at`, `reviewed_by`, `denial_reason`, `message_to_owner` | Set once decided. `reviewed_by` is the admin's display name, `null` if that admin's row is gone |
   | `details` | What the owner submitted. A pet: `role: "pet"`, `name`, `species`, `breed`, `approximate_age_months`, `currently_at`, `city`, `province`, `caretaker_name`, `caretaker_contact_number`. A human: the fields above |
   | `documents` | As in the queue, plus the `id` that opens the file below |
@@ -426,10 +429,12 @@ URL or path for a verification document anywhere in the API (SEC-PRIV-01, SEC-FI
 
 - **Body:** none. Approving needs no reason (SEC-AUTHZ-07 lists the actions that do).
 - **200** with the same body as the `GET` above, now `status: "approved"`, `account_status: "active"`,
-  `reviewed_at`, `reviewed_by`, and `queue.position: null`.
+  `reviewed_at`, `reviewed_by`, and `queue.position: null`. A pet's sign-up photos become its gallery (see sign-up
+  above).
 - **409** `{ "code": "verification_already_reviewed", "message": "This account was already approved by admin.mark." }`
-  when the submission is no longer pending (another admin decided first). The frontend shows the message and
-  reloads the page.
+  when the submission is no longer pending (another admin decided first), or `"This account isn't waiting for review
+  any more."` when the account left Pending Verification some other way. The frontend shows the message and reloads
+  the page.
 - **404** as above.
 
 ### `POST /admin/verifications/{accountId}/deny`
@@ -458,5 +463,5 @@ URL or path for a verification document anywhere in the API (SEC-PRIV-01, SEC-FI
   (`security-guidelines.md` §12).
 - A human who turned 18 after signing up, or whose birthdate doesn't match the ID, is the admin's call: the age on
   the screen is worked out from the submitted `birthdate`.
-- Seed a few Pending accounts for local development and the demo, with fake documents (SEC-PRIV-06), so the queue
-  has something to review.
+- `DemoSeeder` seeds Pending accounts for local development and the demo. Their IDs are pictures the seeder draws,
+  marked "SAMPLE ID - NOT A REAL DOCUMENT" (SEC-PRIV-06), so the document viewer has something to open.

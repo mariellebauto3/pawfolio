@@ -44,6 +44,7 @@ use App\Models\MeetGreetSlot;
 use App\Models\Pet;
 use App\Models\Post;
 use App\Models\User;
+use App\Models\VerificationDocument;
 use App\Models\VerificationSubmission;
 use App\Services\ActivityLogs\ActivityLogger;
 use App\Services\Matching\MatchScoreCalculator;
@@ -360,6 +361,8 @@ class DemoSeeder extends Seeder
             $ann->save();
         }
 
+        $this->storeSampleIds();
+
         ActivityLogger::log(
             type: ActivityLogType::System,
             action: 'demo_seed_completed',
@@ -630,5 +633,47 @@ class DemoSeeder extends Seeder
         }
 
         return [$user, $home];
+    }
+
+    /**
+     * Puts a picture behind each demo ID, so the admin's document viewer (AU-23, AU-24) has something to open.
+     * It is drawn here and says it is a sample: no real ID is ever used as seed data (SEC-PRIV-06).
+     */
+    private function storeSampleIds(): void
+    {
+        $documents = VerificationDocument::query()
+            ->where('file_path', 'like', 'verification/ids/demo-user-%')
+            ->with(['submission.user.pet', 'submission.user.homeProfile'])
+            ->get();
+
+        foreach ($documents as $document) {
+            if (Storage::disk('local')->exists($document->file_path)) {
+                continue;
+            }
+
+            $owner = $document->submission?->user;
+            $name = $owner?->isPet() ? ($owner->pet?->caretaker_name ?? 'Caretaker') : ($owner?->displayName() ?: 'Account holder');
+
+            $card = imagecreatetruecolor(640, 400);
+            $ink = imagecolorallocate($card, 31, 41, 55);
+            imagefilledrectangle($card, 0, 0, 639, 399, imagecolorallocate($card, 243, 244, 246));
+            imagefilledrectangle($card, 0, 0, 639, 69, imagecolorallocate($card, 52, 64, 196));
+            imagestring($card, 5, 24, 26, 'SAMPLE ID  -  NOT A REAL DOCUMENT', imagecolorallocate($card, 255, 255, 255));
+            imagefilledrectangle($card, 24, 100, 203, 329, imagecolorallocate($card, 209, 213, 219));
+            imagestring($card, 5, 232, 110, 'Name', $ink);
+            imagestring($card, 5, 232, 134, mb_strtoupper($name), $ink);
+            imagestring($card, 5, 232, 190, 'ID number', $ink);
+            imagestring($card, 5, 232, 214, '0000-0000-0000', $ink);
+            imagestring($card, 3, 24, 356, 'Pawfolio demo data', $ink);
+
+            ob_start();
+            imagejpeg($card, null, 85);
+            $jpeg = (string) ob_get_clean();
+            imagedestroy($card);
+
+            Storage::disk('local')->put($document->file_path, $jpeg);
+            $document->size_bytes = strlen($jpeg);
+            $document->save();
+        }
     }
 }

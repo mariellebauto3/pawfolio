@@ -74,6 +74,13 @@ class SignUpAndVerificationTest extends TestCase
         $this->assertSame(VerificationSubmissionStatus::Pending->value, $submission->status);
         $idDoc = $submission->documents()->where('document_type', 'valid_id')->firstOrFail();
         Storage::disk('local')->assertExists($idDoc->file_path);
+
+        // The photo sent at sign-up is a verification document too: private, and not yet in the gallery.
+        $photoDoc = $submission->documents()->where('document_type', 'pet_photo')->firstOrFail();
+        Storage::disk('local')->assertExists($photoDoc->file_path);
+        $this->assertSame([], Storage::disk('public')->allFiles());
+        $this->assertSame(0, $user->pet->photos()->count());
+        $response->assertJsonPath('data.avatar_url', null);
     }
 
     public function test_human_sign_up_enforces_18_plus_age_and_encrypts_personal_fields(): void
@@ -181,22 +188,22 @@ class SignUpAndVerificationTest extends TestCase
             ->assertJsonPath('data.status', 'pending_verification')
             ->assertJsonPath('data.is_resubmission', false);
 
-        // Non-admin cannot access /api/v1/admin/verification.
+        // Non-admin cannot access /api/v1/admin/verifications.
         $activeHuman = User::factory()->human()->active()->create();
-        $this->actingAs($activeHuman)->getJson('/api/v1/admin/verification')
+        $this->actingAs($activeHuman)->getJson('/api/v1/admin/verifications')
             ->assertForbidden();
 
         // Admin reviews and denies Carla's submission.
         $admin = User::factory()->admin()->active()->create();
-        $this->actingAs($admin)->getJson('/api/v1/admin/verification')
+        $this->actingAs($admin)->getJson('/api/v1/admin/verifications')
             ->assertOk()
             ->assertJsonPath('meta.total', 1);
 
         $doc = VerificationDocument::query()->firstOrFail();
-        $this->actingAs($admin)->get("/api/v1/admin/verification-documents/{$doc->id}")
+        $this->actingAs($admin)->get("/api/v1/admin/verifications/{$carla->id}/documents/{$doc->id}")
             ->assertOk();
 
-        $this->actingAs($admin)->postJson("/api/v1/admin/verification/{$carla->id}/deny", [
+        $this->actingAs($admin)->postJson("/api/v1/admin/verifications/{$carla->id}/deny", [
             'denial_reason' => 'id_photo_unreadable',
             'message_to_owner' => 'Please upload a clearer photo of your passport.',
         ])->assertOk()
@@ -228,14 +235,15 @@ class SignUpAndVerificationTest extends TestCase
             ->assertJsonPath('data.is_resubmission', true);
 
         // Admin sees previous denial history on AU-24 and approves Carla.
-        $this->actingAs($admin)->getJson("/api/v1/admin/verification/{$carla->id}")
+        $this->actingAs($admin)->getJson("/api/v1/admin/verifications/{$carla->id}")
             ->assertOk()
             ->assertJsonPath('data.is_resubmission', true)
             ->assertJsonPath('data.previous_denial.denial_reason', 'id_photo_unreadable');
 
-        $this->actingAs($admin)->postJson("/api/v1/admin/verification/{$carla->id}/approve")
+        $this->actingAs($admin)->postJson("/api/v1/admin/verifications/{$carla->id}/approve")
             ->assertOk()
-            ->assertJsonPath('data.status', 'active');
+            ->assertJsonPath('data.status', 'approved')
+            ->assertJsonPath('data.account_status', 'active');
 
         $this->assertSame(AccountStatus::Active, $carla->fresh()->getStatus());
     }

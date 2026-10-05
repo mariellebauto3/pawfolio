@@ -16,8 +16,8 @@ use Illuminate\Validation\ValidationException;
  * - Rejects SVG, HTML, and script payloads.
  * - Enforces 5 MB max per file.
  * - Re-encodes JPG/PNG images through GD to strip EXIF/GPS metadata and resize large images.
- * - Stores public photos on the `public` disk and verification/vet documents on the `local` (private) disk
- *   with random UUID filenames.
+ * - Stores public photos on the `public` disk, and verification photos and documents on the `local` (private)
+ *   disk, with random UUID filenames.
  */
 class FileUploadService
 {
@@ -43,20 +43,39 @@ class FileUploadService
      */
     public function storePublicPhoto(UploadedFile $file, string $directory = 'photos', string $field = 'photo'): array
     {
+        $stored = $this->storePhoto('public', $file, $directory, $field);
+
+        return [...$stored, 'url' => Storage::disk('public')->url($stored['file_path'])];
+    }
+
+    /**
+     * The same checks and re-encoding, stored on the private `local` disk: photos sent for verification, which are
+     * admin-only until the account is approved (SEC-PRIV-01).
+     *
+     * @return array{file_path: string, mime_type: string, size_bytes: int}
+     */
+    public function storePrivatePhoto(UploadedFile $file, string $directory = 'verification/photos', string $field = 'photo'): array
+    {
+        return $this->storePhoto('local', $file, $directory, $field);
+    }
+
+    /**
+     * @return array{file_path: string, mime_type: string, size_bytes: int}
+     */
+    private function storePhoto(string $disk, UploadedFile $file, string $directory, string $field): array
+    {
         $this->assertValidSize($file, $field);
         $mime = $this->detectAndValidateMime($file, self::PHOTO_MIMES, $field, 'Upload a JPG or PNG photo.');
 
         $encoded = $this->reencodeImage($file, $mime, $field);
-        $ext = self::PHOTO_MIMES[$mime];
-        $path = trim($directory, '/').'/'.Str::uuid()->toString().'.'.$ext;
+        $path = trim($directory, '/').'/'.Str::uuid()->toString().'.'.self::PHOTO_MIMES[$mime];
 
-        Storage::disk('public')->put($path, $encoded);
+        Storage::disk($disk)->put($path, $encoded);
 
         return [
             'file_path' => $path,
             'mime_type' => $mime,
             'size_bytes' => strlen($encoded),
-            'url' => Storage::disk('public')->url($path),
         ];
     }
 

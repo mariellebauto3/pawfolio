@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Enums\ActivityLogType;
 use App\Enums\Role;
 use App\Http\Resources\ErrorResource;
+use App\Services\ActivityLogs\ActivityLogger;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,6 +34,20 @@ class EnsureRole
         );
 
         if (! in_array($currentRole, $normalizedRoles, true)) {
+            if ($normalizedRoles === [Role::Admin->value]) {
+                // A pet or human asking for an admin endpoint is a security event (SEC-LOG-02).
+                ActivityLogger::log(
+                    type: ActivityLogType::Security,
+                    action: 'admin_access_denied',
+                    actor: $user,
+                    subject: $user,
+                    reason: $request->method().' /'.ltrim($request->path(), '/'),
+                    userAgent: $request->userAgent(),
+                );
+
+                return ErrorResource::forbidden('This page is for admins only.')->toResponse($request);
+            }
+
             return ErrorResource::forbidden('You do not have permission to perform this action.')->toResponse($request);
         }
 

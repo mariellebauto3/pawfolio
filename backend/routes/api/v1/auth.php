@@ -39,13 +39,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:writes');
 });
 
-// Admin verification queue & review (BE-08, AU-22..AU-26, SEC-AUTHZ-02).
-Route::middleware(['auth:sanctum', 'active', 'role:admin'])->group(function (): void {
-    Route::get('admin/verification', [AdminVerificationController::class, 'index']);
-    Route::get('admin/verification/{account}', [AdminVerificationController::class, 'show']);
-    Route::get('admin/verification-documents/{document}', [AdminVerificationController::class, 'streamDocument']);
-    Route::post('admin/verification/{account}/approve', [AdminVerificationController::class, 'approve'])
-        ->middleware('throttle:writes');
-    Route::post('admin/verification/{account}/deny', [AdminVerificationController::class, 'deny'])
-        ->middleware('throttle:writes');
-});
+// Admin verification: queue, review, documents, approve and deny (BE-08, AU-22..AU-26, docs/api/auth.md).
+Route::middleware(['auth:sanctum', 'active', 'role:admin'])
+    ->prefix('admin/verifications')
+    ->whereNumber(['accountId', 'documentId'])
+    ->group(function (): void {
+        Route::get('/', [AdminVerificationController::class, 'index']);
+        Route::get('{accountId}', [AdminVerificationController::class, 'show']);
+        Route::get('{accountId}/documents/{documentId}', [AdminVerificationController::class, 'document']);
+        Route::post('{accountId}/approve', [AdminVerificationController::class, 'approve'])
+            ->middleware('throttle:writes');
+        Route::post('{accountId}/deny', [AdminVerificationController::class, 'deny'])
+            ->middleware('throttle:writes');
+    });
