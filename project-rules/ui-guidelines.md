@@ -60,6 +60,8 @@ Empty state, Table, Timeline, Meter, Match card, Post card. Add a new shared com
 
 - Use a **dialog** for: confirmations of irreversible or important actions (Adopt, Withdraw, Deactivate, Suspend, Delete post),
   short forms (Invite to Apply, Report, Add slot), and explanations (Match breakdown). Everything else is a page.
+- **Log out always asks first** (added 2026-10-04, not in the LoFi): every "Log out", for every role and in every
+  shell, opens "Log out of Pawfolio?" with Stay signed in and Log out, so a slip doesn't end the session.
 - Dialog anatomy: title, optional subtitle, close button, body, footer with actions — cancel on the left, primary on the right.
 - Permanent actions say so in the dialog ("This is permanent") and list what will happen.
 - **Toasts** confirm a completed action in one short sentence (bottom-left on desktop, full width at the bottom on phones) and
