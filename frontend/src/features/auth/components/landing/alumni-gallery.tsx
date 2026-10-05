@@ -30,6 +30,8 @@ type Props = {
 export function AlumniGallery({ pets }: Props) {
   const id = useId();
   const [active, setActive] = useState(0);
+  // Photos that didn't load (the file is gone, the API is down): those panels show the paw instead of a broken image.
+  const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
   const buttons = useRef<Array<HTMLButtonElement | null>>([]);
   const grow = pets.length > 1 ? (EXPAND_RATIO * (pets.length - 1)) / (1 - EXPAND_RATIO) : 1;
 
@@ -55,6 +57,7 @@ export function AlumniGallery({ pets }: Props) {
         const isActive = i === active;
         const tilt = isActive ? 0 : i < active ? TILT_DEG : -TILT_DEG;
         const month = HIRED_MONTH.format(new Date(pet.hired_at));
+        const photo = pet.photo_url && !failed.has(pet.photo_url) ? pet.photo_url : null;
         return (
           <li
             key={`${pet.name}-${pet.hired_at}`}
@@ -77,12 +80,13 @@ export function AlumniGallery({ pets }: Props) {
               onKeyDown={(event) => onKeyDown(event, i)}
               className="group absolute inset-0 block size-full overflow-hidden rounded-dialog text-left"
             >
-              {pet.photo_url ? (
+              {photo ? (
                 <Image
-                  src={pet.photo_url}
+                  src={photo}
                   alt=""
                   fill
                   sizes="(min-width: 768px) 560px, 100vw"
+                  onError={() => setFailed((previous) => new Set(previous).add(photo))}
                   className={cn(
                     "object-cover transition-[filter,scale] duration-600 ease-out",
                     isActive ? "scale-100 grayscale-0" : "scale-110 grayscale",
