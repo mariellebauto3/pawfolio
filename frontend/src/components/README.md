@@ -89,7 +89,7 @@ the same message for missing pages and for hidden, suspended or deactivated prof
 | `LockedField` | `locked-field.tsx` | Admin-verified details, read-only, with "Request a change" (`onRequestChange` or `requestChangeHref`), AC-03 |
 | `FileUpload` | `file-upload.tsx` | JPG/PNG/PDF, 5 MB, checked by extension **and** file signature; previews, remove, drag and drop, `multiple` + `maxFiles`. The API still re-validates (SEC-FILE-01…05) |
 | `Stepper` | `stepper.tsx` | Progress bars with step labels (labels hidden on phones, always read by screen readers) |
-| `Wizard` | `wizard.tsx` | Multi-step form (NFR1): "Step X of N" heading, Back / Next, optional Save draft with `draftStatus`, `onNext` per-step validation. All steps stay mounted so answers survive Back and Next. Pass `step` + `onStepChange` to open a step yourself (review-step "Edit", a server error on an earlier step) |
+| `Wizard` | `wizard.tsx` | Multi-step form (NFR1): "Step X of N" heading, Back / Next, optional Save draft with `draftStatus` (`saveDraftLabel` to reword it), `onNext` per-step validation. All steps stay mounted so answers survive Back and Next. Pass `step` + `onStepChange` to open a step yourself (review-step "Edit", a server error on an earlier step) |
 
 ### `overlays/`
 
@@ -128,6 +128,7 @@ Dialogs with typed input don't close on a backdrop click. Nothing closes while a
 | --- | --- | --- |
 | `Table` | `table.tsx` | Admin lists and histories. Typed `columns` (`cell`, `align`, `wrap`, `rowHeader`, `headerHidden`), `rows`, `rowKey`, `empty`. Scrolls sideways inside its own frame on phones, wherever it's placed; `framed={false}` inside a `Card padding="none"` |
 | `Timeline` | `timeline.tsx` | Request and adoption history, oldest first. Each event: `title`, `when` + `dateTime`, `description`, `status` (badge + dot) or `tone`, `upcoming`. Dots follow the badges: hollow while moving, yellow Adopted, blue needs a decision, dark gray ended |
+| `PetResume` | `pet-resume.tsx` | A pet's resume as a profile page (PR-01, DS-04): cover, photo, name and read-only status badge, then About, Photos, Temperament, Skills, Compatibility & needs, Health. `actions` (buttons under the name), `notice` (above, e.g. the Draft banner), `aside` (right column, below on phones). `owner` shows "Not added yet" for empty sections; other viewers only get sections with content |
 
 ### `navigation/`
 

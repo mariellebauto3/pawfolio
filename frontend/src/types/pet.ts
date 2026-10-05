@@ -67,6 +67,19 @@ export type Pet = {
   photos: PetPhoto[];
   status: PetStatus;
   published_at: IsoDateTime | null;
+  /** The Furparent, on an adopted pet (AL-03); null otherwise. */
+  hired_by: PetHiredBy | null;
+  views_count: number;
+  bookmarks_count: number;
+};
+
+/** Who adopted the pet: the public side of the permanent link between an alumnus and its Furparent (FR13). */
+export type PetHiredBy = {
+  adoption_id: number;
+  home_profile_id: number;
+  full_name: string;
+  city: string;
+  adopted_at: IsoDateTime;
 };
 
 /** The few fields other resources embed when they point at a pet (cards, request lists). */

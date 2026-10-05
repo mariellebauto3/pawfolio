@@ -24,6 +24,8 @@ type Props = {
   onSaveDraft?: (form: HTMLFormElement) => void | Promise<void>;
   /** Short note next to Save draft, e.g. "Draft saved at 10:42 AM". Announced politely. */
   draftStatus?: string;
+  /** The save button's words when "Save draft" doesn't fit, e.g. "Save changes" on a resume that is already live. */
+  saveDraftLabel?: string;
   headingLevel?: "h2" | "h3";
   className?: string;
 };
@@ -40,6 +42,7 @@ export function Wizard({
   finishLabel = "Submit",
   onSaveDraft,
   draftStatus,
+  saveDraftLabel = "Save draft",
   headingLevel: Heading = "h2",
   className,
 }: Props) {
@@ -135,10 +138,10 @@ export function Wizard({
                 <Button
                   variant="tertiary"
                   loading={busy === "draft"}
-                  loadingLabel="Saving draft"
+                  loadingLabel="Saving"
                   onClick={(event) => handleSaveDraft(event.currentTarget.form)}
                 >
-                  Save draft
+                  {saveDraftLabel}
                 </Button>
               </>
             )}

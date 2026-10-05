@@ -40,6 +40,21 @@ export const ROUTES = {
   adminActivityLogs: "/admin/activity-logs",
 } as const;
 
+/** A pet's public resume (DS-04). */
+export function petPath(petId: number): string {
+  return `/pets/${petId}`;
+}
+
+/** A human's Home Profile (DS-05). */
+export function homeProfilePath(homeProfileId: number): string {
+  return `/homes/${homeProfileId}`;
+}
+
+/** The edit resume wizard opened on a step, 1 to 6 as the screen counts them (PR-03…PR-08). */
+export function resumeEditPath(step: number): string {
+  return `${ROUTES.resumeEdit}?step=${step}`;
+}
+
 /** One account's review page, opened from the verification queue (AU-23, AU-24). */
 export function adminVerificationReviewPath(accountId: number): string {
   return `${ROUTES.adminVerification}/${accountId}`;

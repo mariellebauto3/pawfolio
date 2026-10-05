@@ -45,6 +45,17 @@ The two sides of every match: the pet’s resume and the human’s Home Profile 
 
 Dialogs, menus, toasts and states render on top of (or inside) the route shown; they are not separate pages.
 
+## Built so far
+
+- **PR-01…PR-10 (FE-10):** `/me` for a pet (`components/my-resume.tsx`, on the shared
+  `@/components/data-display/pet-resume`) and `/resume/edit` (`forms/resume-wizard.tsx`). The wizard saves a step
+  when the pet leaves it with Next or presses Save draft; photos and vet records save as they are added. `?step=2`
+  opens a step. The rules are pure functions in `schemas/resume-schemas.ts`, tested in
+  `tests/unit/features/profiles/`. API contract: `docs/api/profiles-and-matching.md`. Live API only, no mock.
+- **Dialogs with a form** (Add photo, the Remove confirmations) are rendered by the wizard beside the `Wizard`, not
+  inside a step: a form can't sit inside the wizard's own form.
+- **`/me` for a human** is a placeholder until PR-11…PR-20 are built.
+
 ## Requirements covered
 
 - **FR3** — Complete and edit a Home Profile and lifestyle quiz.
