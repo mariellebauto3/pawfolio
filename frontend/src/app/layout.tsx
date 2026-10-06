@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Atkinson_Hyperlegible_Next, Zilla_Slab } from "next/font/google";
-import { cookies } from "next/headers";
-import { lookUpAccount } from "@/lib/auth/lookup-account";
+import { renderAccount } from "@/lib/auth/render-account";
 import { SessionProvider } from "@/providers/session-provider";
 import { ToastProvider } from "@/providers/toast-provider";
 import "./globals.css";
@@ -27,7 +26,8 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   // Loaded on the server so the shells render the right navigation for the role on the first paint, without a
   // flash of the wrong links. undefined (API unreachable) lets the browser try again.
-  const initialAccount = await lookUpAccount((await cookies()).toString() || null);
+  const lookup = await renderAccount();
+  const initialAccount = lookup.ok ? lookup.account : undefined;
 
   return (
     <html

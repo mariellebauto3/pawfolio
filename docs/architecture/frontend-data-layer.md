@@ -76,10 +76,12 @@ whose API doesn't answer shows its error state with "Try again" instead of a loa
 
 ## Session
 
-`SessionProvider` (root layout) holds the account from `GET /auth/me`. The root layout looks it up on the server
-(`lookUpAccount`, the same helper `proxy.ts` uses) and hands it over, so pages render with the right role from the first
-paint ([ADR 0005](../decisions/0005-page-shells-and-server-seeded-session.md)); if the API doesn't answer in 2 s,
-the provider loads it in the browser instead. Read it anywhere in a client component:
+`SessionProvider` (root layout) holds the account from `GET /auth/me`. The root layout looks it up on the server with
+`renderAccount`, which is memoized for the render: the layout, a page that needs the account, and the guest-only guard
+all share one call. It hands the account over, so pages render with the right role from the first paint
+([ADR 0005](../decisions/0005-page-shells-and-server-seeded-session.md)). `proxy.ts` keeps its own short-lived lookup
+(`lookUpAccount`) because it answers in 2 s or gives up, which is the right trade for an optimistic redirect. If the API
+doesn't answer, the provider loads the session in the browser instead. Read it anywhere in a client component:
 
 ```ts
 const { status, account, role, accountStatus, isActive, isAdmin, refresh } = useSession();

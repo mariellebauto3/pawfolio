@@ -30,4 +30,8 @@ then change (a flash of wrong links, and the row of tabs jumping).
   That's acceptable for an app where almost every page is personal.
 - A full page load of a signed-in page now makes two `/auth/me` calls (proxy and root layout). Client-side navigation
   doesn't re-render the root layout, so it adds nothing there. Revisit together with ADR 0004's note on caching.
+- **Update (2026-10-06):** the caching note above is partly answered. The layout's lookup is memoized for the render
+  (`renderAccount`), so a page that needs the account shares the layout's call instead of making a third one. `proxy.ts`
+  still makes its own, and still gives up after 2 s. The shell now waits as long as the page does, so an API that is
+  down leaves a signed-in page on its loading state until the call times out rather than for 2 s.
 - Visitors without a Laravel session cookie cost no API call, as in the proxy.
