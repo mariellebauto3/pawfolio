@@ -6,8 +6,15 @@ import { networkError } from "@/lib/api/errors";
 // request: it forwards that browser's cookies, and sends our own origin so Sanctum treats the call as coming from
 // the first-party SPA. Cookies Laravel sets in its answer are not passed back to the browser, so use it to read.
 
-/** How long the Next.js server waits for Laravel to answer one call. */
-export const SERVER_CALL_TIMEOUT_MS = 10_000;
+/**
+ * How long the Next.js server waits for Laravel to answer one call.
+ *
+ * Deliberately generous: a page waits for these calls before it paints, and it makes more than one, while the API
+ * answers them one at a time — so a call can sit behind others before it is answered at all, and a budget that only
+ * covers the call itself turns a healthy API into the "couldn't reach Pawfolio" screen. A fast API never approaches
+ * this; it only bounds how long a page is left waiting when the API really is gone.
+ */
+export const SERVER_CALL_TIMEOUT_MS = 30_000;
 
 export type ServerTransportDeps = {
   apiUrl: string;
