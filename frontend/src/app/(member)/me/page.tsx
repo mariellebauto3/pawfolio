@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { EmptyState } from "@/components/feedback/empty-state";
-import { PageHeader } from "@/components/layout/page-header";
 import { ROUTES } from "@/constants/routes";
+import { getOwnHomeProfile } from "@/features/profiles/api/home-profile";
 import { getLatestPosts, getOwnPet, getSimilarPets } from "@/features/profiles/api/resume";
+import { MyHomeProfile } from "@/features/profiles/components/my-home-profile";
 import { MyResume } from "@/features/profiles/components/my-resume";
 import { getServerApi } from "@/lib/api/server";
 import { homePathFor, signInPath } from "@/lib/auth/redirects";
@@ -18,15 +18,7 @@ export default async function MePage() {
   if (!account) redirect(signInPath(ROUTES.me));
   if (account.role === "admin") redirect(homePathFor(account));
 
-  if (account.role === "human") {
-    // Placeholder until the Home Profile screens (PR-11…PR-20) are built.
-    return (
-      <>
-        <PageHeader title="My Home Profile" />
-        <EmptyState icon="home" title="Your Home Profile is on its way" description="Your household, lifestyle quiz and Open to Adopt switch will live here." />
-      </>
-    );
-  }
+  if (account.role === "human") return <MyHomeProfile home={await getOwnHomeProfile(api)} />;
 
   const pet = await getOwnPet(api);
   // The two side cards are extras: the resume shows even when one of them can't be loaded.
