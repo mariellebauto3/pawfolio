@@ -1,4 +1,5 @@
-import type { Species, PetSize } from "@/types/pet";
+import type { IsoDateTime } from "@/types/api";
+import type { PetSize, PetSummary, Species } from "@/types/pet";
 
 // A human's public Home Profile, mirroring the `home_profiles` table and its quiz answer tables (backend migration
 // 2026_09_30_000004). Public profiles show the city and a household summary only (SEC-PRIV-03): birthdate, contact
@@ -13,6 +14,13 @@ export type SpecialNeedsWillingness = "yes" | "minor_needs_only" | "no";
 export type HouseholdMember = "just_me" | "partner" | "kids_under_6" | "kids_6_to_12" | "teens" | "seniors";
 export type OtherPet = "dogs" | "cats" | "other";
 export type AgeGroup = "puppy_kitten" | "adult" | "senior";
+
+/** A pet this human adopted: the Furparent's side of the permanent link (FR13). */
+export type AdoptedPet = {
+  adoption_id: number;
+  adopted_at: IsoDateTime | null;
+  pet: PetSummary;
+};
 
 export type HomeProfile = {
   id: number;
@@ -33,7 +41,9 @@ export type HomeProfile = {
   /** Empty means None (PR-14). */
   other_pets: OtherPet[];
   accepted_species: Species[];
+  /** Empty means any size (PR-18). */
   preferred_sizes: PetSize[];
+  /** Empty means any age (PR-18). */
   preferred_ages: AgeGroup[];
   /** Open to Adopt toggle (FR4). */
   is_open_to_adopt: boolean;
@@ -41,6 +51,8 @@ export type HomeProfile = {
   is_furparent: boolean;
   /** Pets for You unlocks once the quiz is done (MT-04). */
   has_completed_quiz: boolean;
+  /** Alumni linked to this home, shown on the profile (FR13, PR-11). Empty until an adoption. */
+  adopted_pets: AdoptedPet[];
 };
 
 /** The few fields other resources embed when they point at a Home Profile (cards, request lists). */

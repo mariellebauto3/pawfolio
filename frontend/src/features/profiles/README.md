@@ -54,7 +54,18 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
   `tests/unit/features/profiles/`. API contract: `docs/api/profiles-and-matching.md`. Live API only, no mock.
 - **Dialogs with a form** (Add photo, the Remove confirmations) are rendered by the wizard beside the `Wizard`, not
   inside a step: a form can't sit inside the wizard's own form.
-- **`/me` for a human** is a placeholder until PR-11…PR-20 are built.
+- **PR-11…PR-20 (FE-11):** `/me` for a human (`components/my-home-profile.tsx`, on the shared
+  `@/components/data-display/home-profile-view`) and `/home-profile/edit` (`forms/home-profile-wizard.tsx`). Next
+  saves a step and needs every answer the match uses; Save draft keeps whatever is answered so far. `?step=2` opens
+  a step. The API marks the quiz as finished once the five steps are answered; the last button shows "Home Profile
+  saved" (PR-20). The rules are pure functions in `schemas/home-profile-schemas.ts`, tested in
+  `tests/unit/features/profiles/`. API contract: `docs/api/profiles-and-matching.md`. Live API only, no mock.
+- **Open to Adopt** is one component (`components/open-to-adopt-toggle.tsx`) on PR-11 and PR-20: on applies right
+  away, off asks first (PR-13, `dialogs/turn-off-open-to-adopt-dialog.tsx`), and it stays locked until the quiz is
+  finished. The switch always shows what the API last answered.
+- **Not built here:** the Adoption details dialog (AL-06) belongs to the Adoption module; "Adoption details" on an
+  adopted pet links to its alumni profile until then. PR-13 doesn't show how many requests are in progress, and
+  Profile views is a total, not "this month": the Home Profile API sends neither number.
 
 ## Requirements covered
 
