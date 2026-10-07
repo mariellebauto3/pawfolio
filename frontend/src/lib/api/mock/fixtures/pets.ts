@@ -1,6 +1,9 @@
 import type { Pet } from "@/types/pet";
 
-// Made-up pets based on the LoFi (SEC-PRIV-06). Ids match the personas' profile_id.
+// Made-up pets based on the LoFi (SEC-PRIV-06). Ids match the personas' profile_id. The photos are the Unsplash pets
+// shipped for the mock (public/images/placeholders/alumni/README.md), so a resume has a gallery to open.
+
+const photo = (id: number, name: string, caption: string | null = null) => ({ id, url: `/images/placeholders/alumni/${name}.webp`, caption });
 
 const BASE: Omit<Pet, "id" | "name" | "species" | "breed" | "approximate_age_months" | "status"> = {
   sex: null,
@@ -48,6 +51,7 @@ export const PETS: Pet[] = [
     experience_needed: "first_time_ok",
     temperament_tags: ["Gentle", "Playful", "Loves walks"],
     skills: ["sit_and_stay", "leash_trained", "potty_trained"],
+    photos: [photo(11, "bantay", "Waiting by the gate"), photo(12, "mango"), photo(13, "pancit", "After a long walk")],
     status: "in_process",
     published_at: "2026-09-02T08:00:00.000000Z",
   },
@@ -69,7 +73,13 @@ export const PETS: Pet[] = [
     species: "dog",
     breed: "Shih Tzu mix",
     approximate_age_months: 60,
+    sex: "male",
+    size: "small",
+    energy_level: "low",
+    good_with_kids: "yes",
     city: "Makati",
+    temperament_tags: ["Calm", "Cuddly"],
+    photos: [photo(31, "brownie")],
     status: "looking_for_a_home",
     published_at: "2026-08-20T08:00:00.000000Z",
   },
@@ -82,8 +92,12 @@ export const PETS: Pet[] = [
     approximate_age_months: 36,
     sex: "female",
     size: "small",
+    bio: "I'm Luna. I spent a year at the shelter watching the door, and then Ana walked in. Now I have a sunny windowsill of my own.",
+    temperament_tags: ["Gentle", "Independent"],
+    photos: [photo(41, "luna")],
     status: "adopted_hired",
     published_at: "2026-06-11T08:00:00.000000Z",
+    hired_by: { adoption_id: 1, home_profile_id: 1, full_name: "Ana Santos", city: "Quezon City", adopted_at: "2026-09-27T09:15:00.000000Z", is_home_viewable: true },
   },
   {
     ...BASE,
@@ -96,8 +110,11 @@ export const PETS: Pet[] = [
     size: "small",
     energy_level: "high",
     city: "Marikina",
-    temperament_tags: ["Curious", "Energetic"],
+    good_with_kids: "yes",
+    good_with_dogs: "yes",
+    temperament_tags: ["Curious", "Playful"],
     skills: ["learning_sit"],
+    photos: [photo(51, "choco-jr", "First day at the foster home"), photo(52, "mango")],
     status: "looking_for_a_home",
     published_at: "2026-09-18T08:00:00.000000Z",
   },
@@ -112,7 +129,8 @@ export const PETS: Pet[] = [
     size: "small",
     energy_level: "low",
     city: "Quezon City",
-    temperament_tags: ["Calm", "Lap cat"],
+    good_with_cats: "yes",
+    temperament_tags: ["Calm", "Cuddly"],
     skills: ["litter_trained", "scratching_post_only"],
     status: "looking_for_a_home",
     published_at: "2026-09-25T08:00:00.000000Z",

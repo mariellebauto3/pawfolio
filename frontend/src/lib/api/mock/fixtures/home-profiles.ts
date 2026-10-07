@@ -25,7 +25,21 @@ export const HOME_PROFILES: HomeProfile[] = [
     is_open_to_adopt: true,
     is_furparent: true,
     has_completed_quiz: true,
-    adopted_pets: [],
+    adopted_pets: [
+      {
+        adoption_id: 1,
+        adopted_at: "2026-09-27T09:15:00.000000Z",
+        pet: {
+          id: 4,
+          name: "Luna",
+          species: "cat",
+          breed: "Puspin",
+          city: "Quezon City",
+          status: "adopted_hired",
+          photo_url: "/images/placeholders/alumni/luna.webp",
+        },
+      },
+    ],
   },
   {
     id: 2,
