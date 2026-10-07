@@ -83,7 +83,7 @@ rules (`frontend/src/features/profiles/schemas/resume-schemas.ts`) and the tests
   | `skills`, `special_needs` | Values of the `PetSkill` and `PetSpecialNeed` enums. No special needs is an empty list |
   | `photos` | In `sort_order`; the first is the profile photo and the account's `avatar_url` |
   | `status` | `draft` \| `looking_for_a_home` \| `in_process` \| `adopted_hired`. Never set through these endpoints except by publish (FR27) |
-  | `hired_by` | Adopted pets only: `{ adoption_id, home_profile_id, full_name, city, adopted_at }` |
+  | `hired_by` | Adopted pets only: `{ adoption_id, home_profile_id, full_name, city, adopted_at, is_home_viewable }`. `is_home_viewable` is whether this viewer may open the Furparent's Home Profile: `false` for others once the Furparent turns Open to Adopt off |
   | `caretaker_name`, `caretaker_contact_number`, `vet_records`, `completeness` | Owner only. The public resume (`GET /pets/{pet}`) leaves them out (SEC-PRIV-02) |
   | `vet_records[].download_url` | An API path, not a public file: it answers only the owner and a human with an approved request (`PR-07`) |
   | `completeness.steps` | The five things a resume needs to be published, by wizard step. `strength_percent` is the share that is done |
