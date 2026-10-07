@@ -55,6 +55,11 @@ export function resumeEditPath(step: number): string {
   return `${ROUTES.resumeEdit}?step=${step}`;
 }
 
+/** The Home Profile & quiz wizard opened on a step, 1 to 6 as the screen counts them (PR-14…PR-19). */
+export function homeProfileEditPath(step: number): string {
+  return `${ROUTES.homeProfileEdit}?step=${step}`;
+}
+
 /** One account's review page, opened from the verification queue (AU-23, AU-24). */
 export function adminVerificationReviewPath(accountId: number): string {
   return `${ROUTES.adminVerification}/${accountId}`;
