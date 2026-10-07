@@ -25,6 +25,7 @@ export const HOME_PROFILES: HomeProfile[] = [
     is_open_to_adopt: true,
     is_furparent: true,
     has_completed_quiz: true,
+    adopted_pets: [],
   },
   {
     id: 2,
@@ -48,6 +49,7 @@ export const HOME_PROFILES: HomeProfile[] = [
     is_open_to_adopt: false,
     is_furparent: false,
     has_completed_quiz: false,
+    adopted_pets: [],
   },
   {
     id: 3,
@@ -71,5 +73,6 @@ export const HOME_PROFILES: HomeProfile[] = [
     is_open_to_adopt: true,
     is_furparent: false,
     has_completed_quiz: true,
+    adopted_pets: [],
   },
 ];
