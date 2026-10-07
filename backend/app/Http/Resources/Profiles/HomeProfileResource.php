@@ -28,6 +28,18 @@ class HomeProfileResource extends JsonResource
 
     private bool $includeConfirmedContact = false;
 
+    private ?bool $bookmarked = null;
+
+    /**
+     * For lists: whether the viewer bookmarked this one, already read for the whole page in one query.
+     */
+    public function withBookmarked(bool $bookmarked): self
+    {
+        $this->bookmarked = $bookmarked;
+
+        return $this;
+    }
+
     public function withMatch(?int $score, array $reasons = []): self
     {
         $this->matchScore = $score;
@@ -114,7 +126,7 @@ class HomeProfileResource extends JsonResource
 
         $viewer = $request->user();
         if ($viewer) {
-            $data['is_bookmarked'] = $viewer->bookmarks()->where('home_profile_id', $home->id)->exists();
+            $data['is_bookmarked'] = $this->bookmarked ?? $viewer->bookmarks()->where('home_profile_id', $home->id)->exists();
         }
 
         if ($this->includeConfirmedContact || $this->includeOwnerExtras) {
