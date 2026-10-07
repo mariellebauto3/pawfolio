@@ -33,6 +33,34 @@ Browsing, filtering and searching. Humans find pets; pets find homes. Home Profi
 
 Dialogs, menus, toasts and states render on top of (or inside) the route shown; they are not separate pages.
 
+## Built so far
+
+- **DS-01, DS-02 (FE-12):** `/browse` shows pets to a human and homes to a pet (`forms/browse-form.tsx` around
+  `components/browse-results.tsx`). The search, the filters, the sort and the page live in the URL
+  (`?species=dog,cat&age=adult&sort=newest&page=2`); the page reads them on the server, so every view can be linked
+  and the back button undoes a filter. The filter panel is a drawer below `lg` (`dialogs/filter-drawer.tsx`). The
+  rules for reading and writing that URL are pure functions in `schemas/browse-filters.ts`.
+- **DS-03, DS-04:** `/search?q=…&type=pets&page=2` (`components/search-results.tsx`), fed by the top-bar search.
+  "All" shows the first five of each kind with "See all"; a kind's own tab lists all of them a page at a time. The
+  tab counts are the API's totals. Only the open tab's results are loaded.
+- **DS-05, DS-08:** `/pets/[petId]` on the shared `@/components/data-display/pet-resume`, with "Your match"
+  (`components/match-summary.tsx`) and Similar pets for a human. A Hired pet gets the badge and the "Hired by …"
+  banner and no actions. A pet opening its own id goes to `/me`.
+- **DS-06:** the photo viewer is shared (`@/components/overlays/photo-viewer`), opened by the resume's photo
+  grid (`@/components/data-display/photo-gallery`), so a pet's own `/me` has it too.
+- **DS-07:** `/homes/[homeId]` on the shared `@/components/data-display/home-profile-view`. Apply links to
+  `/apply/[homeId]`; "View my request" takes its place while a request is open, and a cooldown or a home that
+  isn't accepting requests shows no Apply (`schemas/apply-state.ts`). A human opening their own id goes to `/me`.
+- **Cards** are shared (`@/components/data-display/match-card`, `pet-card`, `home-card`) for the matches and
+  bookmarks lists that come next.
+- API contract: `docs/api/discovery.md`. Tests: `tests/unit/features/discovery/`. Mock mode answers these
+  screens from the fixtures.
+- **Not built here:** Invite to Apply and Bookmark are on the pages but can't be pressed until FE-14 wires them
+  (`components/pet-resume-actions.tsx`, `components/home-profile-actions.tsx`). Report (RP-01) belongs to the
+  Reports module, "See full breakdown" (MT-03) to Matching, and Adoption details on an alumni profile (AL-06) to
+  Adoption. Latest activity on someone else's resume needs the pet's account id, which the resume doesn't carry.
+  Browse filters by province only: the API matches a city exactly, so cities are found through the search box.
+
 ## Requirements covered
 
 - **FR6** — Browse and search pets by species, age, size, temperament and compatibility.

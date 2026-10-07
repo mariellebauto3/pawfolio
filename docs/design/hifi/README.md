@@ -44,7 +44,8 @@ directly as illustrations may, and are hidden from screen readers.
 2. **No raw values in components.** Tailwind's default palette, radii, shadows and type sizes are switched off, so
    `bg-zinc-500`, `rounded-2xl` and `text-[#333]` don't work. If a value is missing, add a token.
 3. **One filled primary action per area** (blue). Secondary actions are outlined, tertiary are text only.
-4. **Yellow is for good news.** Hired, Adopted, Furparent and the match meter. Don't use it for decoration in the UI
+4. **Yellow is for good news.** Hired, Adopted, Furparent, the match meter and the match tab on a card's corner
+   (`MatchCard`, written out as "86% match"). Don't use it for decoration in the UI
    (buttons, text, backgrounds, borders). The one exception is drawings on public pages, where a tennis ball or a
    sparkle may be yellow (see "Brand moments"). On light surfaces a yellow fill gets an `accent-edge` (`yellow-600`)
    outline so the bar's edge stays visible; never use it for text. The one exception is `text-accent-display`

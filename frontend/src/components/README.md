@@ -100,6 +100,7 @@ the same message for missing pages and for hidden, suspended or deactivated prof
 | `Drawer` | `drawer.tsx` | Side panel from the right (460 px, full screen on phones), e.g. Browse filters. Same props as Modal |
 | `DropdownMenu` | `dropdown-menu.tsx` | Menu button (GN-01 Me menu, FD-06 post options). `items` with `onSelect` or `href`, `destructive`, `separator`s, and `group`s (a small heading over its items, named for screen readers); optional `header`; `icon` for a ••• trigger or `children` for a text trigger; `align="end"` near the right edge; `triggerClassName` replaces the trigger's look for menus inside a nav bar |
 | `ToastViewport` | `toast.tsx` | The toast stack. Don't render it yourself — `ToastProvider` does |
+| `PhotoViewer` | `photo-viewer.tsx` | Full-size photos on a dark surface (DS-06). Controlled: `open`, `onClose`, `photos`, `index` + `onIndexChange`, and a `title` such as "Mochi’s photos". ← → move and wrap around, Home / End jump, Escape closes, a sideways swipe moves on touch screens, focus returns to the photo that opened it. Usually reached through `PhotoGallery` |
 
 **Toasts:** `const toast = useToast(); toast.show("Saved to Bookmarks.")` from any client component
 (`src/providers/toast-provider.tsx`, mounted in the root layout). Tones: `success` (default), `info`, `error`. One short
@@ -128,8 +129,12 @@ Dialogs with typed input don't close on a backdrop click. Nothing closes while a
 | --- | --- | --- |
 | `Table` | `table.tsx` | Admin lists and histories. Typed `columns` (`cell`, `align`, `wrap`, `rowHeader`, `headerHidden`), `rows`, `rowKey`, `empty`. Scrolls sideways inside its own frame on phones, wherever it's placed; `framed={false}` inside a `Card padding="none"` |
 | `Timeline` | `timeline.tsx` | Request and adoption history, oldest first. Each event: `title`, `when` + `dateTime`, `description`, `status` (badge + dot) or `tone`, `upcoming`. Dots follow the badges: hollow while moving, yellow Adopted, blue needs a decision, dark gray ended |
-| `PetResume` | `pet-resume.tsx` | A pet's resume as a profile page (PR-01, DS-04): cover, photo, name and read-only status badge, then About, Photos, Temperament, Skills, Compatibility & needs, Health. `actions` (buttons under the name), `notice` (above, e.g. the Draft banner), `aside` (right column, below on phones). `owner` shows "Not added yet" for empty sections; other viewers only get sections with content |
-| `HomeProfileView` | `home-profile-view.tsx` | A human's Home Profile as a profile page (PR-11, DS-05): cover, photo, name, read-only Open to Adopt and Furparent badges, then About our home, Household & space, Lifestyle, What we're looking for and Adopted pets (Alumni). City and household summary only (SEC-PRIV-03). Same slots as `PetResume` (`actions`, `notice`, `aside`, `owner`), plus `adoptedPetAction` for a button on each adopted pet. Labels and summaries: `src/constants/home-profiles.ts` |
+| `PetResume` | `pet-resume.tsx` | A pet's resume as a profile page (PR-01, DS-05, DS-08): cover, photo, name and read-only status badge, then About, Photos (a `PhotoGallery`), Temperament, Skills, Compatibility & needs, Health. `actions` (buttons under the name), `notice` (above, e.g. the Draft banner), `aside` (right column, below on phones). `owner` shows "Not added yet" for empty sections; other viewers only get sections with content |
+| `HomeProfileView` | `home-profile-view.tsx` | A human's Home Profile as a profile page (PR-11, DS-07): cover, photo, name, read-only Open to Adopt and Furparent badges, then About our home, Household & space, Lifestyle, What we're looking for and Adopted pets (Alumni). City and household summary only (SEC-PRIV-03). Same slots as `PetResume` (`actions`, `notice`, `aside`, `owner`), plus `adoptedPetAction` for a button on each adopted pet. Labels and summaries: `src/constants/home-profiles.ts` |
+| `MatchCard` | `match-card.tsx` | One pet or one home in a list (Browse, matches, bookmarks). The whole card is one link, through the name. `media` (a photo to the edges) or `avatar`, `facts`, `subtitle`, `badges`, `tags`, `cta`, and `score`: the match as a yellow tab on the card's corner, written out as "86% match". Usually used through the two below |
+| `PetCard` | `pet-card.tsx` | A pet as a `MatchCard`: profile photo, breed · age · size, the place, the first two temperament tags; a status badge only when it isn't Looking for a Home |
+| `HomeCard` | `home-card.tsx` | A home as a `MatchCard`, read like a job posting: avatar, headline, home type and household, the city (SEC-PRIV-03), the Furparent badge |
+| `PhotoGallery` | `photo-gallery.tsx` | A grid of a pet's photos with captions; each opens `PhotoViewer` on that photo. Client component |
 
 ### `navigation/`
 
@@ -148,7 +153,7 @@ Dialogs with typed input don't close on a backdrop click. Nothing closes while a
   the drawn part shows focus with the shared `focus-ring` utility (`peer-focus-visible:focus-ring`).
 - **Client boundary.** Components with hooks or handlers are `"use client"`; `Badge`, `StatusBadge`, `Tag`, `Card`,
   `Avatar`, `Photo`, `Icon`, `Meter`, `Stepper`, `Alert`, `Banner`, `EmptyState`, `ErrorState`, `Skeleton`, `Table`,
-  `Timeline` and `Pagination` stay server-safe. (`Banner` `onDismiss` and `ErrorState` `onRetry` need a client parent.)
+  `Timeline`, `Pagination`, `MatchCard`, `PetCard` and `HomeCard` stay server-safe. (`Banner` `onDismiss` and `ErrorState` `onRetry` need a client parent.)
 - **Avatars next to a written name** get `alt=""`, so screen readers don't read the name twice.
 - **Photos from the API** go through `next/image`; add the storage host to `images.remotePatterns` in `next.config.ts`
   when the API serves them.

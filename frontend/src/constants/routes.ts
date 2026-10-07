@@ -40,14 +40,29 @@ export const ROUTES = {
   adminActivityLogs: "/admin/activity-logs",
 } as const;
 
-/** A pet's public resume (DS-04). */
+/** A pet's public resume (DS-05; DS-08 once the pet is Hired). */
 export function petPath(petId: number): string {
   return `/pets/${petId}`;
 }
 
-/** A human's Home Profile (DS-05). */
+/** A human's Home Profile (DS-07). */
 export function homeProfilePath(homeProfileId: number): string {
   return `/homes/${homeProfileId}`;
+}
+
+/** The Send request form for a home (RQ-03). */
+export function applyPath(homeProfileId: number): string {
+  return `/apply/${homeProfileId}`;
+}
+
+/** One adoption request, as either side sees it (RQ-11, MG-03…). */
+export function requestPath(requestId: number): string {
+  return `${ROUTES.requests}/${requestId}`;
+}
+
+/** One post on its own page (FD-05). */
+export function postPath(postId: number): string {
+  return `/posts/${postId}`;
 }
 
 /** The edit resume wizard opened on a step, 1 to 6 as the screen counts them (PR-03…PR-08). */

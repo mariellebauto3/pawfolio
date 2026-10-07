@@ -62,7 +62,7 @@
   --pf-canvas: var(--pf-gray-50); /* page background behind cards */
   --pf-surface: var(--pf-white); /* cards, bars, dialogs */
   --pf-surface-sunken: var(--pf-gray-100); /* inputs at rest, comment bubbles, placeholders */
-  --pf-surface-inverse: var(--pf-gray-800); /* toasts */
+  --pf-surface-inverse: var(--pf-gray-800); /* toasts, the photo viewer */
 
   --pf-ink: var(--pf-gray-900); /* body text */
   --pf-ink-muted: var(--pf-gray-600); /* secondary text; still AA on canvas and sunken */

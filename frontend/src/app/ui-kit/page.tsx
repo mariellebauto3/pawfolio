@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { HomeCard } from "@/components/data-display/home-card";
+import { PetCard } from "@/components/data-display/pet-card";
+import { PhotoGallery } from "@/components/data-display/photo-gallery";
 import { Table } from "@/components/data-display/table";
 import { Timeline } from "@/components/data-display/timeline";
 import { Alert } from "@/components/feedback/alert";
@@ -32,6 +35,8 @@ import { Photo } from "@/components/ui/photo";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Tag } from "@/components/ui/tag";
 import type { StatusName } from "@/constants/status-badges";
+import { HOME_PROFILES } from "@/lib/api/mock/fixtures/home-profiles";
+import { PETS } from "@/lib/api/mock/fixtures/pets";
 import { BREAKDOWN_SAMPLE, ENDED_REQUESTS, OPEN_REQUEST, QUEUE, QUEUE_COLUMNS } from "./_components/demo-data";
 import { DialogDemo } from "./_components/dialog-demo";
 import { DrawerDemo } from "./_components/drawer-demo";
@@ -46,6 +51,10 @@ import { WizardDemo } from "./_components/wizard-demo";
 // All names and details are fake demo data (SEC-PRIV-06).
 
 export const metadata: Metadata = { title: "UI kit" };
+
+// Mochi and the Garcia home from the mock fixtures.
+const DEMO_PET = PETS[0];
+const DEMO_HOME = HOME_PROFILES[2];
 
 const STATUS_GROUPS: Array<{ name: string; statuses: StatusName[] }> = [
   { name: "Account", statuses: ["Pending Verification", "Active", "Denied", "Suspended", "Deactivated"] },
@@ -195,33 +204,13 @@ export default async function UiKitPage({ searchParams }: PageProps<"/ui-kit">) 
             <h2 id="pictures" className="text-2xl">Cards, avatars and photos</h2>
             <p className={NOTE}>
               Cards sit on the canvas with a thin line, no shadow. Photos keep their ratio while loading: pet photos
-              4:3, covers wide, avatars round.
+              4:3, covers wide, avatars round. A pet or a home in a list is a match card: one link, with the match as
+              a yellow tab on its corner.
             </p>
           </div>
           <div className="flex flex-col gap-4">
             <div className="grid gap-4 md:grid-cols-[18rem_minmax(0,1fr)] md:items-start">
-              <Card as="article" padding="none">
-                <Photo alt="Photo of Mochi" rounded={false} sizes="(min-width: 768px) 288px, 100vw" />
-                <div className="flex flex-col gap-3 px-4 pb-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 flex-col">
-                      <h3 className="text-xl">Mochi</h3>
-                      <span className="text-sm text-ink-muted">Aspin, 2 yrs, Quezon City</span>
-                    </div>
-                    <StatusBadge status="Looking for a Home" />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Tag>Playful</Tag>
-                    <Tag>Loyal</Tag>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="primary" size="sm">
-                      View resume
-                    </Button>
-                    <Button size="sm">Bookmark</Button>
-                  </div>
-                </div>
-              </Card>
+              <PetCard pet={DEMO_PET} score={86} sizes="(min-width: 768px) 288px, 100vw" />
               <Card
                 titleAs="h3"
                 title="Verified details"
@@ -250,6 +239,16 @@ export default async function UiKitPage({ searchParams }: PageProps<"/ui-kit">) 
                 <Photo ratio="square" alt="Kulit playing" />
               </div>
             </Card>
+            <div className="grid gap-4 md:grid-cols-[18rem_minmax(0,1fr)] md:items-start">
+              <HomeCard home={DEMO_HOME} score={78} />
+              <Card
+                titleAs="h3"
+                title="Photo gallery and viewer"
+                description="Each photo opens the full-size viewer. ← and → move between photos, Escape closes."
+              >
+                <PhotoGallery name={DEMO_PET.name} photos={DEMO_PET.photos} />
+              </Card>
+            </div>
           </div>
         </section>
 

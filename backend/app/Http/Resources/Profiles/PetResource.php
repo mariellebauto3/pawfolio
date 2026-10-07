@@ -27,6 +27,18 @@ class PetResource extends JsonResource
 
     private bool $includeConfirmedContact = false;
 
+    private ?bool $bookmarked = null;
+
+    /**
+     * For lists: whether the viewer bookmarked this one, already read for the whole page in one query.
+     */
+    public function withBookmarked(bool $bookmarked): self
+    {
+        $this->bookmarked = $bookmarked;
+
+        return $this;
+    }
+
     public function withMatch(?int $score, array $reasons = []): self
     {
         $this->matchScore = $score;
@@ -80,6 +92,9 @@ class PetResource extends JsonResource
                 'full_name' => $activeAdoption->homeProfile->full_name,
                 'city' => $activeAdoption->homeProfile->city,
                 'adopted_at' => $activeAdoption->adopted_at?->toISOString(),
+                // Whether this viewer may open the Furparent's Home Profile (HomeProfilePolicy): false once Open to
+                // Adopt is off, so "Hired by …" shows the name without a link that would answer 404.
+                'is_home_viewable' => $request->user()?->can('view', $activeAdoption->homeProfile) ?? false,
             ];
         }
 
@@ -111,8 +126,9 @@ class PetResource extends JsonResource
             'status' => $pet->getStatusEnum()->value,
             'published_at' => $pet->published_at?->toISOString(),
             'hired_by' => $hiredBy,
-            'views_count' => $pet->profileViews()->count(),
-            'bookmarks_count' => $pet->bookmarks()->count(),
+            // Lists load both counts with the page (withCount); a single resume counts them here.
+            'views_count' => (int) ($pet->getAttribute('profile_views_count') ?? $pet->profileViews()->count()),
+            'bookmarks_count' => (int) ($pet->getAttribute('bookmarks_count') ?? $pet->bookmarks()->count()),
         ];
 
         if ($this->matchScore !== null) {
@@ -122,7 +138,7 @@ class PetResource extends JsonResource
 
         $viewer = $request->user();
         if ($viewer) {
-            $data['is_bookmarked'] = $viewer->bookmarks()->where('pet_id', $pet->id)->exists();
+            $data['is_bookmarked'] = $this->bookmarked ?? $viewer->bookmarks()->where('pet_id', $pet->id)->exists();
         }
 
         if ($this->includeConfirmedContact || $this->includeOwnerExtras) {

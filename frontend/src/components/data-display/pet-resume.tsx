@@ -23,6 +23,7 @@ import { homeProfilePath } from "@/constants/routes";
 import { formatAgeMonths } from "@/lib/utils/format-age";
 import { formatDate } from "@/lib/utils/format-date";
 import type { Pet } from "@/types/pet";
+import { PhotoGallery } from "./photo-gallery";
 
 type Props = {
   pet: Pet;
@@ -40,7 +41,7 @@ const NOT_ADDED = <p className="text-ink-muted">Not added yet.</p>;
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-// A pet's resume as a profile page (PR-01, DS-04): cover, photo, name and status, then About, Photos, Temperament,
+// A pet's resume as a profile page (PR-01, DS-05, DS-08): cover, photo, name and status, then About, Photos, Temperament,
 // Skills, Compatibility & needs and Health. The same view for the pet itself and for a human reading it; what each
 // may do comes in through `actions` and `aside`. The status is a read-only badge: it changes only through the
 // system (FR27). Everything typed by a caretaker is rendered as plain text (SEC-FE-01).
@@ -103,7 +104,18 @@ export function PetResume({ pet, actions, notice, aside, owner = false }: Props)
               </p>
             </div>
             {pet.hired_by && (
-              <Banner tone="celebrate" icon="heart" title={<>Hired by <Link href={homeProfilePath(pet.hired_by.home_profile_id)} className="underline">{pet.hired_by.full_name}</Link></>}>
+              <Banner
+                tone="celebrate"
+                icon="heart"
+                title={
+                  // A Furparent whose Open to Adopt is off isn't shown: the name stays, the link doesn't.
+                  pet.hired_by.is_home_viewable ? (
+                    <>Hired by <Link href={homeProfilePath(pet.hired_by.home_profile_id)} className="underline">{pet.hired_by.full_name}</Link></>
+                  ) : (
+                    <>Hired by {pet.hired_by.full_name}</>
+                  )
+                }
+              >
                 Alumni since {formatDate(pet.hired_by.adopted_at)}. This profile is permanently linked to the Furparent.
               </Banner>
             )}
@@ -123,24 +135,7 @@ export function PetResume({ pet, actions, notice, aside, owner = false }: Props)
             as="section"
             action={<span className="text-sm text-ink-muted">{count(pet.photos.length, "photo", "photos")}</span>}
           >
-            {pet.photos.length ? (
-              <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                {pet.photos.map((photo, index) => (
-                  <li key={photo.id}>
-                    <figure className="flex flex-col gap-1.5">
-                      <Photo
-                        src={photo.url}
-                        alt={photo.caption ? `${pet.name}: ${photo.caption}` : `${pet.name}, photo ${index + 1}`}
-                        sizes="(min-width: 768px) 260px, 50vw"
-                      />
-                      {photo.caption && <figcaption className="text-sm text-ink-muted">{photo.caption}</figcaption>}
-                    </figure>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              NOT_ADDED
-            )}
+            {pet.photos.length ? <PhotoGallery name={pet.name} photos={pet.photos} /> : NOT_ADDED}
           </Card>
         )}
 

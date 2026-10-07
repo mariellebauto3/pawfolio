@@ -88,6 +88,9 @@ const { status, account, role, accountStatus, isActive, isAdmin, refresh } = use
 // status: "loading" | "signed-in" | "signed-out" | "error"
 ```
 
+A server page that reads differently by role (Browse, a resume, a Home Profile) gets the account with
+`requireAccount(returnTo)` (`src/lib/auth/require-account.ts`): the layout's lookup again, sign-in when signed out.
+
 After signing in, call `refresh()`. To log out, use `useSignOut()` (`src/hooks/use-sign-out.ts`): it ends the
 session and reloads the landing page, so nothing from the signed-in session stays in memory. The account is kept in React state only, never in browser storage
 (SEC-FE-04). Use it to choose what to show; the API still checks every action (SEC-FE-05).
@@ -132,6 +135,11 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
   Bea Navarro, then sign in as `bea.navarro@example.com` to read your reason on the Denied screen and resubmit.
   Documents are drawn on request (a PNG or a small PDF), whatever format the fixture names. To get the fixture queue
   back, run `document.cookie = "pf_mock_decisions=; path=/; max-age=0"`.
+- **Discovery:** `/browse`, `/search`, `/pets/[petId]` and `/homes/[homeId]` (FE-12) are answered from the fixtures:
+  as `human` you browse three pets (with made-up match scores), as `pet` two homes. Mochi has an open request with
+  Ana Santos (`/homes/1` shows "View my request") and Luna (`/pets/4`) is the alumni profile. There aren't enough
+  fixtures to fill a second page; use `live` to see pagination. The mock doesn't check filter values the way the
+  API's Form Requests do (422); the screens only send known ones.
 - **No mock for the pet resume:** `/me` and `/resume/edit` (FE-10) were built on the real `/me/pet` endpoints. In mock
   mode they show the error state; use `live` for them.
 - **Adding mocks:** add a file in `src/lib/api/mock/handlers/` and register it in `handlers/index.ts`. Follow the

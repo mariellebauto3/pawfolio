@@ -80,6 +80,11 @@ export type PetHiredBy = {
   full_name: string;
   city: string;
   adopted_at: IsoDateTime;
+  /**
+   * Whether the viewer may open the Furparent's Home Profile. False once the Furparent turns Open to Adopt off: the
+   * name is then shown without a link.
+   */
+  is_home_viewable?: boolean;
 };
 
 /** The few fields other resources embed when they point at a pet (cards, request lists). */
