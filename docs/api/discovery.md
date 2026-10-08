@@ -81,6 +81,7 @@ Browse pets (`DS-01`, FR6).
   | --- | --- |
   | `match` | For a human who finished the quiz: `{ passed_dealbreakers, failed_dealbreakers, dealbreakers, score, criteria, reasons }`. `failed_dealbreakers` holds any of `species_accepted`, `ok_with_kids`, `ok_with_other_pets`, `same_province`; `score` is 0 when one failed; `reasons` is up to three sentences |
   | `match_score`, `match_reasons` | The same score and reasons, only when the dealbreakers passed |
+  | `invited_at` | For a human with a Home Profile: when their own Invite to Apply to this pet was sent, or `null` when there is none or the pet dismissed it. The resume shows "Invite sent" instead of the button (`RQ-01`, `bookmarks-and-invites.md`) |
   | `hired_by` | Adopted pets: who adopted, for the "Hired by …" banner (`DS-08`). `is_home_viewable` says whether this viewer may open the Furparent's Home Profile; when it is `false` the name is shown without a link |
   | `vet_records` | Only for the owner, an admin and a human with an approved request (`PR-07`) |
   | `caretaker_name`, `caretaker_contact_number` | Only for the owner, an admin and the human of a **confirmed** Meet & Greet (SEC-PRIV-02). The discovery screens don't show them; `MG-07` does |

@@ -5,7 +5,8 @@ follows. Each module gets its own file listing its endpoints (method, path, role
 
 - [auth.md](auth.md) — Session, Sign-Up, Account Status, and Admin Verification (`BE-03`–`BE-08`)
 - [discovery.md](discovery.md) — Discovery, Search, Profile Detail, Vet Records, and Recently Hired (`BE-14`)
-- [profiles-and-matching.md](profiles-and-matching.md) — Pet Résumé, Home Profile Quiz, Compatibility Matches, Bookmarks, and Invites (`BE-11`–`BE-13`, `BE-15`)
+- [profiles-and-matching.md](profiles-and-matching.md) — Pet Résumé, Home Profile Quiz, and Compatibility Matches (`BE-11`–`BE-13`)
+- [bookmarks-and-invites.md](bookmarks-and-invites.md) — Bookmarks and Invite to Apply (`BE-15`)
 - [adoption-and-meet-greet.md](adoption-and-meet-greet.md) — Adoption Requests, Meet & Greet, Adoption Decisions, and Admin Resolution (`BE-16`–`BE-20`)
 - [community-reports-and-admin.md](community-reports-and-admin.md) — Community Feed, Reports, Account Settings, Announcements, Analytics, and Activity Logs (`BE-10`, `BE-21`–`BE-26`)
 
