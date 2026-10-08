@@ -13,6 +13,11 @@ import { RequestPanelFrame } from "./request-panel-frame";
 
 type Props = {
   request: RequestDetail;
+  /**
+   * The Meet & Greet step of an approved request (MG-05, MG-07), from its own module. It takes the place of the
+   * status in plain words, and `state` names the step so the panel knows when it changed.
+   */
+  meet?: { content: ReactNode; state: string };
 };
 
 /** What each status means to the human the request was sent to: the news, then what comes of it. */
@@ -59,9 +64,9 @@ function words(request: RequestDetail): { lead: ReactNode; more?: ReactNode } {
 
 // The action panel of a request as the human it was sent to reads it (RQ-11 and every later status in plain
 // words): where it stands, and Approve and Decline while it is new (FR10). The API allows an answer only to a
-// Sent request, whatever this shows (SEC-FE-05). The Meet & Greet and the decision after it join this panel with
-// their own screens.
-export function HumanRequestPanel({ request }: Props) {
+// Sent request, whatever this shows (SEC-FE-05). Once it is approved, its Meet & Greet takes the lead here
+// (`meet`); the decision after it joins this panel with its own screens.
+export function HumanRequestPanel({ request, meet }: Props) {
   const { lead, more } = words(request);
   const pet = request.pet.name;
   const message = request.decision_message ?? request.approval_message;
@@ -69,11 +74,17 @@ export function HumanRequestPanel({ request }: Props) {
     (request.decline_reason && DECLINE_REASON_LABELS[request.decline_reason]) ?? (request.withdraw_reason && WITHDRAW_REASON_LABELS[request.withdraw_reason]);
 
   return (
-    <RequestPanelFrame status={request.status}>
+    <RequestPanelFrame state={`${request.status}:${meet?.state ?? ""}`}>
       <Card title="Your action">
         <div className="flex flex-col gap-3">
-          <p className="wrap-break-word">{lead}</p>
-          {more && <p className="text-sm text-ink-muted">{more}</p>}
+          {meet ? (
+            meet.content
+          ) : (
+            <>
+              <p className="wrap-break-word">{lead}</p>
+              {more && <p className="text-sm text-ink-muted">{more}</p>}
+            </>
+          )}
 
           {reason && (
             <p className="text-sm">
@@ -95,7 +106,7 @@ export function HumanRequestPanel({ request }: Props) {
           )}
 
           {request.status === "sent" && <AnswerRequestButtons request={{ id: request.id, petName: pet }} />}
-          {request.status === "approved" && (
+          {request.status === "approved" && !meet && (
             <Link href={ROUTES.availability} className={buttonClasses({ size: "sm", className: "self-start" })}>
               Manage availability
             </Link>
