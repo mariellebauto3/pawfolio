@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\AdoptionRequests;
 
-use App\Enums\AccountStatus;
 use App\Enums\ActivityLogType;
 use App\Enums\AdoptionRequestDeclineReason;
 use App\Enums\AdoptionRequestStatus;
-use App\Enums\AdoptionRequestWithdrawReason;
 use App\Enums\MeetAndGreetEndReason;
 use App\Enums\MeetAndGreetStatus;
 use App\Enums\NotificationType;
 use App\Enums\PetStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AdoptionRequests\ListAdoptionRequestsRequest;
+use App\Http\Requests\AdoptionRequests\SendAdoptionRequestRequest;
+use App\Http\Requests\AdoptionRequests\WithdrawAdoptionRequestRequest;
 use App\Http\Resources\AdoptionRequests\AdoptionRequestResource;
 use App\Http\Resources\ErrorResource;
 use App\Http\Resources\ResponseResource;
@@ -43,61 +44,59 @@ class AdoptionRequestController extends Controller
         private readonly NotificationService $notifications,
     ) {}
 
-    public function index(Request $request)
+    /**
+     * The caller's own requests, newest first: a pet's My requests (RQ-07, RQ-08) or a human's inbox (RQ-09, RQ-10).
+     * `meta.status_counts` counts all of them by status, whatever the tab, for the tab counts and the "2 of 3 open"
+     * line.
+     */
+    public function index(ListAdoptionRequestsRequest $request)
     {
         $user = $request->user();
-        $perPage = min(max((int) $request->query('per_page', 20), 1), 50);
+
+        // Null only for an account with no profile row, which then has no requests either.
+        $own = $user->isPet()
+            ? ['pet_id' => $user->pet?->id ?? 0]
+            : ['home_profile_id' => $user->homeProfile?->id ?? 0];
 
         $query = AdoptionRequest::query()
-            ->with(['pet.photos', 'homeProfile'])
+            ->where($own)
+            ->with(['pet.photos', 'homeProfile.householdMembers'])
             ->orderByDesc('sent_at')
             ->orderByDesc('id');
 
-        if ($user->isPet()) {
-            $petId = $user->pet?->id ?? 0;
-            $query->where('pet_id', $petId);
-        } elseif ($user->isHuman()) {
-            $homeId = $user->homeProfile?->id ?? 0;
-            $query->where('home_profile_id', $homeId);
-        } elseif (! $user->isAdmin()) {
-            return ErrorResource::forbidden()->toResponse($request);
+        $statuses = $request->statuses();
+        if ($statuses !== null) {
+            $query->whereIn('status', $statuses);
         }
 
-        if ($request->filled('status')) {
-            $statuses = array_values(array_filter(explode(',', $request->string('status')->toString())));
-            if ($statuses !== []) {
-                $query->whereIn('status', $statuses);
-            }
-        } elseif ($request->filled('tab')) {
-            $tab = strtolower(trim($request->string('tab')->toString()));
-            match ($tab) {
-                'active', 'open' => $query->whereIn('status', AdoptionRequest::OPEN_STATUSES),
-                'new' => $query->where('status', AdoptionRequestStatus::Sent->value),
-                'in_progress', 'in progress', 'in-progress' => $query->whereIn('status', AdoptionRequest::IN_PROCESS_STATUSES),
-                'closed' => $query->whereIn('status', AdoptionRequest::CLOSED_STATUSES),
-                default => null,
-            };
-        }
-
-        $paginator = $query->paginate($perPage);
+        $paginator = $query->paginate($request->perPage());
 
         $items = $paginator->getCollection()
             ->map(fn (AdoptionRequest $ar) => (new AdoptionRequestResource($ar))->toArray($request))
             ->values()
             ->all();
 
-        return ResponseResource::paginated($paginator, $items);
+        $counts = AdoptionRequest::query()
+            ->where($own)
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status')
+            ->map(fn ($total) => (int) $total);
+
+        $page = ResponseResource::paginated($paginator, $items);
+
+        return new ResponseResource($page->data, [...$page->meta, 'status_counts' => (object) $counts->all()], $page->links);
     }
 
     public function show(Request $request, int $adoptionRequest)
     {
         $user = $request->user();
         $ar = AdoptionRequest::query()
-            ->with(['pet.photos', 'homeProfile', 'activeMeetAndGreet.slot', 'latestMeetAndGreet.slot'])
+            ->with(['pet.photos', 'homeProfile.householdMembers', 'activeMeetAndGreet.slot', 'latestMeetAndGreet.slot'])
             ->find($adoptionRequest);
 
         // SEC-AUTHZ-03 / SEC-AUTHZ-04: Return 404 for someone else's request so IDs cannot be probed.
-        if (! $ar || ! $this->canView($ar, $user)) {
+        if (! $ar || $user->cannot('view', $ar)) {
             return ErrorResource::notFound("We couldn't find that request.")->toResponse($request);
         }
 
@@ -113,60 +112,47 @@ class AdoptionRequestController extends Controller
         );
     }
 
-    public function storeForHome(Request $request, HomeProfile $home)
+    /** `POST /home-profiles/{home}/adoption-requests`: the home is the one in the path. */
+    public function storeForHome(SendAdoptionRequestRequest $request, int $home)
     {
-        $request->merge(['home_profile_id' => $home->id]);
-
         return $this->store($request);
     }
 
-    public function store(Request $request)
+    public function store(SendAdoptionRequestRequest $request)
     {
         $user = $request->user();
 
-        if (! $user->isPet() || ! $user->pet) {
-            return ErrorResource::forbidden('Only pets can send adoption requests.')->toResponse($request);
-        }
-
-        $validated = $request->validate([
-            'home_profile_id' => ['required', 'integer', 'exists:home_profiles,id'],
-            'cover_letter' => ['required', 'string', 'min:50', 'max:600'],
-            'caretaker_notes' => ['nullable', 'string', 'max:600'],
-        ], [
-            'home_profile_id.required' => 'Choose a home to apply to.',
-            'home_profile_id.exists' => 'Choose a home to apply to.',
-            'cover_letter.required' => 'Write between 50 and 600 characters.',
-            'cover_letter.min' => 'Write between 50 and 600 characters.',
-            'cover_letter.max' => 'Write between 50 and 600 characters.',
-        ]);
-
         /** @var HomeProfile|null $home */
-        $home = HomeProfile::query()->with('user')->find((int) $validated['home_profile_id']);
-        if (! $home || ! $home->user || $home->user->getStatus() !== AccountStatus::Active) {
+        $home = HomeProfile::query()->with('user')->find($request->homeProfileId());
+
+        // A home the pet may not open answers like one that doesn't exist (HomeProfilePolicy, SEC-AUTHZ-04): a
+        // suspended account's, or one with Open to Adopt off that the pet has no request or invite with. Otherwise
+        // the refusal below would tell anyone who asks whose home an id is.
+        if (! $home || $user->cannot('view', $home)) {
             return ErrorResource::notFound("We couldn't find that Home Profile.")->toResponse($request);
         }
 
-        return DB::transaction(function () use ($user, $home, $validated, $request) {
+        return DB::transaction(function () use ($user, $home, $request) {
             /** @var Pet $pet */
             $pet = Pet::query()->whereKey($user->pet->id)->lockForUpdate()->firstOrFail();
 
             if ($pet->getStatusEnum() === PetStatus::Draft) {
                 return ErrorResource::conflict(
-                    'Publish your Pet Résumé before sending adoption requests.',
+                    'Publish your resume before you send an adoption request.',
                     'pet_resume_draft',
                 )->toResponse($request);
             }
 
             if ($pet->getStatusEnum() === PetStatus::AdoptedHired) {
                 return ErrorResource::conflict(
-                    'An adopted pet cannot send adoption requests.',
+                    "You've been adopted, so you can't send adoption requests.",
                     'already_adopted',
                 )->toResponse($request);
             }
 
             if ($pet->getStatusEnum() === PetStatus::InProcess) {
                 return ErrorResource::conflict(
-                    'Your pet already has an adoption request in process.',
+                    'You already have a request in process. You can apply to other homes if it ends without an adoption.',
                     'pet_in_process',
                 )->toResponse($request);
             }
@@ -215,7 +201,7 @@ class AdoptionRequestController extends Controller
 
             if ($openRequests->contains(fn (AdoptionRequest $r) => $r->isInProcess())) {
                 return ErrorResource::conflict(
-                    'Your pet already has an adoption request in process.',
+                    'You already have a request in process. You can apply to other homes if it ends without an adoption.',
                     'pet_in_process',
                 )->toResponse($request);
             }
@@ -232,10 +218,8 @@ class AdoptionRequestController extends Controller
             $ar->pet_id = $pet->id;
             $ar->home_profile_id = $home->id;
             $ar->status = AdoptionRequestStatus::Sent->value;
-            $ar->cover_letter = trim($validated['cover_letter']);
-            $ar->caretaker_notes = isset($validated['caretaker_notes']) && trim($validated['caretaker_notes']) !== ''
-                ? trim($validated['caretaker_notes'])
-                : null;
+            $ar->cover_letter = $request->coverLetter();
+            $ar->caretaker_notes = $request->caretakerNotes();
             $ar->sent_at = $now;
             $ar->expires_at = $now->copy()->addDays(self::EXPIRY_DAYS);
             $ar->save();
@@ -244,7 +228,7 @@ class AdoptionRequestController extends Controller
                 recipient: $home->user,
                 type: NotificationType::RequestReceived->value,
                 title: "New adoption request from {$pet->name}",
-                body: "{$pet->name} sent an adoption request with a cover letter and résumé.",
+                body: "{$pet->name} sent an adoption request with a cover letter and resume.",
                 ar: $ar,
             );
 
@@ -258,8 +242,10 @@ class AdoptionRequestController extends Controller
                 userAgent: $request->userAgent(),
             );
 
+            // How many are open now, this one included, for "Open requests: 2 of 3" on Request sent (RQ-04).
             return ResponseResource::created(
-                (new AdoptionRequestResource($ar->load(['pet.photos', 'homeProfile'])))->toArray($request),
+                (new AdoptionRequestResource($ar->load(['pet.photos', 'homeProfile.householdMembers'])))->toArray($request),
+                ['open_requests' => $openRequests->count() + 1, 'max_open_requests' => self::MAX_OPEN_REQUESTS],
             )->toResponse($request);
         });
     }
@@ -463,19 +449,18 @@ class AdoptionRequestController extends Controller
         });
     }
 
-    public function withdraw(Request $request, AdoptionRequest $adoptionRequest)
+    public function withdraw(WithdrawAdoptionRequestRequest $request, int $adoptionRequest)
     {
         $user = $request->user();
+        $adoptionRequest = AdoptionRequest::query()->find($adoptionRequest);
 
-        if (! $user->isPet() || ! $user->pet || $adoptionRequest->pet_id !== $user->pet->id) {
-            return ErrorResource::forbidden('Only the pet owner who sent this request can withdraw it.')->toResponse($request);
+        // Another pet's request, or anyone who isn't the pet that sent it, is answered like one that doesn't exist
+        // (AdoptionRequestPolicy, SEC-AUTHZ-04).
+        if ($adoptionRequest === null || $user->cannot('withdraw', $adoptionRequest)) {
+            return ErrorResource::notFound("We couldn't find that request.")->toResponse($request);
         }
 
-        $validated = $request->validate([
-            'withdraw_reason' => ['nullable', 'string', Rule::in(array_map(fn ($c) => $c->value, AdoptionRequestWithdrawReason::cases()))],
-        ]);
-
-        return DB::transaction(function () use ($adoptionRequest, $user, $validated, $request) {
+        return DB::transaction(function () use ($adoptionRequest, $user, $request) {
             /** @var AdoptionRequest $ar */
             $ar = AdoptionRequest::query()
                 ->with(['pet', 'homeProfile.user', 'activeMeetAndGreet'])
@@ -485,7 +470,7 @@ class AdoptionRequestController extends Controller
 
             if (! $ar->isOpen()) {
                 return ErrorResource::conflict(
-                    'Only an open adoption request can be withdrawn.',
+                    'This request has already ended, so there is nothing to withdraw.',
                     'request_already_closed',
                 )->toResponse($request);
             }
@@ -504,7 +489,7 @@ class AdoptionRequestController extends Controller
             }
 
             $ar->status = AdoptionRequestStatus::Withdrawn->value;
-            $ar->withdraw_reason = $validated['withdraw_reason'] ?? null;
+            $ar->withdraw_reason = $request->reason();
             $ar->closed_at = now();
             $ar->expires_at = null;
             $ar->save();
@@ -535,7 +520,7 @@ class AdoptionRequestController extends Controller
             );
 
             return ResponseResource::make(
-                (new AdoptionRequestResource($ar->fresh(['pet.photos', 'homeProfile'])))
+                (new AdoptionRequestResource($ar->fresh(['pet.photos', 'homeProfile.householdMembers'])))
                     ->withDetails()
                     ->toArray($request),
             )->toResponse($request);
@@ -634,25 +619,10 @@ class AdoptionRequestController extends Controller
 
         foreach ($onHold as $req) {
             $req->status = AdoptionRequestStatus::Sent->value;
-            $req->sent_at = $now;
+            // The fresh 14 days are the expiry's; `sent_at` stays the day the pet sent it (RQ-03).
             $req->expires_at = $now->copy()->addDays(self::EXPIRY_DAYS);
             $req->save();
         }
-    }
-
-    private function canView(AdoptionRequest $ar, User $user): bool
-    {
-        if ($user->isAdmin()) {
-            return true;
-        }
-        if ($user->isPet()) {
-            return $user->pet && $ar->pet_id === $user->pet->id;
-        }
-        if ($user->isHuman()) {
-            return $user->homeProfile && $ar->home_profile_id === $user->homeProfile->id;
-        }
-
-        return false;
     }
 
     private function notifyParty(User $recipient, string $type, string $title, string $body, AdoptionRequest $ar): void
