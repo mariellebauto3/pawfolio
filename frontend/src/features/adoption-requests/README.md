@@ -79,7 +79,7 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
 - **RQ-14, RQ-15, RQ-17, and every other status:** `/requests/[requestId]` for a pet, on
   `components/request-detail-layout.tsx`: the header (`components/request-header.tsx`: who, the read-only status
   badge and the path Sent → Adopted — Hired, or "Closed on" once it ended otherwise), the action panel, the
-  request (`components/request-content.tsx`: cover letter, notes, what is attached, the locked thread) and, beside
+  request (`components/request-content.tsx`: cover letter, notes, what is attached) and, beside
   it, the history and the home. On a phone the action panel comes first. The pet's panel is
   `components/pet-request-panel.tsx`: what the status means, the human's reason and message on a decline, the day
   the cooldown ends, and Withdraw for every open status.
@@ -109,8 +109,8 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
   side"). Tests: `tests/unit/features/adoption-requests/`. Mock mode answers these screens from memory
   (`docs/architecture/frontend-data-layer.md`).
 - **Not built here:** The decision after the meeting (FE-18): a request that is Awaiting Decision says the
-  decision is the human's, with no buttons yet. The request thread: whether
-  Pawfolio keeps it is undecided (FE-30), so no screen shows or promises it. An admin opening `/requests` is sent
+  decision is the human's, with no buttons yet. The request thread the LoFi draws is not part of Pawfolio
+  (decided 2026-10-09: `project-rules/ui-guidelines.md` §6). An admin opening `/requests` is sent
   to the dashboard. An adopted pet or a pet with a Draft resume still sees Apply on a Home Profile; the API
   refuses the request and the form shows its message. A human has no list of the invites they sent.
 

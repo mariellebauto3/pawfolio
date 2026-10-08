@@ -7,7 +7,7 @@ use App\Http\Controllers\Api\V1\AdoptionRequests\AdoptionRequestController;
 use App\Http\Controllers\Api\V1\AdoptionRequests\InviteController;
 use Illuminate\Support\Facades\Route;
 
-// Invites to Apply (BE-15) & Adoption Requests + Thread Messages (BE-16) & Admin Monitor (BE-20)
+// Invites to Apply (BE-15) & Adoption Requests (BE-16) & Admin Monitor (BE-20)
 Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
     // Invites to Apply (RQ-01, RQ-02)
     Route::get('invites', [InviteController::class, 'index'])->name('invites.index');
@@ -45,15 +45,6 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         ->whereNumber('adoptionRequest')
         ->middleware('throttle:writes')
         ->name('adoption-requests.withdraw');
-
-    // Request Thread Messages (RQ-11,MG-07)
-    Route::get('adoption-requests/{adoptionRequest}/messages', [AdoptionRequestController::class, 'messages'])
-        ->whereNumber('adoptionRequest')
-        ->name('adoption-requests.messages.index');
-    Route::post('adoption-requests/{adoptionRequest}/messages', [AdoptionRequestController::class, 'sendMessage'])
-        ->whereNumber('adoptionRequest')
-        ->middleware('throttle:writes')
-        ->name('adoption-requests.messages.store');
 
     // Admin Adoption Requests Monitor (BE-20, RQ-18, RQ-19, MG-16)
     Route::middleware('role:admin')->prefix('admin')->group(function (): void {

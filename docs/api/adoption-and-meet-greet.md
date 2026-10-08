@@ -9,12 +9,10 @@ Endpoints for Adoption Requests (`BE-16`), Meet & Greet Scheduling (`BE-17`), Po
 | `POST` | `/api/v1/home-profiles/{home}/adoption-requests` | `pet` (Active) | Send an adoption request (`cover_letter` 50–600 chars, optional `caretaker_notes` up to 600). The rules and their 409 codes are listed under "The pet's side" below |
 | `POST` | `/api/v1/adoption-requests` | `pet` (Active) | The same, with `home_profile_id` in the body |
 | `GET` | `/api/v1/adoption-requests` | `pet`, `human` (Active) | Paginated list of the caller's own requests (`?tab=` or `?status=`), with `meta.status_counts` |
-| `GET` | `/api/v1/adoption-requests/{id}` | `pet`, `human`, `admin` | Request detail (`unlocked_contact` / `contacts` revealed only after Meet & Greet confirmation; private `messages` thread visible only to the two participants per `RQ-19`). 404 for anyone else |
+| `GET` | `/api/v1/adoption-requests/{id}` | `pet`, `human`, `admin` | Request detail (`unlocked_contact` / `contacts` revealed only after Meet & Greet confirmation). 404 for anyone else |
 | `POST` | `/api/v1/adoption-requests/{id}/approve` | `human` (Active) | Approve a `sent` request (optional `approval_message`) -> transitions Pet to `in_process` and puts other `sent` requests `on_hold`. 404 for anyone but the human it was sent to |
 | `POST` | `/api/v1/adoption-requests/{id}/decline` | `human` (Active) | Decline a request (optional `decline_reason`, `decision_message`) -> starts 30-day cooldown. 404 for anyone but the human it was sent to |
 | `POST` | `/api/v1/adoption-requests/{id}/withdraw` | `pet` (Active) | Withdraw an open or in-process request (optional `withdraw_reason`); if in-process, releases Pet back to `looking_for_a_home` and restores `on_hold` requests to `sent`. 404 for anyone but the pet that sent it |
-| `GET` | `/api/v1/adoption-requests/{id}/messages` | `pet`, `human` (Active) | List private thread messages on an in-process request |
-| `POST` | `/api/v1/adoption-requests/{id}/messages` | `pet`, `human` (Active) | Send a message on an in-process request (`body` max 2000 chars) |
 
 ### The pet's side (`RQ-03`…`RQ-08`, `RQ-14`…`RQ-17`, FR24, FR25)
 
@@ -85,9 +83,9 @@ The caller's own requests, newest `sent_at` first: a pet's My requests (`RQ-07`,
 
 #### `GET /api/v1/adoption-requests/{id}`
 
-The request as above, and for the screens of FE-15: `match_score` (0 to 100, or `null`), `cooldown_until` (when
-the pet may apply to this home again after Declined or Not Adopted; `null` once that has passed, or for any other
-status) and `is_thread_open`. The Meet & Greet, the open slots and `contacts` ride along on the same answer
+The request as above, and for the screens of FE-15: `match_score` (0 to 100, or `null`) and `cooldown_until`
+(when the pet may apply to this home again after Declined or Not Adopted; `null` once that has passed, or for any
+other status). The Meet & Greet, the open slots and `contacts` ride along on the same answer
 ("What a request says about its Meet & Greet", below); `contacts` is `null` until a Meet & Greet is confirmed
 (SEC-PRIV-02).
 
@@ -213,11 +211,15 @@ All fixed in the same PR (2026-10-08), with tests in
 - Validation moved into Form Requests (SEC-INPUT-01), with messages the dialogs show, and who may answer into
   `AdoptionRequestPolicy` (SEC-AUTHZ-01). The two messages are trimmed before they are counted.
 
+**Decided 2026-10-09: no request thread.** The LoFi draws one (`RQ-11`, `MG-03`, `MG-07`, `AL-04`), but the
+proposal keeps messaging between a pet and a human as future scope (§10), and the proposal comes first. The two
+sides reach each other through the request's own steps: the approval message, the booking, "propose another
+time" with a message, and each side's contact details once a Meet & Greet is confirmed. The `/messages`
+endpoints, `is_thread_open`, `messages_count` and the `request_messages` table are removed (BE-29, FE-30). If it
+returns, it needs a way to report a message first (`project-rules/security-guidelines.md` §12).
+
 **Left as it is, to decide:**
 
-- **The request thread.** The API has it (`/messages`, open while a request is in process), but whether Pawfolio
-  keeps it is still open (FE-30). No screen shows or promises it: the "thread opens once the human approves" card
-  FE-15 put on the pet's request page is gone until that is decided.
 - **A notification is not sent** to an account that turned "Adoption requests and invites" off, so "the pet is
   notified" means "unless it asked not to be". The screens' toasts don't claim it.
 
@@ -427,7 +429,7 @@ Greet had only the one lifecycle test.
 | Method | Path | Role | Description |
 | --- | --- | --- | --- |
 | `GET` | `/api/v1/admin/adoption-requests` | `admin` | Paginated platform adoption requests (`?status=`, `?overdue=1`, `?q=`) |
-| `GET` | `/api/v1/admin/adoption-requests/{id}` | `admin` | Admin request detail (timeline, audit trail, message count; thread messages remain private per `RQ-19`) |
+| `GET` | `/api/v1/admin/adoption-requests/{id}` | `admin` | Admin request detail (timeline, audit trail) |
 | `POST` | `/api/v1/admin/adoption-requests/{id}/remind` | `admin` | Send decision reminder notification to both parties on an `awaiting_decision` request |
 | `GET` | `/api/v1/admin/meet-and-greets` | `admin` | Paginated platform Meet & Greets (`?status=`) |
 | `POST` | `/api/v1/admin/adoptions/{pet}/resolve/preview` | `admin` | Preview side effects of an admin resolution action (`AD-06`) |

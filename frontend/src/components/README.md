@@ -12,7 +12,7 @@ A live reference of everything built so far renders at **`/ui-kit`** in developm
 | `forms/` | Form controls | Field (text, select, textarea), Locked field, File upload, Choice chips, Radio cards, Toggle, Checkbox, Wizard + Stepper |
 | `overlays/` | Things that sit on top of the page | Modal, Confirm dialog, Drawer, Dropdown menu, Toast, Photo viewer (lightbox) |
 | `feedback/` | Status and messages | Alert, Banner, Empty state, Error state, Loading skeleton |
-| `data-display/` | Showing records | Table, Timeline, Stat tile (KPI), Chat thread bubbles, Status chain |
+| `data-display/` | Showing records | Table, Timeline, Stat tile (KPI), Status chain |
 | `layout/` | Page shells | Guest shell, Member shell, Admin shell, Account-status shell, Page header, Footer |
 | `navigation/` | Moving around | Guest top bar, Member top bar, Me menu (GN-01), Alerts dropdown (NT-01), Admin sidebar, Tabs, Pagination, Back link |
 

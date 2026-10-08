@@ -200,7 +200,7 @@ describe("My requests (RQ-07, RQ-08)", () => {
 describe("one request (RQ-14, RQ-15, RQ-17)", () => {
   it("gives the pet its request with the match, and the cooldown once it was declined", async () => {
     const onHold = await getRequest(as("pet"), 2);
-    expect(onHold).toMatchObject({ id: 2, status: "on_hold", match_score: 78, cooldown_until: null, is_thread_open: false });
+    expect(onHold).toMatchObject({ id: 2, status: "on_hold", match_score: 78, cooldown_until: null });
 
     const declined = await getRequest(as("pet"), 5);
     expect(declined).toMatchObject({ status: "declined", decline_reason: "not_adopting_now", decision_message: expect.stringContaining("wait a few months") });
@@ -208,8 +208,6 @@ describe("one request (RQ-14, RQ-15, RQ-17)", () => {
     const daysLeft = (new Date(declined.cooldown_until as string).getTime() - Date.now()) / (24 * 60 * 60 * 1000);
     expect(daysLeft).toBeGreaterThan(21.9);
     expect(daysLeft).toBeLessThan(22.1);
-
-    expect((await getRequest(as("pet"), 1)).is_thread_open).toBe(true);
   });
 
   it("answers 404 for a request that isn't the pet's own", async () => {

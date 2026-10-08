@@ -70,11 +70,6 @@ class AdoptionRequest extends Model
         return $this->belongsTo(HomeProfile::class);
     }
 
-    public function messages(): HasMany
-    {
-        return $this->hasMany(RequestMessage::class);
-    }
-
     public function meetAndGreets(): HasMany
     {
         return $this->hasMany(MeetAndGreet::class);

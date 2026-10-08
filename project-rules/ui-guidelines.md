@@ -77,6 +77,9 @@ Empty state, Table, Timeline, Meter, Match card, Post card. Add a new shared com
   Apply is replaced by "View my request" when one is open; limit (3 open) and 30-day cooldown dialogs explain blocks (`RQ-05`, `RQ-06`).
 - No status dropdowns anywhere for pets or requests (FR27).
 - Contact details and exact addresses appear only on a confirmed Meet & Greet (`MG-07`).
+- **No request thread** (decided 2026-10-09; the LoFi draws one on `RQ-11`, `MG-03`, `MG-07` and `AL-04`): the
+  proposal keeps messaging between a pet and a human as future scope (§10). A request page shows its status and
+  history, and no screen or notification promises a thread.
 - Match scores always come with their top reasons and a way to see the breakdown (`MT-03`).
 
 ## 7. Copy and tone

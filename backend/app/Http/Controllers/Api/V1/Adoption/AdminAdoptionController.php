@@ -99,10 +99,8 @@ class AdminAdoptionController extends Controller
     {
         $adoptionRequest->load(['pet.photos', 'pet.user', 'homeProfile.user', 'activeMeetAndGreet.slot', 'latestMeetAndGreet.slot', 'adoption']);
 
-        // RQ-19 / SEC-PRIV-04: Thread messages stay private unless attached to a report.
         $data = (new AdoptionRequestResource($adoptionRequest))
             ->withDetails()
-            ->withPrivateMessages(false)
             ->toArray($request);
 
         $data['parties'] = [

@@ -22,7 +22,6 @@ use App\Http\Resources\ResponseResource;
 use App\Models\AdoptionRequest;
 use App\Models\HomeProfile;
 use App\Models\Pet;
-use App\Models\RequestMessage;
 use App\Models\User;
 use App\Services\ActivityLogs\ActivityLogger;
 use App\Services\Notifications\NotificationService;
@@ -30,7 +29,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Adoption request lifecycle: send, list, detail, approve, decline, withdraw, and request thread messages (BE-16, RQ-03..RQ-17).
+ * Adoption request lifecycle: send, list, detail, approve, decline and withdraw (BE-16, RQ-03..RQ-17).
  */
 class AdoptionRequestController extends Controller
 {
@@ -100,14 +99,9 @@ class AdoptionRequestController extends Controller
             return ErrorResource::notFound("We couldn't find that request.")->toResponse($request);
         }
 
-        // Thread messages stay private to the two parties (RQ-19, SEC-PRIV-04).
-        $isParty = ($user->isPet() && $user->pet?->id === $ar->pet_id)
-            || ($user->isHuman() && $user->homeProfile?->id === $ar->home_profile_id);
-
         return ResponseResource::make(
             (new AdoptionRequestResource($ar))
                 ->withDetails()
-                ->withPrivateMessages($isParty)
                 ->toArray($request),
         );
     }
@@ -346,7 +340,7 @@ class AdoptionRequestController extends Controller
                     recipient: $pet->user,
                     type: NotificationType::RequestApproved->value,
                     title: "{$ar->homeProfile->full_name} approved {$pet->name}'s request!",
-                    body: 'Book a Meet & Greet slot within 14 days and message each other in the request thread.',
+                    body: 'Book a Meet & Greet slot within 14 days.',
                     ar: $ar,
                 );
             }
@@ -518,71 +512,6 @@ class AdoptionRequestController extends Controller
                     ->toArray($request),
             )->toResponse($request);
         });
-    }
-
-    public function messages(Request $request, AdoptionRequest $adoptionRequest)
-    {
-        $user = $request->user();
-        $isParty = ($user->isPet() && $user->pet?->id === $adoptionRequest->pet_id)
-            || ($user->isHuman() && $user->homeProfile?->id === $adoptionRequest->home_profile_id);
-
-        if (! $isParty) {
-            return ErrorResource::notFound("We couldn't find that request.")->toResponse($request);
-        }
-
-        $items = $adoptionRequest->messages()
-            ->with('sender')
-            ->orderBy('created_at')
-            ->get()
-            ->map(fn (RequestMessage $msg) => [
-                'id' => $msg->id,
-                'sender_user_id' => $msg->sender_user_id,
-                'sender_name' => $msg->sender?->displayName(),
-                'sender_role' => $msg->sender?->getRole()->value,
-                'body' => $msg->body,
-                'created_at' => $msg->created_at?->toISOString(),
-            ])
-            ->values()
-            ->all();
-
-        return ResponseResource::collection($items);
-    }
-
-    public function sendMessage(Request $request, AdoptionRequest $adoptionRequest)
-    {
-        $user = $request->user();
-        $isParty = ($user->isPet() && $user->pet?->id === $adoptionRequest->pet_id)
-            || ($user->isHuman() && $user->homeProfile?->id === $adoptionRequest->home_profile_id);
-
-        if (! $isParty) {
-            return ErrorResource::notFound("We couldn't find that request.")->toResponse($request);
-        }
-
-        if (! $adoptionRequest->isInProcess()) {
-            return ErrorResource::conflict(
-                'The message thread is only open while the adoption request is in progress.',
-                'thread_locked',
-            )->toResponse($request);
-        }
-
-        $validated = $request->validate([
-            'body' => ['required', 'string', 'max:2000'],
-        ]);
-
-        $msg = new RequestMessage;
-        $msg->adoption_request_id = $adoptionRequest->id;
-        $msg->sender_user_id = $user->id;
-        $msg->body = trim($validated['body']);
-        $msg->save();
-
-        return ResponseResource::created([
-            'id' => $msg->id,
-            'sender_user_id' => $msg->sender_user_id,
-            'sender_name' => $user->displayName(),
-            'sender_role' => $user->getRole()->value,
-            'body' => $msg->body,
-            'created_at' => $msg->created_at?->toISOString(),
-        ]);
     }
 
     public static function releasePetFromInProcess(Pet $pet, string $reason): void

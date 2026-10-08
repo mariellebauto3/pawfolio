@@ -8,7 +8,7 @@ type Props = {
   header: ReactNode;
   /** What the reader can do now. Beside the content on desktop; first on a phone, above everything it is about. */
   panel: ReactNode;
-  /** The request itself: the cover letter, the notes, what is attached, the thread. */
+  /** The request itself: the cover letter, the notes, what is attached. */
   children: ReactNode;
   /** What else belongs beside the content: the history, the other side's profile. Under the content on a phone. */
   aside?: ReactNode;

@@ -43,7 +43,7 @@ Authoritative rules: **[security-guidelines.md](security-guidelines.md)** §8 (p
 | Profiles | `pets` (resume, adoption status), `pet_photos`, `home_profiles` (quiz answers, open to adopt) |
 | Matching | computed from `pets` + `home_profiles`; cache in `match_scores` only if needed for performance |
 | Bookmarks & invites | `bookmarks` (polymorphic: pet or home profile), `invites` |
-| Requests & meetings | `adoption_requests`, `meet_greet_slots`, `meet_and_greets`, `request_messages` (request thread) |
+| Requests & meetings | `adoption_requests`, `meet_greet_slots`, `meet_and_greets` |
 | Adoption | `adoptions` (pet ↔ furparent link, adopted_at) |
 | Community | `posts`, `post_photos`, `comments`, `reactions` |
 | Moderation | `reports`, `report_actions` |
