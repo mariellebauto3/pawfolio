@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { Icon } from "@/components/ui/icon";
 import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/utils/cn";
 
@@ -22,17 +23,22 @@ type Props = {
   tags?: string[];
   /** The viewer's match, 0 to 100. Left out when there is no score to show. */
   score?: number;
+  /** Why the score is what it is, in the API's words (MT-01, MT-02). A score is never shown alone on a ranked list. */
+  reasons?: string[];
   /** What opening the card does: "View resume", "View home". */
   cta: string;
+  /** One more thing to do from the card, beside the link: the "Why this match?" button. Pressing it doesn't open the card. */
+  action?: ReactNode;
   /** Heading level for the name, so the card fits the page outline. */
   titleAs?: "h2" | "h3";
   className?: string;
 };
 
-// One pet or one home in a list (Browse DS-01/DS-02, and the matches and bookmarks lists after it). The whole card
-// is one link, through the name: one stop for the keyboard and a large target for a thumb. The match score is a
-// yellow tab on the card's corner, the only yellow on it (HiFi rule 4), and always written out as "86% match".
-// Names, headlines and tags are typed by users and rendered as plain text (SEC-FE-01).
+// One pet or one home in a list (Browse DS-01/DS-02, matches MT-01/MT-02, and the bookmarks list after them). The
+// whole card is one link, through the name: one stop for the keyboard and a large target for a thumb. An `action`
+// sits on top of that link as a second stop. The match score is a yellow tab on the card's corner, the only yellow
+// on it (HiFi rule 4), and always written out as "86% match". Names, headlines, tags and reasons come from users
+// and the API and are rendered as plain text (SEC-FE-01).
 export function MatchCard({
   href,
   title,
@@ -43,7 +49,9 @@ export function MatchCard({
   badges,
   tags = [],
   score,
+  reasons = [],
   cta,
+  action,
   titleAs: Heading = "h3",
   className,
 }: Props) {
@@ -84,7 +92,7 @@ export function MatchCard({
           {avatar}
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <Heading className="text-xl wrap-break-word">
-              <Link href={href} className="after:absolute after:inset-0 after:content-[''] group-hover:text-primary">
+              <Link href={href} data-card-link className="after:absolute after:inset-0 after:content-[''] hover:text-primary">
                 {title}
               </Link>
             </Heading>
@@ -107,10 +115,25 @@ export function MatchCard({
           </div>
         )}
 
-        {/* The link above already covers the card; this names what it does for people who look for a button. */}
-        <p aria-hidden="true" className="mt-auto pt-1 text-sm font-bold text-primary group-hover:underline">
-          {cta}
-        </p>
+        {reasons.length > 0 && (
+          <ul className="flex flex-col gap-1.5 text-sm">
+            {reasons.map((reason) => (
+              <li key={reason} className="flex items-start gap-2">
+                <Icon name="check" className="mt-0.5 size-4 shrink-0 text-primary" />
+                {reason}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 pt-1">
+          {/* The link above already covers the card; this names what it does for people who look for a button. */}
+          <p aria-hidden="true" className="text-sm font-bold text-primary group-has-[[data-card-link]:hover]:underline">
+            {cta}
+          </p>
+          {/* Positioned, and after the link, so it is above the link's stretched hit area. */}
+          {action && <div className="relative -mr-2">{action}</div>}
+        </div>
       </div>
     </article>
   );

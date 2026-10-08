@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Photo } from "@/components/ui/photo";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PET_SIZE_LABELS, PET_STATUS_NAMES } from "@/constants/pets";
@@ -10,6 +11,10 @@ type Props = {
   pet: Pet;
   /** The viewer's match with this pet, when there is one. */
   score?: number;
+  /** Why they fit, shown under the facts on a ranked list (MT-01, MT-02). */
+  reasons?: string[];
+  /** A second thing to do from the card, e.g. the "Why this match?" button. */
+  action?: ReactNode;
   /** Rendered width hint for the photo, e.g. "(min-width: 1280px) 264px, 50vw". */
   sizes?: string;
   titleAs?: "h2" | "h3";
@@ -17,7 +22,7 @@ type Props = {
 
 // A pet on a card: its profile photo first, the way a resume leads with one. "Looking for a Home" is what every
 // listed pet is, so only the other statuses get a badge.
-export function PetCard({ pet, score, sizes = "(min-width: 768px) 320px, 100vw", titleAs }: Props) {
+export function PetCard({ pet, score, reasons, action, sizes = "(min-width: 768px) 320px, 100vw", titleAs }: Props) {
   const photo = pet.photos[0];
   const facts = [pet.breed, formatAgeMonths(pet.approximate_age_months), pet.size && PET_SIZE_LABELS[pet.size]].filter(Boolean);
 
@@ -38,6 +43,8 @@ export function PetCard({ pet, score, sizes = "(min-width: 768px) 320px, 100vw",
       badges={pet.status !== "looking_for_a_home" && <StatusBadge status={PET_STATUS_NAMES[pet.status]} />}
       tags={pet.temperament_tags.slice(0, 2)}
       score={score}
+      reasons={reasons}
+      action={action}
       cta="View resume"
     />
   );
