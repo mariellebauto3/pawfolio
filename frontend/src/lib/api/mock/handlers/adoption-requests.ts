@@ -10,6 +10,7 @@ import {
 import type { QueryValue } from "@/lib/api/core";
 import { ADOPTION_REQUESTS, homeProfileSummary, petSummary } from "@/lib/api/mock/fixtures/adoption-requests";
 import { HOME_PROFILES } from "@/lib/api/mock/fixtures/home-profiles";
+import { activeBooking, meetDetails } from "@/lib/api/mock/fixtures/meet-and-greet";
 import { MATCH_SCORES } from "@/lib/api/mock/fixtures/match-scores";
 import { PETS } from "@/lib/api/mock/fixtures/pets";
 import { type MockContext, type MockResult, type MockRoute, fail, ok, paginate, route, validationFailed } from "@/lib/api/mock/router";
@@ -65,16 +66,18 @@ function cooldownEnd(petId: number, homeProfileId: number): number | null {
   return latest > Date.now() ? latest : null;
 }
 
-/** What `GET /adoption-requests/{id}` adds to the request. Nothing private: no Meet & Greet is confirmed here. */
-function withDetails(request: AdoptionRequest) {
+/**
+ * What `GET /adoption-requests/{id}` adds to the request: the match, the cooldown, and its Meet & Greet with the
+ * contact details a confirmed meeting opens (`meetDetails`).
+ */
+export function withDetails(request: AdoptionRequest) {
   const cooldown = COOLDOWN_REQUEST_STATUSES.includes(request.status) && request.closed_at ? new Date(request.closed_at).getTime() + REQUEST_COOLDOWN_DAYS * DAY_MS : 0;
   return {
     ...request,
     match_score: MATCH_SCORES[`${request.pet.id}:${request.home_profile.id}`] ?? null,
     cooldown_until: cooldown > Date.now() ? new Date(cooldown).toISOString() : null,
     is_thread_open: IN_PROCESS_REQUEST_STATUSES.includes(request.status),
-    contact_unlocked: false,
-    contacts: null,
+    ...meetDetails(request),
   };
 }
 
@@ -228,6 +231,9 @@ export const adoptionRequestRoutes: MockRoute[] = [
 
     const wasInProcess = IN_PROCESS_REQUEST_STATUSES.includes(request.status);
     const now = Date.now();
+    // A Meet & Greet that was booked or confirmed ends with the request.
+    const booking = activeBooking(request.id);
+    if (booking) Object.assign(booking, { status: "ended", ended_at: new Date(now).toISOString(), ended_by: "pet", end_reason: "other", end_details: "Adoption request withdrawn" });
     request.status = "withdrawn";
     request.withdraw_reason = reason === "" ? null : (reason as WithdrawReason | null);
     request.closed_at = new Date(now).toISOString();

@@ -6,6 +6,7 @@ import { bookmarkRoutes } from "@/lib/api/mock/handlers/bookmarks";
 import { discoveryRoutes } from "@/lib/api/mock/handlers/discovery";
 import { inviteRoutes } from "@/lib/api/mock/handlers/invites";
 import { matchingRoutes } from "@/lib/api/mock/handlers/matching";
+import { meetAndGreetRoutes } from "@/lib/api/mock/handlers/meet-and-greet";
 import { signUpRoutes } from "@/lib/api/mock/handlers/sign-up";
 import type { MockRoute } from "@/lib/api/mock/router";
 
@@ -19,6 +20,7 @@ export const MOCK_ROUTES: readonly MockRoute[] = [
   ...discoveryRoutes,
   ...matchingRoutes,
   ...adoptionRequestRoutes,
+  ...meetAndGreetRoutes,
   ...bookmarkRoutes,
   ...inviteRoutes,
 ];

@@ -101,13 +101,15 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
   `children` take more attachments) read the same for both sides, and `RequestHistory` takes a `reader`, since
   each side is "you" in its own history (`schemas/request-status.ts`). The page (`app/(member)/requests/
   [requestId]/page.tsx`) picks the view by role. A step that changes the status in place should sit inside
-  `RequestPanelFrame`, so focus follows.
+  `RequestPanelFrame`, so focus follows. Both panels take `meet`: the step another module shows in place of the
+  status in plain words, with a `state` that names it, so focus also follows a change the status doesn't show (a
+  booked slot is still Approved). What another module reads from the same answer comes through `getRequestWith`,
+  which takes its reader. The Meet & Greet (FE-17) is built this way: `src/features/meet-and-greet/README.md`.
 - API contracts: `docs/api/bookmarks-and-invites.md` and `docs/api/adoption-and-meet-greet.md` ("The pet's
   side"). Tests: `tests/unit/features/adoption-requests/`. Mock mode answers these screens from memory
   (`docs/architecture/frontend-data-layer.md`).
-- **Not built here:** Booking a Meet & Greet, availability (`/availability`, which Manage availability links
-  to) and the decision after the meeting (FE-17, FE-18): an Approved request says that booking comes next, and
-  one that is Awaiting Decision says the decision is the human's, with no buttons yet. The request thread: whether
+- **Not built here:** The decision after the meeting (FE-18): a request that is Awaiting Decision says the
+  decision is the human's, with no buttons yet. The request thread: whether
   Pawfolio keeps it is undecided (FE-30), so no screen shows or promises it. An admin opening `/requests` is sent
   to the dashboard. An adopted pet or a pet with a Draft resume still sees Apply on a Home Profile; the API
   refuses the request and the form shows its message. A human has no list of the invites they sent.

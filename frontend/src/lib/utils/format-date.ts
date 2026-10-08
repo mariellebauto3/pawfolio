@@ -23,3 +23,37 @@ export function formatDateTime(iso: string): string {
   // Newer ICU data puts a narrow no-break space before AM/PM; a plain space reads the same and matches everywhere.
   return date ? `${DATE.format(date)}, ${TIME.format(date).replace(/ /g, " ")}` : "";
 }
+
+const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: TIME_ZONE });
+const MONTH = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: TIME_ZONE });
+const DAY = new Intl.DateTimeFormat("en-US", { day: "numeric", timeZone: TIME_ZONE });
+const INPUT_DATE = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: TIME_ZONE });
+
+/** A day and a time someone plans around, in pieces: "Sat", "Oct", "10", "10:00 AM". Null when the value isn't a date. */
+export function meetingTimeParts(iso: string): { weekday: string; month: string; day: string; time: string } | null {
+  const date = parse(iso);
+  if (!date) return null;
+  return { weekday: WEEKDAY.format(date), month: MONTH.format(date), day: DAY.format(date), time: TIME.format(date).replace(/ /g, " ") };
+}
+
+/** "Sat, Oct 10, 10:00 AM": the weekday in place of the year, for a time that is weeks away at most. Empty when it isn't a date. */
+export function formatMeetingTime(iso: string): string {
+  const parts = meetingTimeParts(iso);
+  return parts ? `${parts.weekday}, ${parts.month} ${parts.day}, ${parts.time}` : "";
+}
+
+/** Today in the Philippines as a date input writes it: "2026-10-08". */
+export function philippineToday(now: Date = new Date()): string {
+  return INPUT_DATE.format(now);
+}
+
+/**
+ * A date and a time typed into a form ("2026-10-10", "10:00"), read as Philippine time and written as the API takes
+ * it. The Philippines keeps no daylight saving, so it is always 8 hours ahead of UTC. Null when either isn't valid.
+ */
+export function philippineTimeToIso(date: string, clock: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(clock)) return null;
+  const at = new Date(`${date}T${clock}:00+08:00`);
+  // "2026-02-30" would roll over into March: not a day anyone picked.
+  return Number.isNaN(at.getTime()) || INPUT_DATE.format(at) !== date ? null : at.toISOString();
+}

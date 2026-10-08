@@ -22,6 +22,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class AdoptionRequestResource extends JsonResource
 {
+    /** The open slots a request carries at most; a home with more shows its soonest. */
+    public const MAX_SLOTS = 50;
+
     private bool $includeDetails = false;
 
     private bool $includePrivateMessages = false;
@@ -141,11 +144,11 @@ class AdoptionRequestResource extends JsonResource
         }
 
         if (in_array($status, [AdoptionRequestStatus::Approved->value, AdoptionRequestStatus::MeetScheduled->value], true) && $ar->homeProfile) {
+            // The slots the pet can book, or the human can offer instead: still ahead and held by nobody.
             $data['available_slots'] = $ar->homeProfile->meetAndGreetSlots()
-                ->available()
-                ->where('starts_at', '>', now())
-                ->whereDoesntHave('bookings', fn ($q) => $q->whereIn('status', ['booked', 'confirmed']))
+                ->bookable()
                 ->orderBy('starts_at')
+                ->limit(self::MAX_SLOTS)
                 ->get()
                 ->map(fn (MeetGreetSlot $slot) => self::formatSlot($slot))
                 ->values()
@@ -211,7 +214,7 @@ class AdoptionRequestResource extends JsonResource
      */
     public static function formatMeetAndGreet(MeetAndGreet $mg): array
     {
-        $mg->loadMissing(['slot', 'proposedSlot']);
+        $mg->loadMissing(['slot', 'proposedSlot', 'endedBy']);
 
         return [
             'id' => $mg->id,
@@ -222,6 +225,8 @@ class AdoptionRequestResource extends JsonResource
             'confirmed_at' => $mg->confirmed_at?->toISOString(),
             'ended_at' => $mg->ended_at?->toISOString(),
             'ended_by_user_id' => $mg->ended_by_user_id,
+            // Which side ended it, so a screen can say "you" or name the other side; null when its time simply came.
+            'ended_by' => $mg->endedBy?->getRole()->value,
             'end_reason' => $mg->end_reason,
             'end_details' => $mg->end_details,
             'proposed_slot_id' => $mg->proposed_slot_id,

@@ -8,7 +8,7 @@ import { OPEN_REQUEST_STATUSES } from "@/constants/adoption-requests";
 import { HOME_TYPE_LABELS, OUTDOOR_SPACE_LABELS, householdSummary, otherPetsSummary } from "@/constants/home-profiles";
 import { ENERGY_LEVEL_LABELS, SPECIES_LABELS, TIME_ALONE_LABELS } from "@/constants/pets";
 import { ROUTES, homeProfilePath, petPath, requestPath } from "@/constants/routes";
-import { getRequest } from "@/features/adoption-requests/api/requests";
+import { getRequestWith } from "@/features/adoption-requests/api/requests";
 import { HumanRequestPanel } from "@/features/adoption-requests/components/human-request-panel";
 import { MatchChip } from "@/features/adoption-requests/components/match-chip";
 import { PetRequestPanel } from "@/features/adoption-requests/components/pet-request-panel";
@@ -18,6 +18,10 @@ import { RequestHeader } from "@/features/adoption-requests/components/request-h
 import type { RequestDetail } from "@/features/adoption-requests/types/requests";
 import { getHomeProfileDetail, getPetProfile } from "@/features/discovery/api/discovery";
 import { MatchBreakdownButton } from "@/features/matching/components/match-breakdown-button";
+import { readRequestMeeting } from "@/features/meet-and-greet/api/meetings";
+import { MeetSection } from "@/features/meet-and-greet/components/meet-section";
+import { type MeetReader, meetStage } from "@/features/meet-and-greet/schemas/meetings";
+import type { RequestMeeting } from "@/features/meet-and-greet/types/meetings";
 import { isApiError } from "@/lib/api/errors";
 import { getServerApi } from "@/lib/api/server";
 import { homePathFor } from "@/lib/auth/redirects";
@@ -134,8 +138,27 @@ async function AboutPet({ request }: { request: RequestDetail }) {
   );
 }
 
-/** RQ-14 Sent, RQ-15 On Hold, RQ-17 Declined and every other status, as the pet that sent the request reads it. */
-function PetView({ request }: { request: RequestDetail }) {
+/**
+ * The Meet & Greet step of the request for the action panel (MG-03…MG-08), when it is at one: booking, waiting
+ * for the human to confirm, or scheduled. `state` names the step and the slot, so the panel knows when either
+ * changed.
+ */
+function meetFor(reader: MeetReader, request: RequestDetail, meeting: RequestMeeting) {
+  const stage = meetStage(request.status, meeting);
+  if (stage === null) return undefined;
+  return {
+    content: <MeetSection reader={reader} stage={stage} request={request} meeting={meeting} />,
+    state: `${stage}:${meeting.active?.slot?.id ?? ""}`,
+  };
+}
+
+type ViewProps = { request: RequestDetail; meeting: RequestMeeting };
+
+/**
+ * RQ-14 Sent, RQ-15 On Hold, RQ-17 Declined and every other status, as the pet that sent the request reads it;
+ * once approved, booking a slot and the meeting itself (MG-03, MG-04, MG-08).
+ */
+function PetView({ request, meeting }: ViewProps) {
   const home = request.home_profile;
 
   return (
@@ -147,7 +170,7 @@ function PetView({ request }: { request: RequestDetail }) {
           facts={[home.city, home.home_type && HOME_TYPE_LABELS[home.home_type]].filter(Boolean).join(" · ")}
         />
       }
-      panel={<PetRequestPanel request={request} />}
+      panel={<PetRequestPanel request={request} meet={meetFor("pet", request, meeting)} />}
       aside={
         <>
           <RequestHistory request={request} reader="pet" />
@@ -163,8 +186,11 @@ function PetView({ request }: { request: RequestDetail }) {
   );
 }
 
-/** RQ-11 New request, and every later status, as the human it was sent to reads it. */
-function HumanView({ request }: { request: RequestDetail }) {
+/**
+ * RQ-11 New request, and every later status, as the human it was sent to reads it; once approved, confirming the
+ * pet's booking and the meeting itself (MG-05, MG-07).
+ */
+function HumanView({ request, meeting }: ViewProps) {
   const { pet } = request;
   const age = pet.approximate_age_months === null ? "" : formatAgeMonths(pet.approximate_age_months);
   // Once it has ended, nobody is asking any more.
@@ -173,7 +199,7 @@ function HumanView({ request }: { request: RequestDetail }) {
   return (
     <RequestDetailLayout
       header={<RequestHeader request={request} title={title} facts={[pet.breed, age, pet.city].filter(Boolean).join(" · ")} />}
-      panel={<HumanRequestPanel request={request} />}
+      panel={<HumanRequestPanel request={request} meet={meetFor("human", request, meeting)} />}
       aside={
         <>
           <RequestHistory request={request} reader="human" />
@@ -200,7 +226,8 @@ function HumanView({ request }: { request: RequestDetail }) {
 // One adoption request, read by role: the pet that sent it (RQ-14, RQ-15, RQ-17, with Withdraw, RQ-16) or the
 // human it was sent to (RQ-11, with Approve and Decline, RQ-12, RQ-13), on the same layout (FR10, FR24, FR25).
 // The API answers only for the two sides of a request; anyone else's is a page that doesn't exist (SEC-AUTHZ-03,
-// SEC-AUTHZ-04). The Meet & Greet steps build on the same layout.
+// SEC-AUTHZ-04). The Meet & Greet of an approved request is read from the same answer and shown in the action
+// panel (MG-03…MG-10, FR11, FR26); the contact details it opens are rendered here and kept nowhere (SEC-FE-04).
 export default async function RequestPage({ params }: Props) {
   const { requestId } = await params;
   // Only a plain id goes to the API (SEC-FE-08); anything else is a page that doesn't exist.
@@ -211,10 +238,10 @@ export default async function RequestPage({ params }: Props) {
   // An admin reads requests on the monitor (RQ-19).
   if (account.role === "admin") redirect(homePathFor(account));
 
-  const request = await getRequest(await getServerApi(), id).catch((error: unknown) => {
+  const { request, more: meeting } = await getRequestWith(await getServerApi(), id, readRequestMeeting).catch((error: unknown) => {
     if (isApiError(error) && error.kind === "not_found") notFound();
     throw error;
   });
 
-  return account.role === "pet" ? <PetView request={request} /> : <HumanView request={request} />;
+  return account.role === "pet" ? <PetView request={request} meeting={meeting} /> : <HumanView request={request} meeting={meeting} />;
 }

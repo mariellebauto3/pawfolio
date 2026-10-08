@@ -166,7 +166,8 @@ export function DialogFrame({
       onPointerDown={handlePointerDown}
       onClick={handleClick}
       className={cn(
-        "overflow-hidden bg-surface p-0 text-ink shadow-dialog backdrop:bg-scrim backdrop:animate-fade-in",
+        // text-start: a dialog opened from inside a centred block (an empty state) must not inherit its alignment.
+        "overflow-hidden bg-surface p-0 text-start text-ink shadow-dialog backdrop:bg-scrim backdrop:animate-fade-in",
         PLACEMENT[placement],
         placement === "center" && SIZE[size],
       )}

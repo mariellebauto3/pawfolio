@@ -87,8 +87,9 @@ The caller's own requests, newest `sent_at` first: a pet's My requests (`RQ-07`,
 
 The request as above, and for the screens of FE-15: `match_score` (0 to 100, or `null`), `cooldown_until` (when
 the pet may apply to this home again after Declined or Not Adopted; `null` once that has passed, or for any other
-status) and `is_thread_open`. The Meet & Greet, the slots, the thread and `contacts` ride along for the screens
-that follow; `contacts` is `null` until a Meet & Greet is confirmed (SEC-PRIV-02).
+status) and `is_thread_open`. The Meet & Greet, the open slots and `contacts` ride along on the same answer
+("What a request says about its Meet & Greet", below); `contacts` is `null` until a Meet & Greet is confirmed
+(SEC-PRIV-02).
 
 #### `POST /api/v1/adoption-requests/{id}/withdraw`
 
@@ -224,15 +225,194 @@ All fixed in the same PR (2026-10-08), with tests in
 
 | Method | Path | Role | Description |
 | --- | --- | --- | --- |
-| `GET` | `/api/v1/meet-greet-slots` | `human`, `pet` (Active) | List availability slots (Human sees own slots; Pet with approved request passes `?home_profile_id=`) |
-| `POST` | `/api/v1/meet-greet-slots` | `human` (Active) | Create availability slot(s) (`starts_at`, `place_type`, `place_details`, optional `repeat` / `repeat_weeks` 1–4) |
-| `DELETE` | `/api/v1/meet-greet-slots/{slot}` | `human` (Active) | Soft-delete an unbooked availability slot |
-| `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet` | `pet` (Active) | Book an available slot (`slot_id` / `meet_greet_slot_id`) on an `approved` request |
-| `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/confirm` | `human` (Active) | Confirm booking -> transitions request to `meet_scheduled` and unlocks contact details (`MG-07`, `SEC-PRIV-02`) |
-| `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/propose-time` | `human` (Active) | Propose an alternative slot (`proposed_slot_id`, `end_details`) |
-| `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/reschedule` | `pet`, `human` (Active) | Reschedule an active Meet & Greet (`slot_id`, `end_details`) |
-| `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/cancel` | `pet`, `human` (Active) | Cancel an active Meet & Greet (`end_details`), returning request to `approved` |
-| `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/didnt-happen` | `pet`, `human` (Active) | Mark a past Meet & Greet as didn't happen (`action`: `rebook` or `cancel_request`) |
+| `GET` | `/api/v1/meet-greet-slots` | `human`, `pet` (Active) | A human's own slots still ahead (`?when=upcoming`, the default) or their past Meet & Greets (`?when=past`), a page at a time; a pet with an approved request passes `?home_profile_id=` for that home's open slots |
+| `POST` | `/api/v1/meet-greet-slots` | `human` (Active) | Add a slot, or the same slot weekly (`starts_at`, `place_type`, `place_details`, optional `repeat_weeks` 1–4). Always answers a list |
+| `DELETE` | `/api/v1/meet-greet-slots/{slot}` | `human` (Active) | Remove an open slot of their own (soft delete) |
+| `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet` | `pet` (Active) | Book an open slot (`slot_id`) on an `approved` request |
+| `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/confirm` | `human` (Active) | Confirm the booking -> the request becomes `meet_scheduled` and contact details open (`MG-07`, `SEC-PRIV-02`) |
+| `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/propose-time` | `human` (Active) | Offer another open slot instead (`proposed_slot_id`, optional `message`) -> the booking ends and the pet books again |
+| `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/reschedule` | `pet`, `human` (Active) | A pet moves its booking (`slot_id`, optional `reason`); a human's reschedule is a proposal (as `propose-time`) |
+| `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/cancel` | `pet`, `human` (Active) | Cancel the booking (`reason` required, optional `details`) -> the request returns to `approved` |
+| `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/didnt-happen` | `human` (Active) | Report a past Meet & Greet as not having happened (`MG-13`, FE-18) |
+
+### Availability, booking and the meeting (`MG-01`…`MG-10`, FR11, FR26)
+
+**Status: built (BE-17), checked and corrected for FE-17 (2026-10-08).** The screens (FE-17) run against it through
+`frontend/src/features/meet-and-greet/api/slots.ts` and `api/meetings.ts`. In mock mode
+`frontend/src/lib/api/mock/handlers/meet-and-greet.ts` answers the same way. A change here also changes those
+files, the types in `frontend/src/types/meet-and-greet.ts`, and the tests on both sides in the same PR.
+
+- **Who:** a signed-in **Active** account. Signed out: **401**. Not Active: **403** `account_not_active`. A human
+  keeps slots; only the two sides of a request act on its Meet & Greet, and anyone else, an admin included, is
+  answered **404** like a request that doesn't exist (`AdoptionRequestPolicy`, SEC-AUTHZ-03, SEC-AUTHZ-04).
+- Whose slot or booking it is comes from the session, and every status and date is the system's: `status`,
+  `home_profile_id`, `confirmed_at` and the rest are ignored when sent (SEC-AUTHZ-02, SEC-INPUT-04, FR27).
+- Every write is rate-limited per account (`throttle:writes`, SEC-API-04), and runs in a transaction that locks
+  the request and the slot, so one slot is never booked twice (SEC-AUTHZ-08).
+- Times are stored and sent in UTC. A notification that names a time writes it in Philippine time, as the screens
+  show it.
+
+#### A slot
+
+`{ id, home_profile_id, starts_at, place_type, place_details }`. `place_type` is `public_spot`, `shelter` or
+`caretaker_location`. `place_details` is the name of the place; it is `null` only for `caretaker_location`, which
+is the pet's side to place once the meeting is confirmed. A slot is **open** while it is not removed, still ahead,
+and held by no booking that is booked or confirmed.
+
+#### `GET /api/v1/meet-greet-slots`
+
+| Query | Values |
+| --- | --- |
+| `when` | `upcoming` (default) or `past`. Anything else is **422** |
+| `home_profile_id` | A pet only: the home whose open slots to list |
+| `page`, `per_page` | default 20, at most 50 |
+
+- **200, a human, `upcoming`:** a page of their slots still ahead, soonest first, each a slot plus `is_booked` and
+  `active_booking`: `null`, or `{ id, status, adoption_request_id, pet_name }` with `status` `booked` (waiting for
+  the human to confirm) or `confirmed`.
+- **200, a human, `past`:** a page of their confirmed Meet & Greets whose time has come, latest first:
+  `{ id, adoption_request_id, pet_name, request_status, end_reason, slot }`. `request_status` is where the request
+  stands now (`awaiting_decision`, `adopted`…); `end_reason` is set when the human reported that it didn't happen
+  (`MG-13`). A meeting called off before its time never took place and is not listed.
+- **200, a pet with `home_profile_id`:** that home's open slots, when the pet's request with it is Approved or
+  Meet Scheduled; **403** otherwise. The request itself carries the same list (`available_slots`), which is what
+  the screens read.
+- **403** for a pet without `home_profile_id`, and for an admin.
+
+#### `POST /api/v1/meet-greet-slots`
+
+| Body | |
+| --- | --- |
+| `starts_at` | Required: a date and time still ahead and within 12 months |
+| `place_type` | Required: `public_spot`, `shelter` or `caretaker_location` |
+| `place_details` | Required unless `place_type` is `caretaker_location`; up to 255 characters, trimmed |
+| `repeat_weeks` | Optional, 1 to 4: the same weekday and time for that many weeks in a row (`MG-02` "Weekly for 4 weeks"). `repeat` (`none`, `weekly_2`…`weekly_4`) is read the same way |
+
+- **201:** `{ data: [slot, …] }`, always a list, one slot or several. Logged as `meet_greet_slots_added`.
+- **422**, a message per field: `starts_at` "Choose a time that is still ahead.", "Choose a date within the next
+  12 months.", "You already have a slot at that time." (or "…in one of these weeks."; nothing is added then);
+  `place_type`; `place_details` "Say where to meet, such as the name of the park or the shelter.".
+- **403** for anyone who isn't a human.
+
+#### `DELETE /api/v1/meet-greet-slots/{slot}`
+
+- **200:** `{ data: { deleted: true } }`. The slot is kept for the bookings that once used it.
+- **404:** removed already, never there, or another human's.
+- **409** `slot_has_active_booking`: a pet has booked it. The booking is moved or cancelled on the request first.
+
+#### What a request says about its Meet & Greet
+
+`GET /adoption-requests/{id}`, and every call below, answers the request with:
+
+| Field | |
+| --- | --- |
+| `active_meet_and_greet` | The booking that is `booked` or `confirmed` now, or `null` |
+| `latest_meet_and_greet` | The newest booking whatever became of it; it says why booking reopened |
+| `available_slots` | The home's open slots, soonest first (at most 50), while the request is Approved or Meet Scheduled |
+| `contact_unlocked`, `contacts` | `true` and the details only while a meeting is confirmed, and once its time has passed or the pet is adopted; otherwise `false` and `null` (SEC-PRIV-02) |
+
+A booking is `{ id, status, booked_at, confirmed_at, ended_at, ended_by, end_reason, end_details, slot,
+proposed_slot }`. `ended_by` is `pet`, `human` or `null` (its time simply came). `end_reason` is a cancel reason,
+`moved_to_another_day` (rescheduled or proposed, with `proposed_slot` the slot it moved to or was offered), or what
+happened instead (`MG-13`). `contacts` is `{ caretaker_name, caretaker_contact_number, human_full_name,
+human_contact_number, human_street_address, human_city, human_province }`; no list ever carries it.
+
+#### `POST /api/v1/adoption-requests/{id}/meet-and-greet`
+
+Body: `slot_id` (required; `meet_greet_slot_id` is read the same way).
+
+- **201:** the request, still `approved`, with `active_meet_and_greet.status` `booked`. The human is notified.
+  Booking again before the human confirms moves the booking to the new slot (`MG-04`).
+- **409**, with a `message` the screen shows as it is:
+
+  | `code` | When |
+  | --- | --- |
+  | `invalid_request_state` | The request isn't Approved (not yet, or a meeting is already scheduled) |
+  | `slot_unavailable` | The slot was removed, has passed, or isn't this home's |
+  | `slot_already_booked` | Another pet holds it |
+  | `slot_unchanged` | It is the slot this request already holds |
+
+#### `POST …/meet-and-greet/confirm`
+
+- **200:** the request, now `meet_scheduled`, with `meet_scheduled_at`, no `expires_at`,
+  `active_meet_and_greet.status` `confirmed` and `contacts`. The pet is notified; the change of status is logged.
+- **409** `no_pending_booking` (nothing is waiting: the pet changed or cancelled it, or it is confirmed already) or
+  `slot_passed` (its time went by before the answer).
+
+#### `POST …/meet-and-greet/propose-time`
+
+Body: `proposed_slot_id` (required: one of the human's own open slots), `message` (optional, up to 600 characters).
+
+- **200:** the request, `approved` with a fresh 14 days to book, `active_meet_and_greet` `null`, and
+  `latest_meet_and_greet` ended by the human with `proposed_slot` and the message in `end_details`. The pet is
+  notified and books the offered slot or any other. `contacts` is `null` again.
+- **409** `no_active_booking`, or the slot codes of booking (`slot_unavailable`, `slot_already_booked`,
+  `slot_unchanged` for the slot the pet already booked).
+
+#### `POST …/meet-and-greet/reschedule`
+
+A pet's body: `slot_id` (required), `reason` (optional, up to 600 characters). A human's is that of `propose-time`.
+
+- **200:** the old booking ended, a new one `booked` on the chosen slot, and the request `approved` with a fresh 14
+  days: the human confirms the new time, and `contacts` is `null` until then. The human is notified and reads the
+  reason.
+- **409** `no_active_booking`, or the slot codes of booking.
+
+#### `POST …/meet-and-greet/cancel`
+
+Body: `reason` (required: `schedule_conflict`, `pet_unwell`, `weather_or_travel` or `other`), `details` (optional,
+up to 600 characters).
+
+- **200:** the booking ended with the reason, and the request `approved` with a fresh 14 days. The other side is
+  notified with the reason, and reads who cancelled and why on the request (`latest_meet_and_greet`). `contacts`
+  is `null` again.
+- **422:** no reason, or one that isn't on the list. **409** `no_active_booking`.
+
+#### Found while wiring FE-17
+
+All fixed in the same PR (2026-10-08), with tests in `backend/tests/Feature/MeetAndGreet/`; before it the Meet &
+Greet had only the one lifecycle test.
+
+- **Acting on someone else's request answered 403**, which told the caller that the id exists. Booking,
+  confirming, proposing, rescheduling and cancelling are 404 now, as approving and withdrawing became with FE-15
+  and FE-16.
+- **A reschedule could double-book a slot.** Booking checked that nobody else held the slot; rescheduling didn't.
+  Both share one check now.
+- **A human could propose a slot that had passed or that another pet had booked.** Only an open slot is offered
+  now. Proposing a time that isn't a slot yet (`starts_at` in the body) is gone: it is added as a slot first, so it
+  passes the same checks as every slot.
+- **A booking could be confirmed after its time had passed**, which scheduled a meeting in the past and opened the
+  contact details for it. It is 409 `slot_passed` now.
+- **A slot that was gone answered 404**, like a request that doesn't exist. It is 409 `slot_unavailable`, with a
+  message the screen can show.
+- **The human's list mixed past and upcoming slots, was not paginated, and had nothing for "Past Meet & Greets"**
+  (`MG-01`). It is `when=upcoming` or `when=past` now, a page at a time (SEC-API-05).
+- **Adding slots answered one object or `{ slots: [...] }`**, depending on the count. It is always a list.
+- **Two slots could be added at the same time of day**, so one stayed "open" after the other was booked. That is
+  422 now.
+- **`place_details` was required for a meeting at the caretaker's**, a place the human can't name. It is optional
+  for that kind only.
+- **A notification told the time in UTC** ("2:00 AM" for a 10:00 AM slot). It is written in Philippine time
+  (`App\Support\PhilippineTime`).
+- **A cancellation didn't tell the other side the reason**, though `MG-10` promises it. The notification names who
+  cancelled and why.
+- **Meet Scheduled went back to Approved without a status-change entry in the activity log** (reschedule, proposal,
+  cancel). `adoption_request_booking_reopened` records it (SEC-LOG-01).
+- **A booking didn't say which side ended it**, only a user id. `ended_by` says `pet` or `human`.
+- **`open_slots_count` on a human's own Home Profile counted every slot**, past and booked ones too. It counts
+  open slots now, as the request's `available_slots` does.
+- This file said the bodies were `end_details` everywhere; they are `message`, `reason` and `details` as above.
+- Validation moved into Form Requests (SEC-INPUT-01), with messages the screens show, and who may act into
+  `AdoptionRequestPolicy` (SEC-AUTHZ-01).
+
+**Left as it is, to decide:**
+
+- **A slot can't be edited** (the LoFi's `MG-01` has "Edit"): there is no update endpoint. A human removes an open
+  slot and adds another.
+- **An offered slot isn't held for the pet.** Another approved pet can book it first; the pet then picks another.
+- **The booking rules still live in the controller**, not in Actions (backend guidelines §3), as BE-16's do.
+- **`didnt-happen` still answers 403 to a stranger**, and its screens (`MG-13`) come with FE-18.
+- **A notification is not sent** to an account that turned "Meet & Greets" off; the screens' toasts don't claim it.
 
 ## Post-Meeting Decisions & Alumni (`BE-18`, `AD-01..AD-05`)
 

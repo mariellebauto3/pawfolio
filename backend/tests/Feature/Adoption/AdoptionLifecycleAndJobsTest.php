@@ -100,7 +100,7 @@ class AdoptionLifecycleAndJobsTest extends TestCase
             'place_type' => 'public_spot',
             'place_details' => 'Ayala Triangle Gardens',
         ])->assertCreated()
-            ->json('data.id');
+            ->json('data.0.id');
 
         $this->actingAs($petUser)->postJson("/api/v1/adoption-requests/{$reqIds[1]}/meet-and-greet", [
             'slot_id' => $slotId,
