@@ -1,10 +1,8 @@
 import { type ApiClient, apiPath } from "@/lib/api/core";
 import { isHome, isPet, isRecord, isText, readPage, unexpected } from "@/lib/api/readers";
-import type { AdoptionRequest } from "@/types/adoption-request";
 import type { ApiResource, Paginated } from "@/types/api";
 import { DEALBREAKERS, type Dealbreaker } from "@/types/match";
 import type { Pet } from "@/types/pet";
-import { REQUEST_STATUSES } from "@/types/statuses";
 import { type BrowseFilters, browseApiQuery } from "../schemas/browse-filters";
 import { SEARCH_PAGE_SIZE, SEARCH_PREVIEW, type SearchKind, type SearchTotals } from "../schemas/search";
 import {
@@ -108,17 +106,4 @@ export async function getSimilarPets(client: ApiClient, pet: Pick<Pet, "id" | "s
   const response = await client.get<unknown>("/pets", { query: { species: pet.species, sort: "newest", per_page: limit + 1 } });
   const pets = isRecord(response) && Array.isArray(response.data) ? response.data.filter(isPet) : [];
   return pets.filter((other) => other.id !== pet.id).slice(0, limit);
-}
-
-/**
- * The signed-in pet's latest requests, newest first, for `applyStateFor` (DS-07). What decides the button is recent
- * by nature: a pet has at most three open requests, and a cooldown lasts 30 days, so the newest page holds them.
- */
-export async function getOwnRequests(client: ApiClient): Promise<AdoptionRequest[]> {
-  const response = await client.get<unknown>("/adoption-requests", { query: { per_page: 50 } });
-  const rows = isRecord(response) && Array.isArray(response.data) ? response.data : [];
-  return rows.filter(
-    (row): row is AdoptionRequest =>
-      isRecord(row) && typeof row.id === "number" && (REQUEST_STATUSES as readonly unknown[]).includes(row.status) && isRecord(row.home_profile),
-  );
 }

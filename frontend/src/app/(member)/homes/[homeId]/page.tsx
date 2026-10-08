@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { HomeProfileView } from "@/components/data-display/home-profile-view";
 import { ROUTES, homeProfilePath } from "@/constants/routes";
+import { getOwnRequests } from "@/features/adoption-requests/api/requests";
+import { ApplyButton } from "@/features/adoption-requests/components/apply-button";
+import { applyStateFor } from "@/features/adoption-requests/schemas/apply-state";
 import { BookmarkButton } from "@/features/bookmarks/components/bookmark-button";
-import { getHomeProfileDetail, getOwnRequests } from "@/features/discovery/api/discovery";
-import { HomeProfileActions } from "@/features/discovery/components/home-profile-actions";
+import { getHomeProfileDetail } from "@/features/discovery/api/discovery";
 import { MatchSummary } from "@/features/discovery/components/match-summary";
-import { applyStateFor } from "@/features/discovery/schemas/apply-state";
 import { MatchBreakdownButton } from "@/features/matching/components/match-breakdown-button";
 import { isApiError } from "@/lib/api/errors";
 import { getServerApi } from "@/lib/api/server";
@@ -18,7 +19,8 @@ type Props = {
   params: Promise<{ homeId: string }>;
 };
 
-// DS-07 Home Profile as a pet reads it: Apply, or "View my request" when one is already open, beside the match. It
+// DS-07 Home Profile as a pet reads it: Apply, or "View my request" when one is already open, beside the match.
+// Apply explains a rule that is in the way (RQ-05, RQ-06) instead of opening a form the API would refuse. It
 // shows the city and a household summary only; the address and the phone number are shared on a confirmed
 // Meet & Greet, never here (NFR4, SEC-PRIV-03). The API decides who may see a home: one that isn't Open to Adopt
 // answers 404, a Furparent's included, unless the pet already has a request or an invite with it (SEC-AUTHZ-04).
@@ -51,11 +53,10 @@ export default async function HomePage({ params }: Props) {
     <HomeProfileView
       home={home}
       actions={
-        <HomeProfileActions
-          homeProfileId={home.id}
-          state={state}
-          bookmark={<BookmarkButton target={{ kind: "home", id: home.id }} name={home.full_name} saved={home.is_bookmarked === true} />}
-        />
+        <>
+          <ApplyButton home={{ id: home.id, full_name: home.full_name }} state={state} />
+          <BookmarkButton target={{ kind: "home", id: home.id }} name={home.full_name} saved={home.is_bookmarked === true} />
+        </>
       }
       aside={
         <MatchSummary
