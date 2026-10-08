@@ -74,7 +74,8 @@ class ListAdoptionRequestsRequest extends FormRequest
         return match ($this->validated('tab')) {
             'active' => AdoptionRequest::OPEN_STATUSES,
             'new' => [AdoptionRequestStatus::Sent->value],
-            'in_progress' => AdoptionRequest::IN_PROCESS_STATUSES,
+            // Everything still open that isn't new, On Hold included, so the three tabs of the inbox leave nothing out.
+            'in_progress' => array_values(array_diff(AdoptionRequest::OPEN_STATUSES, [AdoptionRequestStatus::Sent->value])),
             'closed' => AdoptionRequest::CLOSED_STATUSES,
             default => null,
         };

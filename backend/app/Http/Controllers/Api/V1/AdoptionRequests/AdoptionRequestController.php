@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\AdoptionRequests;
 
 use App\Enums\ActivityLogType;
-use App\Enums\AdoptionRequestDeclineReason;
 use App\Enums\AdoptionRequestStatus;
 use App\Enums\MeetAndGreetEndReason;
 use App\Enums\MeetAndGreetStatus;
 use App\Enums\NotificationType;
 use App\Enums\PetStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AdoptionRequests\ApproveAdoptionRequestRequest;
+use App\Http\Requests\AdoptionRequests\DeclineAdoptionRequestRequest;
 use App\Http\Requests\AdoptionRequests\ListAdoptionRequestsRequest;
 use App\Http\Requests\AdoptionRequests\SendAdoptionRequestRequest;
 use App\Http\Requests\AdoptionRequests\WithdrawAdoptionRequestRequest;
@@ -27,7 +28,6 @@ use App\Services\ActivityLogs\ActivityLogger;
 use App\Services\Notifications\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 /**
  * Adoption request lifecycle: send, list, detail, approve, decline, withdraw, and request thread messages (BE-16, RQ-03..RQ-17).
@@ -250,19 +250,18 @@ class AdoptionRequestController extends Controller
         });
     }
 
-    public function approve(Request $request, AdoptionRequest $adoptionRequest)
+    public function approve(ApproveAdoptionRequestRequest $request, int $adoptionRequest)
     {
         $user = $request->user();
+        $adoptionRequest = AdoptionRequest::query()->find($adoptionRequest);
 
-        if (! $user->isHuman() || ! $user->homeProfile || $adoptionRequest->home_profile_id !== $user->homeProfile->id) {
-            return ErrorResource::forbidden('Only the recipient Home Profile can approve this request.')->toResponse($request);
+        // Anyone but the human it was sent to is answered like a request that doesn't exist (AdoptionRequestPolicy,
+        // SEC-AUTHZ-04).
+        if ($adoptionRequest === null || $user->cannot('approve', $adoptionRequest)) {
+            return ErrorResource::notFound("We couldn't find that request.")->toResponse($request);
         }
 
-        $validated = $request->validate([
-            'approval_message' => ['nullable', 'string', 'max:600'],
-        ]);
-
-        return DB::transaction(function () use ($adoptionRequest, $user, $validated, $request) {
+        return DB::transaction(function () use ($adoptionRequest, $user, $request) {
             /** @var AdoptionRequest $ar */
             $ar = AdoptionRequest::query()
                 ->with(['pet.user', 'homeProfile'])
@@ -297,9 +296,7 @@ class AdoptionRequestController extends Controller
             $now = now();
             $beforeStatus = $ar->getStatus()->value;
             $ar->status = AdoptionRequestStatus::Approved->value;
-            $ar->approval_message = isset($validated['approval_message']) && trim($validated['approval_message']) !== ''
-                ? trim($validated['approval_message'])
-                : null;
+            $ar->approval_message = $request->message();
             $ar->approved_at = $now;
             $ar->expires_at = $now->copy()->addDays(self::EXPIRY_DAYS);
             $ar->save();
@@ -365,27 +362,25 @@ class AdoptionRequestController extends Controller
             );
 
             return ResponseResource::make(
-                (new AdoptionRequestResource($ar->fresh(['pet.photos', 'homeProfile'])))
+                (new AdoptionRequestResource($ar->fresh(['pet.photos', 'homeProfile.householdMembers'])))
                     ->withDetails()
                     ->toArray($request),
             )->toResponse($request);
         });
     }
 
-    public function decline(Request $request, AdoptionRequest $adoptionRequest)
+    public function decline(DeclineAdoptionRequestRequest $request, int $adoptionRequest)
     {
         $user = $request->user();
+        $adoptionRequest = AdoptionRequest::query()->find($adoptionRequest);
 
-        if (! $user->isHuman() || ! $user->homeProfile || $adoptionRequest->home_profile_id !== $user->homeProfile->id) {
-            return ErrorResource::forbidden('Only the recipient Home Profile can decline this request.')->toResponse($request);
+        // Anyone but the human it was sent to is answered like a request that doesn't exist (AdoptionRequestPolicy,
+        // SEC-AUTHZ-04).
+        if ($adoptionRequest === null || $user->cannot('decline', $adoptionRequest)) {
+            return ErrorResource::notFound("We couldn't find that request.")->toResponse($request);
         }
 
-        $validated = $request->validate([
-            'decline_reason' => ['nullable', 'string', Rule::in(array_map(fn ($c) => $c->value, AdoptionRequestDeclineReason::cases()))],
-            'decision_message' => ['nullable', 'string', 'max:600'],
-        ]);
-
-        return DB::transaction(function () use ($adoptionRequest, $user, $validated, $request) {
+        return DB::transaction(function () use ($adoptionRequest, $user, $request) {
             /** @var AdoptionRequest $ar */
             $ar = AdoptionRequest::query()
                 ->with(['pet.user', 'homeProfile'])
@@ -408,10 +403,8 @@ class AdoptionRequestController extends Controller
             $beforeStatus = $ar->getStatus()->value;
 
             $ar->status = AdoptionRequestStatus::Declined->value;
-            $ar->decline_reason = $validated['decline_reason'] ?? null;
-            $ar->decision_message = isset($validated['decision_message']) && trim($validated['decision_message']) !== ''
-                ? trim($validated['decision_message'])
-                : null;
+            $ar->decline_reason = $request->reason();
+            $ar->decision_message = $request->message();
             $ar->closed_at = now();
             $ar->expires_at = null;
             $ar->save();
@@ -442,7 +435,7 @@ class AdoptionRequestController extends Controller
             );
 
             return ResponseResource::make(
-                (new AdoptionRequestResource($ar->fresh(['pet.photos', 'homeProfile'])))
+                (new AdoptionRequestResource($ar->fresh(['pet.photos', 'homeProfile.householdMembers'])))
                     ->withDetails()
                     ->toArray($request),
             )->toResponse($request);

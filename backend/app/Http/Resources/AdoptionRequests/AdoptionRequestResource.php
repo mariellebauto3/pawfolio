@@ -51,7 +51,8 @@ class AdoptionRequestResource extends JsonResource
         $data = [
             'id' => $ar->id,
             'status' => $status,
-            'pet' => $ar->pet ? PetResource::summary($ar->pet) : null,
+            // The summary, and the age a row of the inbox shows beside the breed (RQ-09).
+            'pet' => $ar->pet ? [...PetResource::summary($ar->pet), 'approximate_age_months' => $ar->pet->approximate_age_months] : null,
             'home_profile' => $ar->homeProfile ? self::home($ar->homeProfile) : null,
             'cover_letter' => $ar->cover_letter,
             'caretaker_notes' => $ar->caretaker_notes,
