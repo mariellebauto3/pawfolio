@@ -1,15 +1,13 @@
 import { type ApiClient, apiPath } from "@/lib/api/core";
-import { ApiError } from "@/lib/api/errors";
+import { isHome, isPet, isRecord, isText, readPage, unexpected } from "@/lib/api/readers";
 import type { AdoptionRequest } from "@/types/adoption-request";
 import type { ApiResource, Paginated } from "@/types/api";
-import type { HomeProfile } from "@/types/home-profile";
+import { DEALBREAKERS, type Dealbreaker } from "@/types/match";
 import type { Pet } from "@/types/pet";
-import { PET_STATUSES, REQUEST_STATUSES } from "@/types/statuses";
+import { REQUEST_STATUSES } from "@/types/statuses";
 import { type BrowseFilters, browseApiQuery } from "../schemas/browse-filters";
 import { SEARCH_PAGE_SIZE, SEARCH_PREVIEW, type SearchKind, type SearchTotals } from "../schemas/search";
 import {
-  DEALBREAKERS,
-  type Dealbreaker,
   type HomeListing,
   type HomeProfileDetail,
   type MatchEvaluation,
@@ -24,51 +22,6 @@ import {
 // Components with `getServerApi()`. The API decides who may see what: a Draft, a suspended account's profile and a
 // home that isn't Open to Adopt all answer 404 (SEC-AUTHZ-04). Every path with an id is built with apiPath
 // (SEC-FE-08).
-
-const unexpected = (message: string) => new ApiError({ kind: "server", status: 200, message });
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
-
-const isText = (value: unknown): value is string => typeof value === "string";
-
-const PET_LISTS = ["photos", "temperament_tags", "skills", "special_needs"] as const;
-const HOME_LISTS = ["household_members", "other_pets", "accepted_species", "preferred_sizes", "preferred_ages", "adopted_pets"] as const;
-
-// The screens read every list and choose badges and actions from the status and the two switches, so a row that
-// doesn't match the contract isn't shown.
-function isPet(value: unknown): value is Pet {
-  return (
-    isRecord(value) &&
-    typeof value.id === "number" &&
-    isText(value.name) &&
-    (PET_STATUSES as readonly unknown[]).includes(value.status) &&
-    PET_LISTS.every((list) => Array.isArray(value[list]))
-  );
-}
-
-function isHome(value: unknown): value is HomeProfile {
-  return (
-    isRecord(value) &&
-    typeof value.id === "number" &&
-    isText(value.full_name) &&
-    typeof value.is_open_to_adopt === "boolean" &&
-    HOME_LISTS.every((list) => Array.isArray(value[list]))
-  );
-}
-
-function readPage<T>(response: unknown, isItem: (value: unknown) => value is T, problem: string): Paginated<T> {
-  if (
-    !isRecord(response) ||
-    !Array.isArray(response.data) ||
-    !isRecord(response.meta) ||
-    typeof response.meta.total !== "number" ||
-    typeof response.meta.current_page !== "number" ||
-    typeof response.meta.last_page !== "number"
-  ) {
-    throw unexpected(problem);
-  }
-  return { ...(response as Paginated<T>), data: response.data.filter(isItem) };
-}
 
 /** The match as the profile endpoints send it, or nothing when it is missing or malformed. */
 function readMatch(value: unknown): MatchEvaluation | undefined {

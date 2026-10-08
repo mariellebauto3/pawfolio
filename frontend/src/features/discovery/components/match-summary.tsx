@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Meter } from "@/components/ui/meter";
-import type { Dealbreaker, MatchEvaluation } from "../types/discovery";
+import { DEALBREAKER_FAILED_LABELS } from "@/constants/matching";
+import type { MatchEvaluation } from "../types/discovery";
 
 type Props = {
   /** Who the viewer is being matched with: the pet's or the human's name. */
@@ -12,15 +13,9 @@ type Props = {
   match: MatchEvaluation | undefined;
   /** What to say, and where to send the viewer, when there is no match to show. */
   missing: { text: string; action?: { href: string; label: string } };
+  /** Under a score: the way into the full breakdown (MT-03), which the Matching module owns. */
+  breakdown?: ReactNode;
 };
-
-// Said the same way to a pet and to a human, since each reads it about the other side.
-const DEALBREAKER_LABELS = {
-  species_accepted: "The home doesn’t accept this species",
-  ok_with_kids: "Not suited to a home with young kids",
-  ok_with_other_pets: "Not suited to the other pets at home",
-  same_province: "In a different province",
-} as const satisfies Record<Dealbreaker, string>;
 
 function Frame({ children }: { children: ReactNode }) {
   return (
@@ -32,8 +27,8 @@ function Frame({ children }: { children: ReactNode }) {
 
 // "Your match" beside a resume or a Home Profile (DS-05, DS-07): the score with its top reasons, never the number
 // alone (ui-guidelines §6). A failed dealbreaker is said plainly instead of showing a 0. The full breakdown
-// (MT-03) belongs to the Matching module.
-export function MatchSummary({ name, match, missing }: Props) {
+// (MT-03) belongs to the Matching module; the page passes its button in.
+export function MatchSummary({ name, match, missing, breakdown }: Props) {
   if (!match) {
     return (
       <Frame>
@@ -56,7 +51,7 @@ export function MatchSummary({ name, match, missing }: Props) {
           {match.failed_dealbreakers.map((key) => (
             <li key={key} className="flex items-start gap-2">
               <Icon name="circle-x" className="mt-0.5 size-4 shrink-0 text-ink-muted" />
-              {DEALBREAKER_LABELS[key]}
+              {DEALBREAKER_FAILED_LABELS[key]}
             </li>
           ))}
         </ul>
@@ -77,6 +72,7 @@ export function MatchSummary({ name, match, missing }: Props) {
           ))}
         </ul>
       )}
+      {breakdown}
       <p className="text-sm text-ink-muted">You both see the same score. It updates when the quiz or the resume changes.</p>
     </Frame>
   );

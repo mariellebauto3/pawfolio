@@ -1,15 +1,12 @@
 import type { IsoDateTime, Paginated } from "@/types/api";
 import type { HomeProfile } from "@/types/home-profile";
+import type { Dealbreaker } from "@/types/match";
 import type { Pet } from "@/types/pet";
 import type { SearchTotals } from "../schemas/search";
 
 // What the discovery endpoints add to the public pet resume and Home Profile (docs/api/discovery.md). The private
 // fields a confirmed Meet & Greet unlocks (contact numbers, the street address) may ride along on a profile; they
 // are not part of these types and no discovery screen reads them (SEC-PRIV-02).
-
-/** The four checks made before any score is worked out (proposal §6). */
-export const DEALBREAKERS = ["species_accepted", "ok_with_kids", "ok_with_other_pets", "same_province"] as const;
-export type Dealbreaker = (typeof DEALBREAKERS)[number];
 
 /** How the viewer and the profile they are reading fit. The same score is shown to both sides. */
 export type MatchEvaluation = {
