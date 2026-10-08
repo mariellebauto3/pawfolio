@@ -7,7 +7,7 @@
 | --- | --- |
 | **Owner** | The whole team; changes need review like any other rule |
 | **Applies to** | `frontend/`, `backend/`, database, deployment, and any new module or feature |
-| **Version** | 1.3 · 2026-10-04 — see the changelog at the end |
+| **Version** | 1.4 · 2026-10-08 — see the changelog at the end |
 
 ## 0. Baseline and cross-references
 
@@ -294,6 +294,7 @@ Update this table as risks are found, accepted or fixed.
 | 2026-10-03 | LoFi `AU-19` shows the owner their current ID photo, but documents are admin-only (SEC-PRIV-01, NFR4) | The owner sees what was sent (kind, format, date), never the file; the API sends no path or URL for it. An owner preview would need its own authorized endpoint and a rule change here |
 | 2026-10-04 | The admin's checklist on `AU-23`/`AU-24` is ticked in the browser and isn't sent, so the API can't tell whether the checks were made | Accepted for the pilot: Approve asks for every check to be ticked first, and the decision is logged with the admin's name (SEC-LOG-01). Storing the checks would need a column and a rule change here |
 | 2026-10-04 | The document viewer (`AU-23`, `AU-24`) shows files from `blob:` addresses | When the Content-Security-Policy is written (SEC-DEPLOY-02), allow `blob:` in `img-src` and `frame-src` only |
+| 2026-10-08 | Contact details on a confirmed Meet & Greet (`MG-07`, `MG-08`): the LoFi's `MG-05` shares them in one click | Confirm asks first and says what is shared. The API sends `contacts` only while a meeting is confirmed (and after its time, for the decision); a reschedule, a proposal or a cancellation hides them again. The screen renders them as text from the page's own answer: no browser storage, no URL, no `tel:` link (SEC-FE-04, SEC-PRIV-02) |
 
 ## Changelog
 
@@ -303,3 +304,4 @@ Update this table as risks are found, accepted or fixed.
 | 1.1 | 2026-10-01 | FE-04: threats T16 (open redirect) and T17 (client-side path traversal), rules SEC-FE-07 and SEC-FE-08; mock-mode decision in §12 |
 | 1.2 | 2026-10-03 | FE-08: decision in §12 that owners don't get their verification documents back on `AU-19` |
 | 1.3 | 2026-10-04 | FE-09: threat T18 (active content in a served file), rule SEC-FE-09 and its checklist line; decisions in §12 on the admin checklist and on `blob:` in the CSP |
+| 1.4 | 2026-10-08 | FE-17: decision in §12 on how contact details are shared and shown on a confirmed Meet & Greet |
