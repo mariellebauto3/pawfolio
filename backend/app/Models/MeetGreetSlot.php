@@ -51,4 +51,12 @@ class MeetGreetSlot extends Model
     {
         return $query->whereNull('deleted_at');
     }
+
+    /** A slot a pet can still book: not removed, still ahead, and held by no booking (MG-03, MG-06, MG-09). */
+    public function scopeBookable($query)
+    {
+        return $query->whereNull('deleted_at')
+            ->where('starts_at', '>', now())
+            ->whereDoesntHave('bookings', fn ($booking) => $booking->active());
+    }
 }

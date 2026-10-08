@@ -140,7 +140,7 @@ class HomeProfileResource extends JsonResource
                 ? $home->birthdate->format('Y-m-d')
                 : (string) ($home->birthdate ?? '');
             $data['views_count'] = $home->profileViews()->count();
-            $data['open_slots_count'] = $home->meetAndGreetSlots()->available()->count();
+            $data['open_slots_count'] = $home->meetAndGreetSlots()->bookable()->count();
         }
 
         return $data;

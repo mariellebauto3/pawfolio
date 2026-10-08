@@ -8,9 +8,11 @@ use App\Enums\ActivityLogType;
 use App\Enums\AdoptionRequestStatus;
 use App\Enums\MeetAndGreetEndReason;
 use App\Enums\MeetAndGreetStatus;
-use App\Enums\MeetGreetPlaceType;
 use App\Enums\NotificationType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\MeetAndGreet\CancelMeetAndGreetRequest;
+use App\Http\Requests\MeetAndGreet\ChooseMeetGreetSlotRequest;
+use App\Http\Requests\MeetAndGreet\ProposeMeetingTimeRequest;
 use App\Http\Resources\AdoptionRequests\AdoptionRequestResource;
 use App\Http\Resources\ErrorResource;
 use App\Http\Resources\ResponseResource;
@@ -20,13 +22,16 @@ use App\Models\MeetGreetSlot;
 use App\Models\User;
 use App\Services\ActivityLogs\ActivityLogger;
 use App\Services\Notifications\NotificationService;
+use App\Support\PhilippineTime;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
- * Meet & Greet booking, confirmation, proposing another time, rescheduling, cancelling, and reporting missed meetings (BE-17, MG-03..MG-13).
+ * The Meet & Greet of an approved request (BE-17, MG-03…MG-10, FR11, FR26, docs/api/adoption-and-meet-greet.md): the
+ * pet books a slot, the human confirms or proposes another time, either side reschedules or cancels. Only the two
+ * sides of a request act on it; anyone else is answered 404 (SEC-AUTHZ-04). Reporting a meeting that didn't happen
+ * (MG-13) is here too.
  */
 class MeetAndGreetController extends Controller
 {
@@ -36,83 +41,43 @@ class MeetAndGreetController extends Controller
         private readonly NotificationService $notifications,
     ) {}
 
-    public function book(Request $request, AdoptionRequest $adoptionRequest)
+    /** MG-03: the pet books one of the home's open slots. Booking again before the human confirms changes the slot (MG-04). */
+    public function book(ChooseMeetGreetSlotRequest $request, int $adoptionRequest)
     {
         $user = $request->user();
-
-        if (! $user->isPet() || ! $user->pet || $adoptionRequest->pet_id !== $user->pet->id) {
-            return ErrorResource::forbidden('Only the pet owner on this request can book a Meet & Greet slot.')->toResponse($request);
+        $found = $this->requestFor($user, $adoptionRequest, 'bookMeeting');
+        if ($found === null) {
+            return $this->notFound($request);
         }
 
-        $validated = $request->validate([
-            'meet_greet_slot_id' => ['required_without:slot_id', 'nullable', 'integer'],
-            'slot_id' => ['required_without:meet_greet_slot_id', 'nullable', 'integer'],
-        ]);
-
-        $slotId = (int) ($validated['meet_greet_slot_id'] ?? $validated['slot_id']);
-
-        return DB::transaction(function () use ($adoptionRequest, $slotId, $user, $request) {
-            /** @var AdoptionRequest $ar */
-            $ar = AdoptionRequest::query()
-                ->with(['pet', 'homeProfile.user', 'activeMeetAndGreet'])
-                ->whereKey($adoptionRequest->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+        return DB::transaction(function () use ($found, $user, $request) {
+            $ar = $this->locked($found, ['pet', 'homeProfile.user', 'activeMeetAndGreet']);
 
             if ($ar->getStatus() !== AdoptionRequestStatus::Approved) {
                 return ErrorResource::conflict(
-                    'A Meet & Greet slot can only be booked while the request is Approved.',
+                    'A Meet & Greet can be booked while the request is Approved.',
                     'invalid_request_state',
                 )->toResponse($request);
             }
 
-            /** @var MeetGreetSlot|null $slot */
-            $slot = MeetGreetSlot::query()
-                ->available()
-                ->where('home_profile_id', $ar->home_profile_id)
-                ->whereKey($slotId)
-                ->lockForUpdate()
-                ->first();
-
-            if (! $slot || $slot->starts_at->isPast()) {
-                return ErrorResource::notFound('That Meet & Greet slot is no longer available.')->toResponse($request);
+            $slot = $this->lockedSlot($ar, $request->slotId());
+            if ($problem = $this->slotProblem($ar, $slot)) {
+                return $problem->toResponse($request);
             }
 
-            // Ensure no other active booking occupies this slot.
-            $existingOnSlot = MeetAndGreet::query()
-                ->where('meet_greet_slot_id', $slot->id)
-                ->where('adoption_request_id', '!=', $ar->id)
-                ->active()
-                ->exists();
-
-            if ($existingOnSlot) {
-                return ErrorResource::conflict('That slot has already been booked.', 'slot_already_booked')->toResponse($request);
-            }
-
-            // If the pet already had an unconfirmed booking on this request, end it before creating the new booking (MG-04).
+            // A booking the human hasn't confirmed yet gives way to the new one (MG-04).
             if ($ar->activeMeetAndGreet) {
-                $prev = $ar->activeMeetAndGreet;
-                $prev->status = MeetAndGreetStatus::Ended->value;
-                $prev->ended_at = now();
-                $prev->ended_by_user_id = $user->id;
-                $prev->end_reason = MeetAndGreetEndReason::MovedToAnotherDay->value;
-                $prev->proposed_slot_id = $slot->id;
-                $prev->save();
+                $this->end($ar->activeMeetAndGreet, $user, MeetAndGreetEndReason::MovedToAnotherDay, movedTo: $slot);
             }
 
-            $mg = new MeetAndGreet;
-            $mg->adoption_request_id = $ar->id;
-            $mg->meet_greet_slot_id = $slot->id;
-            $mg->status = MeetAndGreetStatus::Booked->value;
-            $mg->booked_at = now();
-            $mg->save();
+            $mg = $this->newBooking($ar, $slot);
 
             if ($ar->homeProfile?->user) {
                 $this->notifyMeetAndGreet(
                     recipient: $ar->homeProfile->user,
                     type: NotificationType::MeetGreetBooked->value,
                     title: "{$ar->pet->name} booked a Meet & Greet slot",
-                    body: "Please confirm the slot for {$slot->starts_at->format('M j, Y g:i A')} or propose another time.",
+                    body: 'Confirm '.PhilippineTime::format($slot->starts_at).', or propose another time.',
                     ar: $ar,
                 );
             }
@@ -126,35 +91,35 @@ class MeetAndGreetController extends Controller
                 userAgent: $request->userAgent(),
             );
 
-            return ResponseResource::created(
-                (new AdoptionRequestResource($ar->fresh(['pet.photos', 'homeProfile', 'activeMeetAndGreet.slot'])))
-                    ->withDetails()
-                    ->toArray($request),
-            )->toResponse($request);
+            return $this->answer($ar, $request, 201);
         });
     }
 
-    public function confirm(Request $request, AdoptionRequest $adoptionRequest)
+    /** MG-05: the human confirms the booking. The request becomes Meet Scheduled and each side's contact details open to the other (MG-07, MG-08, SEC-PRIV-02). */
+    public function confirm(Request $request, int $adoptionRequest)
     {
         $user = $request->user();
-
-        if (! $user->isHuman() || ! $user->homeProfile || $adoptionRequest->home_profile_id !== $user->homeProfile->id) {
-            return ErrorResource::forbidden('Only the Home Profile owner can confirm a Meet & Greet booking.')->toResponse($request);
+        $found = $this->requestFor($user, $adoptionRequest, 'answerBooking');
+        if ($found === null) {
+            return $this->notFound($request);
         }
 
-        return DB::transaction(function () use ($adoptionRequest, $user, $request) {
-            /** @var AdoptionRequest $ar */
-            $ar = AdoptionRequest::query()
-                ->with(['pet.user', 'homeProfile', 'activeMeetAndGreet.slot'])
-                ->whereKey($adoptionRequest->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+        return DB::transaction(function () use ($found, $user, $request) {
+            $ar = $this->locked($found, ['pet.user', 'homeProfile', 'activeMeetAndGreet.slot']);
 
             $mg = $ar->activeMeetAndGreet;
             if (! $mg || $mg->getStatus() !== MeetAndGreetStatus::Booked) {
                 return ErrorResource::conflict(
-                    'There is no pending Meet & Greet booking to confirm.',
+                    'There is no booking waiting for you to confirm.',
                     'no_pending_booking',
+                )->toResponse($request);
+            }
+
+            // A meeting can't be scheduled for a time that is already behind us.
+            if (! $mg->slot || ! $mg->slot->starts_at->isFuture()) {
+                return ErrorResource::conflict(
+                    'That time has already passed. Propose another time instead.',
+                    'slot_passed',
                 )->toResponse($request);
             }
 
@@ -174,7 +139,7 @@ class MeetAndGreetController extends Controller
                     recipient: $ar->pet->user,
                     type: NotificationType::MeetGreetBooked->value,
                     title: "{$ar->homeProfile->full_name} confirmed your Meet & Greet!",
-                    body: 'Your meeting is confirmed and contact details are now unlocked.',
+                    body: 'You meet on '.PhilippineTime::format($mg->slot->starts_at).'. Contact details are now shared on the request.',
                     ar: $ar,
                 );
             }
@@ -199,81 +164,45 @@ class MeetAndGreetController extends Controller
                 userAgent: $request->userAgent(),
             );
 
-            return ResponseResource::make(
-                (new AdoptionRequestResource($ar->fresh(['pet.photos', 'homeProfile', 'activeMeetAndGreet.slot'])))
-                    ->withDetails()
-                    ->toArray($request),
-            )->toResponse($request);
+            return $this->answer($ar, $request);
         });
     }
 
-    public function proposeTime(Request $request, AdoptionRequest $adoptionRequest)
+    /**
+     * MG-06: the human offers another of their open slots in place of the booking. The booking ends and booking
+     * reopens: the pet picks the offered slot, or any other, to book again.
+     */
+    public function proposeTime(ProposeMeetingTimeRequest $request, int $adoptionRequest)
     {
         $user = $request->user();
-
-        if (! $user->isHuman() || ! $user->homeProfile || $adoptionRequest->home_profile_id !== $user->homeProfile->id) {
-            return ErrorResource::forbidden('Only the Home Profile owner can propose another time.')->toResponse($request);
+        $found = $this->requestFor($user, $adoptionRequest, 'answerBooking');
+        if ($found === null) {
+            return $this->notFound($request);
         }
 
-        $validated = $request->validate([
-            'proposed_slot_id' => ['nullable', 'integer'],
-            'starts_at' => ['required_without:proposed_slot_id', 'nullable', 'date', 'after:now'],
-            'place_type' => ['required_with:starts_at', 'nullable', 'string', Rule::in(array_map(fn ($c) => $c->value, MeetGreetPlaceType::cases()))],
-            'place_details' => ['required_with:starts_at', 'nullable', 'string', 'max:255'],
-            'message' => ['nullable', 'string', 'max:600'],
-        ]);
-
-        return DB::transaction(function () use ($adoptionRequest, $user, $validated, $request) {
-            /** @var AdoptionRequest $ar */
-            $ar = AdoptionRequest::query()
-                ->with(['pet.user', 'homeProfile', 'activeMeetAndGreet'])
-                ->whereKey($adoptionRequest->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+        return DB::transaction(function () use ($found, $user, $request) {
+            $ar = $this->locked($found, ['pet.user', 'homeProfile', 'activeMeetAndGreet']);
 
             $mg = $ar->activeMeetAndGreet;
             if (! $mg) {
-                return ErrorResource::conflict('There is no active Meet & Greet booking to reschedule.', 'no_active_booking')->toResponse($request);
+                return ErrorResource::conflict('There is no booking to move to another time.', 'no_active_booking')->toResponse($request);
             }
 
-            $proposedSlot = null;
-            if (! empty($validated['proposed_slot_id'])) {
-                $proposedSlot = MeetGreetSlot::query()
-                    ->available()
-                    ->where('home_profile_id', $ar->home_profile_id)
-                    ->find((int) $validated['proposed_slot_id']);
-                if (! $proposedSlot) {
-                    return ErrorResource::notFound('Proposed slot not found.')->toResponse($request);
-                }
-            } else {
-                $proposedSlot = new MeetGreetSlot;
-                $proposedSlot->home_profile_id = $ar->home_profile_id;
-                $proposedSlot->starts_at = Carbon::parse($validated['starts_at']);
-                $proposedSlot->place_type = $validated['place_type'];
-                $proposedSlot->place_details = trim($validated['place_details']);
-                $proposedSlot->save();
+            // Only a slot the pet can really book is worth offering: still ahead, and held by nobody.
+            $slot = $this->lockedSlot($ar, $request->slotId());
+            if ($problem = $this->slotProblem($ar, $slot)) {
+                return $problem->toResponse($request);
             }
 
-            $mg->status = MeetAndGreetStatus::Ended->value;
-            $mg->ended_at = now();
-            $mg->ended_by_user_id = $user->id;
-            $mg->end_reason = MeetAndGreetEndReason::MovedToAnotherDay->value;
-            $mg->end_details = isset($validated['message']) && trim($validated['message']) !== '' ? trim($validated['message']) : null;
-            $mg->proposed_slot_id = $proposedSlot->id;
-            $mg->save();
-
-            // Request returns to Approved so the pet can rebook (MG-06).
-            $ar->status = AdoptionRequestStatus::Approved->value;
-            $ar->meet_scheduled_at = null;
-            $ar->expires_at = now()->addDays(self::BOOKING_WINDOW_DAYS);
-            $ar->save();
+            $this->end($mg, $user, MeetAndGreetEndReason::MovedToAnotherDay, $request->message(), $slot);
+            $this->reopenBooking($ar, 'The human proposed another Meet & Greet time', $request);
 
             if ($ar->pet?->user) {
                 $this->notifyMeetAndGreet(
                     recipient: $ar->pet->user,
                     type: NotificationType::MeetGreetBooked->value,
                     title: "{$ar->homeProfile->full_name} proposed another Meet & Greet time",
-                    body: 'Please review the available slots and book a time that works for you.',
+                    body: 'They offered '.PhilippineTime::format($slot->starts_at).'. Book it, or pick another open slot.',
                     ar: $ar,
                 );
             }
@@ -283,89 +212,57 @@ class MeetAndGreetController extends Controller
                 action: 'meet_and_greet_time_proposed',
                 actor: $user,
                 subject: $mg,
+                reason: $mg->end_details,
                 userAgent: $request->userAgent(),
             );
 
-            return ResponseResource::make(
-                (new AdoptionRequestResource($ar->fresh(['pet.photos', 'homeProfile', 'activeMeetAndGreet.slot', 'latestMeetAndGreet.slot'])))
-                    ->withDetails()
-                    ->toArray($request),
-            )->toResponse($request);
+            return $this->answer($ar, $request);
         });
     }
 
-    public function reschedule(Request $request, AdoptionRequest $adoptionRequest)
+    /**
+     * MG-04, MG-09: the pet moves its booking to another open slot, with an optional reason. The human confirms the
+     * new time, so a meeting that was confirmed is Approved again and the contact details close until then. A human
+     * who reschedules proposes another time instead (MG-06).
+     */
+    public function reschedule(Request $request, int $adoptionRequest)
     {
         $user = $request->user();
-
-        if ($user->isHuman() && $user->homeProfile && $adoptionRequest->home_profile_id === $user->homeProfile->id) {
-            return $this->proposeTime($request, $adoptionRequest);
+        $found = $this->requestFor($user, $adoptionRequest, 'changeMeeting');
+        if ($found === null) {
+            return $this->notFound($request);
         }
 
-        if (! $user->isPet() || ! $user->pet || $adoptionRequest->pet_id !== $user->pet->id) {
-            return ErrorResource::forbidden('You do not have permission to reschedule this meeting.')->toResponse($request);
+        if ($user->isHuman()) {
+            return $this->proposeTime(app(ProposeMeetingTimeRequest::class), $adoptionRequest);
         }
 
-        $validated = $request->validate([
-            'meet_greet_slot_id' => ['required_without:slot_id', 'nullable', 'integer'],
-            'slot_id' => ['required_without:meet_greet_slot_id', 'nullable', 'integer'],
-            'reason' => ['nullable', 'string', 'max:600'],
-        ]);
+        /** @var ChooseMeetGreetSlotRequest $chosen */
+        $chosen = app(ChooseMeetGreetSlotRequest::class);
 
-        $slotId = (int) ($validated['meet_greet_slot_id'] ?? $validated['slot_id']);
+        return DB::transaction(function () use ($found, $chosen, $user, $request) {
+            $ar = $this->locked($found, ['pet', 'homeProfile.user', 'activeMeetAndGreet']);
 
-        return DB::transaction(function () use ($adoptionRequest, $slotId, $validated, $user, $request) {
-            /** @var AdoptionRequest $ar */
-            $ar = AdoptionRequest::query()
-                ->with(['pet', 'homeProfile.user', 'activeMeetAndGreet'])
-                ->whereKey($adoptionRequest->id)
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            $currentMg = $ar->activeMeetAndGreet;
-            if (! $currentMg) {
-                return ErrorResource::conflict('There is no active Meet & Greet booking to reschedule.', 'no_active_booking')->toResponse($request);
+            $current = $ar->activeMeetAndGreet;
+            if (! $current) {
+                return ErrorResource::conflict('There is no booking to reschedule.', 'no_active_booking')->toResponse($request);
             }
 
-            /** @var MeetGreetSlot|null $newSlot */
-            $newSlot = MeetGreetSlot::query()
-                ->available()
-                ->where('home_profile_id', $ar->home_profile_id)
-                ->whereKey($slotId)
-                ->lockForUpdate()
-                ->first();
-
-            if (! $newSlot || $newSlot->starts_at->isPast()) {
-                return ErrorResource::notFound('Selected Meet & Greet slot is not available.')->toResponse($request);
+            $slot = $this->lockedSlot($ar, $chosen->slotId());
+            if ($problem = $this->slotProblem($ar, $slot)) {
+                return $problem->toResponse($request);
             }
 
-            $currentMg->status = MeetAndGreetStatus::Ended->value;
-            $currentMg->ended_at = now();
-            $currentMg->ended_by_user_id = $user->id;
-            $currentMg->end_reason = MeetAndGreetEndReason::MovedToAnotherDay->value;
-            $currentMg->end_details = isset($validated['reason']) && trim($validated['reason']) !== '' ? trim($validated['reason']) : null;
-            $currentMg->proposed_slot_id = $newSlot->id;
-            $currentMg->save();
-
-            $newMg = new MeetAndGreet;
-            $newMg->adoption_request_id = $ar->id;
-            $newMg->meet_greet_slot_id = $newSlot->id;
-            $newMg->status = MeetAndGreetStatus::Booked->value;
-            $newMg->booked_at = now();
-            $newMg->save();
-
-            // Human must confirm the newly booked slot again (MG-09 -> MG-05).
-            $ar->status = AdoptionRequestStatus::Approved->value;
-            $ar->meet_scheduled_at = null;
-            $ar->expires_at = now()->addDays(self::BOOKING_WINDOW_DAYS);
-            $ar->save();
+            $this->end($current, $user, MeetAndGreetEndReason::MovedToAnotherDay, $chosen->reason(), $slot);
+            $mg = $this->newBooking($ar, $slot);
+            $this->reopenBooking($ar, 'The pet rescheduled the Meet & Greet', $request);
 
             if ($ar->homeProfile?->user) {
                 $this->notifyMeetAndGreet(
                     recipient: $ar->homeProfile->user,
                     type: NotificationType::MeetGreetBooked->value,
-                    title: "{$ar->pet->name} requested to reschedule the Meet & Greet",
-                    body: "Please confirm the new slot on {$newSlot->starts_at->format('M j, Y g:i A')}.",
+                    title: "{$ar->pet->name} asked to move the Meet & Greet",
+                    body: 'Confirm the new time, '.PhilippineTime::format($slot->starts_at).', or propose another.',
                     ar: $ar,
                 );
             }
@@ -374,74 +271,45 @@ class MeetAndGreetController extends Controller
                 type: ActivityLogType::MeetAndGreet,
                 action: 'meet_and_greet_rescheduled',
                 actor: $user,
-                subject: $newMg,
-                reason: $currentMg->end_details,
+                subject: $mg,
+                reason: $current->end_details,
                 userAgent: $request->userAgent(),
             );
 
-            return ResponseResource::make(
-                (new AdoptionRequestResource($ar->fresh(['pet.photos', 'homeProfile', 'activeMeetAndGreet.slot'])))
-                    ->withDetails()
-                    ->toArray($request),
-            )->toResponse($request);
+            return $this->answer($ar, $request);
         });
     }
 
-    public function cancel(Request $request, AdoptionRequest $adoptionRequest)
+    /** MG-10: either side calls the Meet & Greet off, with a reason. Booking reopens and the contact details close. */
+    public function cancel(CancelMeetAndGreetRequest $request, int $adoptionRequest)
     {
         $user = $request->user();
-        $isPetParty = $user->isPet() && $user->pet && $adoptionRequest->pet_id === $user->pet->id;
-        $isHumanParty = $user->isHuman() && $user->homeProfile && $adoptionRequest->home_profile_id === $user->homeProfile->id;
-
-        if (! $isPetParty && ! $isHumanParty) {
-            return ErrorResource::forbidden('You do not have permission to cancel this Meet & Greet.')->toResponse($request);
+        $found = $this->requestFor($user, $adoptionRequest, 'changeMeeting');
+        if ($found === null) {
+            return $this->notFound($request);
         }
 
-        $validated = $request->validate([
-            'reason' => ['required', 'string', Rule::in([
-                MeetAndGreetEndReason::ScheduleConflict->value,
-                MeetAndGreetEndReason::PetUnwell->value,
-                MeetAndGreetEndReason::WeatherOrTravel->value,
-                MeetAndGreetEndReason::Other->value,
-            ])],
-            'details' => ['nullable', 'string', 'max:600'],
-        ], [
-            'reason.required' => 'Choose a reason for cancelling the meeting.',
-        ]);
-
-        return DB::transaction(function () use ($adoptionRequest, $user, $isPetParty, $validated, $request) {
-            /** @var AdoptionRequest $ar */
-            $ar = AdoptionRequest::query()
-                ->with(['pet.user', 'homeProfile.user', 'activeMeetAndGreet'])
-                ->whereKey($adoptionRequest->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+        return DB::transaction(function () use ($found, $user, $request) {
+            $ar = $this->locked($found, ['pet.user', 'homeProfile.user', 'activeMeetAndGreet']);
 
             $mg = $ar->activeMeetAndGreet;
             if (! $mg) {
-                return ErrorResource::conflict('There is no active Meet & Greet booking to cancel.', 'no_active_booking')->toResponse($request);
+                return ErrorResource::conflict('There is no Meet & Greet to cancel.', 'no_active_booking')->toResponse($request);
             }
 
-            $mg->status = MeetAndGreetStatus::Ended->value;
-            $mg->ended_at = now();
-            $mg->ended_by_user_id = $user->id;
-            $mg->end_reason = $validated['reason'];
-            $mg->end_details = isset($validated['details']) && trim($validated['details']) !== '' ? trim($validated['details']) : null;
-            $mg->save();
+            $reason = $request->reason();
+            $this->end($mg, $user, $reason, $request->details());
+            $this->reopenBooking($ar, 'The Meet & Greet was cancelled', $request);
 
-            // Request goes back to Approved and booking reopens (MG-10).
-            $ar->status = AdoptionRequestStatus::Approved->value;
-            $ar->meet_scheduled_at = null;
-            $ar->expires_at = now()->addDays(self::BOOKING_WINDOW_DAYS);
-            $ar->save();
-
-            $otherUser = $isPetParty ? $ar->homeProfile?->user : $ar->pet?->user;
-            if ($otherUser) {
+            $byPet = $user->isPet();
+            $other = $byPet ? $ar->homeProfile?->user : $ar->pet?->user;
+            if ($other) {
+                $who = $byPet ? $ar->pet->name : $ar->homeProfile->full_name;
                 $this->notifyMeetAndGreet(
-                    recipient: $otherUser,
+                    recipient: $other,
                     type: NotificationType::MeetGreetCancelled->value,
-                    title: 'Meet & Greet cancelled',
-                    body: 'The scheduled Meet & Greet was cancelled. Slot booking has reopened for this request.',
+                    title: "{$who} cancelled the Meet & Greet",
+                    body: "Reason: {$reason->label()}. Booking is open again for this request.",
                     ar: $ar,
                 );
             }
@@ -455,11 +323,7 @@ class MeetAndGreetController extends Controller
                 userAgent: $request->userAgent(),
             );
 
-            return ResponseResource::make(
-                (new AdoptionRequestResource($ar->fresh(['pet.photos', 'homeProfile', 'activeMeetAndGreet.slot', 'latestMeetAndGreet.slot'])))
-                    ->withDetails()
-                    ->toArray($request),
-            )->toResponse($request);
+            return $this->answer($ar, $request);
         });
     }
 
@@ -538,6 +402,121 @@ class MeetAndGreetController extends Controller
                     ->toArray($request),
             )->toResponse($request);
         });
+    }
+
+    /**
+     * The request, when the caller may do this with it. Anyone else is answered like a request that doesn't exist,
+     * so ids can't be probed (AdoptionRequestPolicy, SEC-AUTHZ-04).
+     */
+    private function requestFor(User $user, int $id, string $ability): ?AdoptionRequest
+    {
+        $found = AdoptionRequest::query()->find($id);
+
+        return $found !== null && $user->can($ability, $found) ? $found : null;
+    }
+
+    private function notFound(Request $request)
+    {
+        return ErrorResource::notFound("We couldn't find that request.")->toResponse($request);
+    }
+
+    /** The request read again inside the transaction, its row locked, so two changes at once can't both pass (SEC-AUTHZ-08). */
+    private function locked(AdoptionRequest $found, array $with): AdoptionRequest
+    {
+        return AdoptionRequest::query()->with($with)->whereKey($found->id)->lockForUpdate()->firstOrFail();
+    }
+
+    /** One of the home's own slots, its row locked while it is being booked. */
+    private function lockedSlot(AdoptionRequest $ar, int $slotId): ?MeetGreetSlot
+    {
+        return MeetGreetSlot::query()
+            ->available()
+            ->where('home_profile_id', $ar->home_profile_id)
+            ->whereKey($slotId)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    /**
+     * Why this slot can't be taken for the request, or null when it can: it must be one of the home's own, still
+     * ahead, and held by no booking. Another home's slot answers like one that was removed.
+     */
+    private function slotProblem(AdoptionRequest $ar, ?MeetGreetSlot $slot): ?ErrorResource
+    {
+        if (! $slot || ! $slot->starts_at->isFuture()) {
+            return ErrorResource::conflict("That slot isn't available any more. Choose another one.", 'slot_unavailable');
+        }
+
+        $held = MeetAndGreet::query()->where('meet_greet_slot_id', $slot->id)->active()->first();
+        if ($held && $held->adoption_request_id === $ar->id) {
+            return ErrorResource::conflict('That is the time already booked. Choose another one.', 'slot_unchanged');
+        }
+        if ($held) {
+            return ErrorResource::conflict('That slot was just booked. Choose another one.', 'slot_already_booked');
+        }
+
+        return null;
+    }
+
+    private function newBooking(AdoptionRequest $ar, MeetGreetSlot $slot): MeetAndGreet
+    {
+        $mg = new MeetAndGreet;
+        $mg->adoption_request_id = $ar->id;
+        $mg->meet_greet_slot_id = $slot->id;
+        $mg->status = MeetAndGreetStatus::Booked->value;
+        $mg->booked_at = now();
+        $mg->save();
+
+        return $mg;
+    }
+
+    /** Ends a booking: who ended it, why, and the slot it moved to or the human offered instead. */
+    private function end(MeetAndGreet $mg, User $by, MeetAndGreetEndReason $reason, ?string $details = null, ?MeetGreetSlot $movedTo = null): void
+    {
+        $mg->status = MeetAndGreetStatus::Ended->value;
+        $mg->ended_at = now();
+        $mg->ended_by_user_id = $by->id;
+        $mg->end_reason = $reason->value;
+        $mg->end_details = $details;
+        $mg->proposed_slot_id = $movedTo?->id;
+        $mg->save();
+    }
+
+    /**
+     * Booking is open again: the request is Approved, with a fresh 14 days to book (MG-06, MG-09, MG-10). When that
+     * takes it back from Meet Scheduled, the change of status is logged like every other (FR27, SEC-LOG-01).
+     */
+    private function reopenBooking(AdoptionRequest $ar, string $reason, Request $request): void
+    {
+        $before = $ar->getStatus()->value;
+
+        $ar->status = AdoptionRequestStatus::Approved->value;
+        $ar->meet_scheduled_at = null;
+        $ar->expires_at = now()->addDays(self::BOOKING_WINDOW_DAYS);
+        $ar->save();
+
+        if ($before !== AdoptionRequestStatus::Approved->value) {
+            ActivityLogger::log(
+                type: ActivityLogType::StatusChange,
+                action: 'adoption_request_booking_reopened',
+                actor: null,
+                subject: $ar,
+                before: $before,
+                after: AdoptionRequestStatus::Approved->value,
+                reason: $reason,
+                userAgent: $request->userAgent(),
+            );
+        }
+    }
+
+    /** The request as it stands now, with its Meet & Greet, the open slots and the contact details it unlocks. */
+    private function answer(AdoptionRequest $ar, Request $request, int $status = 200)
+    {
+        $data = (new AdoptionRequestResource($ar->fresh(['pet.photos', 'homeProfile.householdMembers'])))
+            ->withDetails()
+            ->toArray($request);
+
+        return ($status === 201 ? ResponseResource::created($data) : ResponseResource::make($data))->toResponse($request);
     }
 
     private function notifyMeetAndGreet(User $recipient, string $type, string $title, string $body, AdoptionRequest $ar): void

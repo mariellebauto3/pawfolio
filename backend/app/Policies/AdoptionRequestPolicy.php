@@ -50,6 +50,24 @@ class AdoptionRequestPolicy
         return $this->received($user, $request);
     }
 
+    /** Only the pet that sent it books a slot (MG-03, FR26). */
+    public function bookMeeting(User $user, AdoptionRequest $request): bool
+    {
+        return $this->sent($user, $request);
+    }
+
+    /** Only the human it was sent to confirms a booking or proposes another time (MG-05, MG-06, FR11). */
+    public function answerBooking(User $user, AdoptionRequest $request): bool
+    {
+        return $this->received($user, $request);
+    }
+
+    /** Either side reschedules or cancels its Meet & Greet (MG-09, MG-10, FR11, FR26). Admins only monitor. */
+    public function changeMeeting(User $user, AdoptionRequest $request): bool
+    {
+        return $this->sent($user, $request) || $this->received($user, $request);
+    }
+
     private function sent(User $user, AdoptionRequest $request): bool
     {
         return $user->isPet() && $user->pet !== null && $request->pet_id === $user->pet->id;
