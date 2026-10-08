@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { PetResume } from "@/components/data-display/pet-resume";
 import { ROUTES, petPath } from "@/constants/routes";
+import { InviteToApplyButton } from "@/features/adoption-requests/components/invite-to-apply-button";
+import { BookmarkButton } from "@/features/bookmarks/components/bookmark-button";
 import { getPetProfile, getSimilarPets } from "@/features/discovery/api/discovery";
 import { MatchSummary } from "@/features/discovery/components/match-summary";
-import { PetResumeActions } from "@/features/discovery/components/pet-resume-actions";
 import { SimilarPets } from "@/features/discovery/components/similar-pets";
 import { MatchBreakdownButton } from "@/features/matching/components/match-breakdown-button";
 import { isApiError } from "@/lib/api/errors";
@@ -18,9 +19,11 @@ type Props = {
 };
 
 // DS-05 Pet resume as a human reads it, with the photo viewer (DS-06) on its photos, and DS-08 the alumni profile
-// once the pet is Hired: the Hired badge and the "Hired by …" banner, and nothing to invite. The API decides who may
-// see a resume: a Draft and a pet whose account isn't Active answer 404, the same page as a broken link
-// (SEC-AUTHZ-04). Contact details are not part of what it sends here (NFR4).
+// once the pet is Hired: the Hired badge and the "Hired by …" banner, and nothing to invite or bookmark. A human
+// gets Invite to Apply (RQ-01) while the pet is Looking for a Home, and Bookmark (BM-03) until it is adopted; the
+// API checks both again (SEC-FE-05). The API decides who may see a resume: a Draft and a pet whose account isn't
+// Active answer 404, the same page as a broken link (SEC-AUTHZ-04). Contact details are not part of what it sends
+// here (NFR4).
 export default async function PetPage({ params }: Props) {
   const { petId } = await params;
   // Only a plain id goes to the API (SEC-FE-08); anything else is a page that doesn't exist.
@@ -45,7 +48,17 @@ export default async function PetPage({ params }: Props) {
   return (
     <PetResume
       pet={pet}
-      actions={adopter && <PetResumeActions />}
+      actions={
+        adopter && (
+          <>
+            {/* Only a pet that is Looking for a Home can be invited; one that is In Process can still be saved. */}
+            {pet.status === "looking_for_a_home" && (
+              <InviteToApplyButton pet={pet} score={pet.match?.passed_dealbreakers ? pet.match.score : undefined} invited={pet.invited_at !== null} />
+            )}
+            <BookmarkButton target={{ kind: "pet", id: pet.id }} name={pet.name} saved={pet.is_bookmarked === true} />
+          </>
+        )
+      }
       aside={
         (adopter || similar.length > 0) && (
           <>

@@ -6,14 +6,18 @@ import { Pagination } from "@/components/navigation/pagination";
 import { buttonClasses } from "@/components/ui/button-styles";
 import { Icon } from "@/components/ui/icon";
 import { ROUTES } from "@/constants/routes";
+import type { ReactNode } from "react";
 import type { Paginated, PaginationMeta } from "@/types/api";
 import { MATCH_PARAMS, type MatchView, matchSearchParams, matchesHref, pickedQuickFilter } from "../schemas/match-view";
 import type { HomeMatch, PetMatch } from "../types/matching";
 import { MatchBreakdownButton } from "./match-breakdown-button";
 
+/** Bookmark on a card (BM-03). The Bookmarks module owns the button; the page passes it in for each row. */
+type Bookmark = (profile: { id: number; name: string; saved: boolean }) => ReactNode;
+
 type Props =
-  | { kind: "pets"; view: MatchView; page: Paginated<PetMatch> }
-  | { kind: "homes"; view: MatchView; page: Paginated<HomeMatch> };
+  | { kind: "pets"; view: MatchView; page: Paginated<PetMatch>; bookmark?: Bookmark }
+  | { kind: "homes"; view: MatchView; page: Paginated<HomeMatch>; bookmark?: Bookmark };
 
 /** The top reasons a card has room for (MT-01); the breakdown dialog lists them all. */
 const CARD_REASONS = 2;
@@ -29,7 +33,7 @@ function summary({ total, from, to }: PaginationMeta): string {
 // The ranked list of Pets for You (MT-01) and Homes for You (MT-02). Every card carries its score with the top
 // reasons and the way into the breakdown, never the number alone (ui-guidelines §6). Rendered on the server from the
 // URL. The API has already left out every pair that fails a dealbreaker, and decides the order.
-export function MatchResults({ kind, view, page }: Props) {
+export function MatchResults({ kind, view, page, bookmark }: Props) {
   const filter = pickedQuickFilter(kind, view);
   const everything = kind === "pets" ? "pets" : "homes";
 
@@ -92,7 +96,12 @@ export function MatchResults({ kind, view, page }: Props) {
                   score={score}
                   reasons={reasons.slice(0, CARD_REASONS)}
                   sizes={CARD_SIZES}
-                  action={<MatchBreakdownButton profileId={pet.id} name={pet.name} score={score} />}
+                  action={
+                    <>
+                      {bookmark?.({ id: pet.id, name: pet.name, saved: pet.is_bookmarked === true })}
+                      <MatchBreakdownButton profileId={pet.id} name={pet.name} score={score} />
+                    </>
+                  }
                 />
               </li>
             ))
@@ -102,7 +111,12 @@ export function MatchResults({ kind, view, page }: Props) {
                   home={home}
                   score={score}
                   reasons={reasons.slice(0, CARD_REASONS)}
-                  action={<MatchBreakdownButton profileId={home.id} name={home.full_name} score={score} />}
+                  action={
+                    <>
+                      {bookmark?.({ id: home.id, name: home.full_name, saved: home.is_bookmarked === true })}
+                      <MatchBreakdownButton profileId={home.id} name={home.full_name} score={score} />
+                    </>
+                  }
                 />
               </li>
             ))}

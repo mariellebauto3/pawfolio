@@ -52,19 +52,24 @@ export function SavedList(props: Props) {
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {kind === "pets"
             ? (rows as SavedPet[]).map(({ id, pet }) => (
-                <li key={id} className="flex flex-col gap-1">
-                  <div className="flex-1">
-                    <PetCard pet={pet} score={pet.match_score} sizes={CARD_SIZES} titleAs="h2" />
-                  </div>
-                  <RemoveButton target={{ kind: "pet", id: pet.id }} name={pet.name} onRemoved={() => handleRemoved(id)} />
+                <li key={id}>
+                  <PetCard
+                    pet={pet}
+                    score={pet.match_score}
+                    sizes={CARD_SIZES}
+                    titleAs="h2"
+                    action={<RemoveButton target={{ kind: "pet", id: pet.id }} name={pet.name} onRemoved={() => handleRemoved(id)} />}
+                  />
                 </li>
               ))
             : (rows as SavedHome[]).map(({ id, home_profile: home }) => (
-                <li key={id} className="flex flex-col gap-1">
-                  <div className="flex-1">
-                    <HomeCard home={home} score={home.match_score} titleAs="h2" />
-                  </div>
-                  <RemoveButton target={{ kind: "home", id: home.id }} name={home.full_name} onRemoved={() => handleRemoved(id)} />
+                <li key={id}>
+                  <HomeCard
+                    home={home}
+                    score={home.match_score}
+                    titleAs="h2"
+                    action={<RemoveButton target={{ kind: "home", id: home.id }} name={home.full_name} onRemoved={() => handleRemoved(id)} />}
+                  />
                 </li>
               ))}
         </ul>
@@ -77,7 +82,7 @@ function RemoveButton({ target, name, onRemoved }: { target: BookmarkTarget; nam
   const { pending, remove } = useBookmark(target, true, onRemoved);
 
   return (
-    <Button variant="tertiary" size="sm" className="self-end" loading={pending} loadingLabel="Removing from Bookmarks" onClick={remove}>
+    <Button variant="tertiary" size="sm" loading={pending} loadingLabel="Removing from Bookmarks" onClick={remove}>
       Remove
       <span className="sr-only"> {name} from Bookmarks</span>
     </Button>

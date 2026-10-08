@@ -32,7 +32,11 @@ export type PetListing = Pet & Listed;
 export type HomeListing = HomeProfile & Listed;
 
 /** A pet's resume as someone else reads it (DS-05, DS-08). `match` is there for a human who finished the quiz. */
-export type PetProfile = PetListing & { match?: MatchEvaluation };
+export type PetProfile = PetListing & {
+  match?: MatchEvaluation;
+  /** When the reading human's own Invite to Apply was sent; null when there is none or the pet dismissed it (RQ-01). */
+  invited_at: IsoDateTime | null;
+};
 
 /** A Home Profile as someone else reads it (DS-07). `match` is there for a pet whose resume is published. */
 export type HomeProfileDetail = HomeListing & { match?: MatchEvaluation };

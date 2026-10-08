@@ -51,7 +51,9 @@ export async function browseHomes(client: ApiClient, filters: BrowseFilters): Pr
 export async function getPetProfile(client: ApiClient, petId: number): Promise<PetProfile> {
   const data = (await client.get<ApiResource<unknown>>(apiPath`/pets/${petId}`))?.data;
   if (!isPet(data)) throw unexpected("We couldn't load this resume. Please try again.");
-  return { ...data, match: readMatch((data as Record<string, unknown>).match) };
+  const extras: Record<string, unknown> = data;
+  // Anything but a date reads as "not invited", so the page never claims an invite that isn't there.
+  return { ...data, match: readMatch(extras.match), invited_at: isText(extras.invited_at) && extras.invited_at !== "" ? extras.invited_at : null };
 }
 
 /** A Home Profile as someone else reads it (DS-07). 404 when it isn't Open to Adopt and the viewer has no request or invite with it. */

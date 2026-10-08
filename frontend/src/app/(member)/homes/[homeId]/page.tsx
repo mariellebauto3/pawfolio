@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { HomeProfileView } from "@/components/data-display/home-profile-view";
 import { ROUTES, homeProfilePath } from "@/constants/routes";
+import { BookmarkButton } from "@/features/bookmarks/components/bookmark-button";
 import { getHomeProfileDetail, getOwnRequests } from "@/features/discovery/api/discovery";
 import { HomeProfileActions } from "@/features/discovery/components/home-profile-actions";
 import { MatchSummary } from "@/features/discovery/components/match-summary";
@@ -49,7 +50,13 @@ export default async function HomePage({ params }: Props) {
   return (
     <HomeProfileView
       home={home}
-      actions={<HomeProfileActions homeProfileId={home.id} state={state} />}
+      actions={
+        <HomeProfileActions
+          homeProfileId={home.id}
+          state={state}
+          bookmark={<BookmarkButton target={{ kind: "home", id: home.id }} name={home.full_name} saved={home.is_bookmarked === true} />}
+        />
+      }
       aside={
         <MatchSummary
           name={home.full_name}

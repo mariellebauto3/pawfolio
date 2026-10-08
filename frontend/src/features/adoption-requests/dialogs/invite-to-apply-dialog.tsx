@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type FormEvent, useState } from "react";
 import { Alert } from "@/components/feedback/alert";
 import { Field } from "@/components/forms/field";
@@ -8,6 +9,7 @@ import { Modal } from "@/components/overlays/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { ROUTES } from "@/constants/routes";
 import { api } from "@/lib/api/client";
 import { isApiError } from "@/lib/api/errors";
 import { formatAgeMonths } from "@/lib/utils/format-age";
@@ -48,6 +50,8 @@ function InviteToApplyDialogContent({ onClose, pet, score, onSent }: Props) {
   const [note, setNote] = useState("");
   const [noteError, setNoteError] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  // Open to Adopt is off, or the quiz isn't finished: both are fixed from the human's own Home Profile.
+  const [notOpen, setNotOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const facts = [pet.breed, formatAgeMonths(pet.approximate_age_months), pet.city].filter(Boolean).join(" · ");
@@ -56,6 +60,7 @@ function InviteToApplyDialogContent({ onClose, pet, score, onSent }: Props) {
     event.preventDefault();
     if (busy) return;
     setProblem(null);
+    setNotOpen(false);
 
     const found = validateInviteNote(note);
     setNoteError(found);
@@ -75,6 +80,7 @@ function InviteToApplyDialogContent({ onClose, pet, score, onSent }: Props) {
         onClose();
         return onSent(null);
       }
+      setNotOpen(failure.code === "not_open_to_adopt");
       setProblem(failure.kind === "not_found" ? `${pet.name}’s resume isn’t available any more.` : failure.message);
     }
   }
@@ -127,7 +133,17 @@ function InviteToApplyDialogContent({ onClose, pet, score, onSent }: Props) {
       </p>
 
       {problem && (
-        <Alert tone="error" announce>
+        <Alert
+          tone="error"
+          announce
+          action={
+            notOpen && (
+              <Link href={ROUTES.me} className="text-sm font-bold underline">
+                Go to your Home Profile
+              </Link>
+            )
+          }
+        >
           {problem}
         </Alert>
       )}
