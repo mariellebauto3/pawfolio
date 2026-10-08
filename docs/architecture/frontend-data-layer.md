@@ -152,6 +152,13 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
   that invited, so both invite cards show "View my request"; the Apply, cooldown and "Not accepting requests" cards
   need `live`. What you save, remove, send or dismiss is kept by whichever side made the call, so a page rendered on
   the server doesn't see what the browser changed, and a reload brings the fixtures back.
+- **Adoption requests:** `/requests`, `/requests/[requestId]` and `/apply/[homeId]` (FE-15) are answered from
+  memory. As `pet`, Mochi has three requests: Meet Scheduled with Ana Santos, On Hold with Paolo Garcia
+  (`/requests/2`, `RQ-15`) and Declined by Marco Reyes a week ago (`/requests/5`, `RQ-17`), so `/homes/4` opens
+  the cooldown dialog (`RQ-06`) and `/homes/3` shows "View my request". Mochi is In Process, so no home offers
+  the form: the Sent state (`RQ-14`), Send request (`RQ-03`, `RQ-04`) and the limit dialog (`RQ-05`) need
+  `live`. Withdrawing works in the browser, but the page it lands on is rendered on the server, which still has
+  the fixtures. The `human` persona gets Page not found on these addresses until its side is built.
 - **No mock for the pet resume:** `/me` and `/resume/edit` (FE-10) were built on the real `/me/pet` endpoints. In mock
   mode they show the error state; use `live` for them.
 - **Adding mocks:** add a file in `src/lib/api/mock/handlers/` and register it in `handlers/index.ts`. Follow the
