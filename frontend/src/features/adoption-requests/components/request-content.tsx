@@ -9,8 +9,7 @@ import type { AdoptionRequest } from "@/types/adoption-request";
 import { type RequestReader, requestTimeline } from "../schemas/request-status";
 
 // The parts of a request's page that both sides read (RQ-11, RQ-14…RQ-17): what the pet wrote, what goes with it,
-// and what has happened to it since. Everything typed by a person is rendered as plain text (SEC-FE-01). The
-// request thread has no place here yet: whether Pawfolio keeps it is still to be decided (FE-30).
+// and what has happened to it since. Everything typed by a person is rendered as plain text (SEC-FE-01).
 
 /** The cover letter and the caretaker's notes, as the pet sent them. */
 export function RequestLetter({ request }: { request: AdoptionRequest }) {

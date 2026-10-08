@@ -76,7 +76,6 @@ export function withDetails(request: AdoptionRequest) {
     ...request,
     match_score: MATCH_SCORES[`${request.pet.id}:${request.home_profile.id}`] ?? null,
     cooldown_until: cooldown > Date.now() ? new Date(cooldown).toISOString() : null,
-    is_thread_open: IN_PROCESS_REQUEST_STATUSES.includes(request.status),
     ...meetDetails(request),
   };
 }

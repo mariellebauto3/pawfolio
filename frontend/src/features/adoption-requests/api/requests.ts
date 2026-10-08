@@ -137,7 +137,6 @@ export async function getRequestWith<More>(
     ...request,
     match_score: typeof data.match_score === "number" ? data.match_score : null,
     cooldown_until: textOrNull(data.cooldown_until),
-    is_thread_open: data.is_thread_open === true,
   };
   return { request: detail, more: readMore(data) };
 }
@@ -183,7 +182,6 @@ function readAnswered(data: unknown): RequestDetail {
     ...request,
     match_score: typeof data.match_score === "number" ? data.match_score : null,
     cooldown_until: textOrNull(data.cooldown_until),
-    is_thread_open: data.is_thread_open === true,
   };
 }
 

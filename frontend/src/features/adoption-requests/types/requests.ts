@@ -12,7 +12,7 @@ export type RequestPage = Paginated<AdoptionRequest> & { counts: RequestStatusCo
 
 /**
  * One request as `GET /adoption-requests/{id}` sends it, as far as the pet's screens read it (RQ-14, RQ-15,
- * RQ-17). The Meet & Greet, the thread and the contact details a confirmed meeting unlocks ride along on the
+ * RQ-17). The Meet & Greet and the contact details a confirmed meeting unlocks ride along on the
  * answer; they belong to the Meet & Greet screens and are not part of this type (SEC-PRIV-02).
  */
 export type RequestDetail = AdoptionRequest & {
@@ -20,8 +20,6 @@ export type RequestDetail = AdoptionRequest & {
   match_score: number | null;
   /** When the pet may apply to this home again after Declined or Not Adopted; null when it may now. */
   cooldown_until: IsoDateTime | null;
-  /** The request thread opens once the human approves (RQ-11). */
-  is_thread_open: boolean;
 };
 
 /** The request a pet just sent (RQ-04), with how many it has open now, this one included. */
