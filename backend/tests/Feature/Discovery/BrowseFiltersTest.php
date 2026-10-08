@@ -67,8 +67,9 @@ class BrowseFiltersTest extends TestCase
         $this->assertSame(['Calmy'], $this->names('/api/v1/pets?temperament=Calm', $human, 'name'));
         $this->assertSame(['Calmy', 'Zoomy'], $this->names('/api/v1/pets?temperament=Cuddly,Playful', $human, 'name'));
         $this->assertSame([], $this->names('/api/v1/pets?temperament=Shy', $human, 'name'));
-        // A list with nothing in it is no filter at all.
+        // A list with nothing in it is no filter at all, and neither is an empty value.
         $this->assertSame(['Calmy', 'Plain', 'Zoomy'], $this->names('/api/v1/pets?temperament=,', $human, 'name'));
+        $this->assertSame(['Calmy', 'Plain', 'Zoomy'], $this->names('/api/v1/pets?temperament=&species=', $human, 'name'));
     }
 
     public function test_home_profiles_are_filtered_by_kids_at_home(): void

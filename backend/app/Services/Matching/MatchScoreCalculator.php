@@ -492,6 +492,9 @@ class MatchScoreCalculator
     }
 
     /**
+     * Up to three sentences on why the pair fits. The pet and the human read the same ones (one score, both
+     * directions, MT-02), so they name "the pet" and "the home" and never say "you".
+     *
      * @param  array<string, int>  $points
      * @return list<string>
      */
@@ -502,34 +505,34 @@ class MatchScoreCalculator
         if ($points['activity'] >= 14) {
             $energy = $pet->energy_level instanceof \BackedEnum ? $pet->energy_level->value : (string) $pet->energy_level;
             $reasons[] = match ($energy) {
-                'high' => 'Active lifestyle fits high energy level',
-                'low' => 'Calm energy fits your household pace',
-                default => 'Activity level matches daily energy needs',
+                'high' => 'An active home for a high-energy pet',
+                'low' => 'A calm home for a low-energy pet',
+                default => 'The home’s activity level fits the pet’s energy',
             };
         }
 
         if ($points['hours_away'] >= 12) {
-            $reasons[] = 'Comfortable alone for the hours you are away';
+            $reasons[] = 'The pet is fine alone for the hours the home is empty';
         }
 
         if ($points['space'] >= 13) {
-            $reasons[] = 'Home setup and outdoor space fit space needs';
+            $reasons[] = 'The home and its outdoor space fit the pet’s space needs';
         }
 
         if ($points['compatibility'] >= 9) {
-            $reasons[] = 'Compatible with your household and other pets';
+            $reasons[] = 'The pet gets along with the household and its other pets';
         }
 
         if ($points['experience'] >= 13 && count($reasons) < 3) {
-            $reasons[] = 'Experience level matches what this pet needs';
+            $reasons[] = 'The home has the experience the pet needs';
         }
 
         if ($points['special_needs'] >= 8 && $pet->specialNeeds->isNotEmpty() && count($reasons) < 3) {
-            $reasons[] = 'Open to the care and special needs required';
+            $reasons[] = 'The home is open to the special care the pet needs';
         }
 
         if (empty($reasons)) {
-            $reasons[] = 'Located in '.$pet->province.' and matches your species preference';
+            $reasons[] = 'Both are in '.$pet->province.', and the home accepts this species';
         }
 
         return array_slice($reasons, 0, 3);
