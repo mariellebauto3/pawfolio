@@ -31,7 +31,7 @@ The interview. After approval the pet books one of the human’s slots, the huma
 | MG-07 | Meet Scheduled (human) | Screen | Human | `/requests/[requestId]` |
 | MG-08 | Meet Scheduled (pet) | Screen | Pet | `/requests/[requestId]` |
 | MG-09 | Reschedule dialog (pet) | Dialog | Pet | `/requests/[requestId]` |
-| MG-10 | Cancel meeting dialog | Dialog | Human | `/requests/[requestId]` |
+| MG-10 | Cancel meeting dialog | Dialog | Pet · Human | `/requests/[requestId]` |
 | MG-11 | Decision needed (human) | Screen | Human | `/requests/[requestId]` |
 | MG-12 | Awaiting decision (pet) | Screen | Pet | `/requests/[requestId]` |
 | MG-13 | “It didn’t happen” dialog | Dialog | Human | `/requests/[requestId]` |
@@ -40,6 +40,60 @@ The interview. After approval the pet books one of the human’s slots, the huma
 | MG-16 | Admin · Overdue decisions | Screen | Admin | `/admin/requests` |
 
 Dialogs, menus, toasts and states render on top of (or inside) the route shown; they are not separate pages.
+
+## Built so far
+
+- **MG-01 (FE-17):** `/availability`, the human's screen. "Upcoming slots" (`components/upcoming-slots.tsx`):
+  every slot still ahead, soonest first, as rows instead of the LoFi's table, so a phone reads them without
+  scrolling sideways. An open slot can be removed, after a confirmation; a booked one names the pet, says
+  "Confirm needed" or Meet Scheduled, and leads to its request. "Past Meet & Greets"
+  (`components/past-meetings.tsx`): the latest 10 confirmed meetings whose time has come, each with where its
+  request stands now. Then the privacy note. With no slots yet the card says why and offers Add slot. A pet or an
+  admin opening `/availability` is sent home.
+- **MG-02:** `dialogs/add-slot-dialog.tsx`, opened by `components/add-slot-button.tsx`: date and time (typed and
+  shown in Philippine time, `lib/utils/format-date.ts`), the kind of place, its details (optional only at the
+  caretaker's), and "Weekly for 4 weeks". The rules and messages mirror the API's (`schemas/slots.ts`); a slot
+  already at that time is refused by the API and said in the dialog.
+- **MG-03…MG-08:** the Meet & Greet step of `/requests/[requestId]`, inside the request's action panel
+  (`components/meet-section.tsx`, handed to the Adoption Requests panels by the page). Which step it is comes from
+  the request's status and its booking (`meetStage` in `schemas/meetings.ts`):
+  - *Approved, nothing booked.* The pet picks an open slot and books it (`forms/book-slot-form.tsx`, MG-03), or
+    reads that there are none yet. The human reads how many slots are open, or a warning with Add a slot when
+    there are none. If booking reopened, both read why first (`components/booking-notice.tsx`): the human
+    proposed another time (the offered slot leads the pet's list, marked and chosen), or one side cancelled, with
+    the reason.
+  - *Booked, waiting for the human.* The pet reads its slot and can Change slot (MG-04). The human gets Confirm
+    and Propose another time (MG-05).
+  - *Confirmed.* Both read the meeting (`components/meet-card.tsx`, MG-07, MG-08) and can Reschedule or Cancel
+    meeting; the pet can still withdraw.
+- **Contact details** appear on the confirmed meeting only (NFR4, SEC-PRIV-02): the pet's caretaker reads the
+  human's name, number and exact address; the human reads the caretaker's name and number, and is told what of
+  theirs the caretaker sees. They come with the page from the API as plain text. Nothing writes them to browser
+  storage or a URL (SEC-FE-04), which is also why the numbers are not `tel:` links. A reschedule, a proposal or a
+  cancellation hides them again until a meeting is confirmed.
+- **Confirming asks first** (`dialogs/confirm-booking-dialog.tsx`, not in the LoFi, `ui-guidelines.md` §5): it is
+  the moment the contact details are shared, so the human reads what is shared before agreeing.
+- **MG-06:** `dialogs/propose-time-dialog.tsx`: the human offers another open slot, with an optional message; the
+  pet's booking ends and the pet books again. "Add a new slot" opens MG-02 in its place and comes back with the
+  new slot chosen, keeping what was typed.
+- **MG-09:** `dialogs/reschedule-dialog.tsx`, also "Change slot" on a booking that isn't confirmed yet: the pet
+  picks another open slot, with an optional reason. The human confirms the new time.
+- **MG-10:** `dialogs/cancel-meeting-dialog.tsx`, for either side: what happens, the required reason (the button
+  waits for it) and optional details. Booking reopens.
+- After every change the page is read again, a toast confirms, and focus moves to the action panel
+  (`RequestPanelFrame`), since the buttons that were pressed are gone. A refusal from the API is shown in its own
+  words; a 409 also reads the page again, because what it showed is out of date (`hooks/use-meet-change.ts`).
+- **The date leaf** (`components/date-leaf.tsx`) marks every slot and meeting: a plain outline while open, dashed
+  while it waits for the human, the yellow fill once confirmed, in the language of the status badges.
+- API contract: `docs/api/adoption-and-meet-greet.md` ("Availability, booking and the meeting"). Shared types:
+  `src/types/meet-and-greet.ts`. Tests: `tests/unit/features/meet-and-greet/`. The request and its Meet & Greet
+  come from one call: the page hands `readRequestMeeting` to `getRequestWith` of Adoption Requests.
+- **Mock mode** answers every endpoint (`src/lib/api/mock/handlers/meet-and-greet.ts`): Ana Santos has four slots
+  and Mochi's confirmed meeting on the first. A page rendered on the server doesn't see what the browser changed,
+  so the steps before confirmation are walked against the API, not in mock mode.
+- **Not built here:** editing a slot (the LoFi's "Edit" has no endpoint: remove it and add another). MG-11…MG-14,
+  the decision after the meeting and "It didn’t happen" (FE-18); an Approved request whose meeting was reported as
+  not having happened already says so. MG-15, MG-16 (admin).
 
 ## Requirements covered
 
