@@ -3,6 +3,7 @@ import { ADOPTION_REQUESTS } from "@/lib/api/mock/fixtures/adoption-requests";
 import { HOME_PROFILES } from "@/lib/api/mock/fixtures/home-profiles";
 import { MATCH_REASONS, MATCH_SCORES, criteriaFor } from "@/lib/api/mock/fixtures/match-scores";
 import { PETS } from "@/lib/api/mock/fixtures/pets";
+import { isBookmarked } from "@/lib/api/mock/handlers/bookmarks";
 import { type MockResult, type MockRoute, fail, paginate, route, validationFailed } from "@/lib/api/mock/router";
 import type { HomeProfile } from "@/types/home-profile";
 import type { Pet } from "@/types/pet";
@@ -96,7 +97,7 @@ export const matchingRoutes: MockRoute[] = [
         .map((pet) => ({ pet, score: MATCH_SCORES[`${pet.id}:${home.id}`] }))
         .filter((match): match is { pet: Pet; score: number } => match.score !== undefined)
         .sort((a, b) => (newest ? (b.pet.published_at ?? "").localeCompare(a.pet.published_at ?? "") : 0) || b.score - a.score || b.pet.id - a.pet.id)
-        .map(({ pet, score }) => ({ ...row(pet.id, score), pet: { ...pet, match_score: score, match_reasons: MATCH_REASONS, is_bookmarked: false } }));
+        .map(({ pet, score }) => ({ ...row(pet.id, score), pet: { ...pet, match_score: score, match_reasons: MATCH_REASONS, is_bookmarked: isBookmarked(account, { petId: pet.id }) } }));
       return page(rows, query);
     }
 
@@ -110,7 +111,7 @@ export const matchingRoutes: MockRoute[] = [
       .sort((a, b) => (newest ? b.home.id - a.home.id : 0) || b.score - a.score || b.home.id - a.home.id)
       .map(({ home, score }) => ({
         ...row(home.id, score),
-        home_profile: { ...home, match_score: score, match_reasons: MATCH_REASONS, is_bookmarked: false },
+        home_profile: { ...home, match_score: score, match_reasons: MATCH_REASONS, is_bookmarked: isBookmarked(account, { homeProfileId: home.id }) },
       }));
     return page(rows, query);
   }),

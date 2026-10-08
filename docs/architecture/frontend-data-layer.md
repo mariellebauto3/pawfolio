@@ -147,6 +147,11 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
   for Ana Santos, as `pet` two homes for Mochi, with the breakdown dialog on each. The Open to Adopt switch is left
   out, since the Home Profile endpoints have no mock. No persona is an Active human without the quiz or an Active
   pet with a Draft, so the two empty states (`MT-04`, `MT-05`) show in `live` only.
+- **Bookmarks and invites:** `/bookmarks` and `/invites` (FE-14) are answered from memory: as `human` three saved
+  pets (one adopted since), as `pet` two saved homes and two invites. Mochi already has a request with both homes
+  that invited, so both invite cards show "View my request"; the Apply, cooldown and "Not accepting requests" cards
+  need `live`. What you save, remove, send or dismiss is kept by whichever side made the call, so a page rendered on
+  the server doesn't see what the browser changed, and a reload brings the fixtures back.
 - **No mock for the pet resume:** `/me` and `/resume/edit` (FE-10) were built on the real `/me/pet` endpoints. In mock
   mode they show the error state; use `live` for them.
 - **Adding mocks:** add a file in `src/lib/api/mock/handlers/` and register it in `handlers/index.ts`. Follow the

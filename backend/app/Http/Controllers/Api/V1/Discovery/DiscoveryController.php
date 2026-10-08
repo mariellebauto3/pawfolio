@@ -23,6 +23,7 @@ use App\Http\Resources\ResponseResource;
 use App\Models\AdoptionRequest;
 use App\Models\Bookmark;
 use App\Models\HomeProfile;
+use App\Models\Invite;
 use App\Models\MatchScore;
 use App\Models\MeetAndGreet;
 use App\Models\Pet;
@@ -212,6 +213,15 @@ class DiscoveryController extends Controller
 
         if ($matchEvaluation !== null) {
             $data['match'] = $matchEvaluation;
+        }
+
+        // For a human: when their own live Invite to Apply was sent, so the resume shows "Invite sent" (RQ-01).
+        if ($viewer->isHuman() && $viewer->homeProfile) {
+            $data['invited_at'] = Invite::query()
+                ->where('pet_id', $pet->id)
+                ->where('home_profile_id', $viewer->homeProfile->id)
+                ->active()
+                ->first()?->created_at?->toISOString();
         }
 
         return ResponseResource::make($data);

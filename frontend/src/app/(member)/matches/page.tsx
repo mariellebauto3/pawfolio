@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { MAX_OPEN_REQUESTS, OPEN_REQUEST_STATUSES } from "@/constants/adoption-requests";
 import { ROUTES, homeProfileEditPath, resumeEditPath } from "@/constants/routes";
+import { BookmarkButton } from "@/features/bookmarks/components/bookmark-button";
 import { getOwnRequests } from "@/features/discovery/api/discovery";
 import { getHomeMatches, getPetMatches } from "@/features/matching/api/matching";
 import { MatchFilters } from "@/features/matching/components/match-filters";
@@ -90,7 +91,12 @@ export default async function MatchesPage({ searchParams }: Props) {
         />
         <div className="flex flex-col gap-4">
           <MatchFilters kind={kind} view={view} />
-          <MatchResults kind={kind} view={view} page={matches.page} />
+          <MatchResults
+            kind={kind}
+            view={view}
+            page={matches.page}
+            bookmark={({ id, name, saved }) => <BookmarkButton target={{ kind: "pet", id }} name={name} saved={saved} placement="card" />}
+          />
         </div>
       </>
     );
@@ -127,7 +133,12 @@ export default async function MatchesPage({ searchParams }: Props) {
       />
       <div className="flex flex-col gap-4">
         <MatchFilters kind={kind} view={view} />
-        <MatchResults kind={kind} view={view} page={matches.page} />
+        <MatchResults
+          kind={kind}
+          view={view}
+          page={matches.page}
+          bookmark={({ id, name, saved }) => <BookmarkButton target={{ kind: "home", id }} name={name} saved={saved} placement="card" />}
+        />
       </div>
     </>
   );

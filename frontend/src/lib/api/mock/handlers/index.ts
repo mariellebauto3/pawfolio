@@ -2,7 +2,9 @@ import { accountStatusRoutes } from "@/lib/api/mock/handlers/account-status";
 import { adminVerificationRoutes } from "@/lib/api/mock/handlers/admin-verification";
 import { adoptionRequestRoutes } from "@/lib/api/mock/handlers/adoption-requests";
 import { authRoutes } from "@/lib/api/mock/handlers/auth";
+import { bookmarkRoutes } from "@/lib/api/mock/handlers/bookmarks";
 import { discoveryRoutes } from "@/lib/api/mock/handlers/discovery";
+import { inviteRoutes } from "@/lib/api/mock/handlers/invites";
 import { matchingRoutes } from "@/lib/api/mock/handlers/matching";
 import { signUpRoutes } from "@/lib/api/mock/handlers/sign-up";
 import type { MockRoute } from "@/lib/api/mock/router";
@@ -17,4 +19,6 @@ export const MOCK_ROUTES: readonly MockRoute[] = [
   ...discoveryRoutes,
   ...matchingRoutes,
   ...adoptionRequestRoutes,
+  ...bookmarkRoutes,
+  ...inviteRoutes,
 ];

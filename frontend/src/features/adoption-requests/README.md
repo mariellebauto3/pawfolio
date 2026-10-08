@@ -44,6 +44,24 @@ The pet’s job application. Humans may nudge with an Invite to Apply; the pet s
 
 Dialogs, menus, toasts and states render on top of (or inside) the route shown; they are not separate pages.
 
+## Built so far
+
+- **RQ-01 (FE-14):** `dialogs/invite-to-apply-dialog.tsx`, opened by `components/invite-to-apply-button.tsx` on a
+  pet's resume while the pet is Looking for a Home. The pet with the human's match, an optional note of up to 200
+  characters, and the reminder that the address and phone number stay private. The API's refusal is shown in the
+  dialog in its own words, with a link to the Home Profile when Open to Adopt is what is missing; "already
+  invited" counts as sent. Afterwards "Invite sent" takes the button's place, and it is there again after a reload
+  (`invited_at` on the resume).
+- **RQ-02:** `/invites`, the pet's screen (`components/invite-list.tsx`, `components/invite-card.tsx`): who
+  invited, the match, their note, and what the pet can do. Apply, or "View my request" once the pet applied, or
+  why Apply isn't offered: the 30-day cooldown, or Open to Adopt turned off (`schemas/invites.ts`, in the order the
+  Home Profile page uses). Dismiss takes the card away with a toast. A human or an admin opening `/invites` is
+  sent home.
+- API contract: `docs/api/bookmarks-and-invites.md`. Tests: `tests/unit/features/adoption-requests/`. Mock mode
+  answers these screens from memory (`docs/architecture/frontend-data-layer.md`).
+- **Not built here:** the pages the invite cards link to, Send adoption request (`RQ-03`, `/apply/[homeId]`) and the
+  request itself (`/requests/[requestId]`), which come with FE-15. A human has no list of the invites they sent.
+
 ## Requirements covered
 
 - **FR9** — Send an Invite to Apply to a pet.

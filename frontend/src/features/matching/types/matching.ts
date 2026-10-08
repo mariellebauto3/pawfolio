@@ -13,11 +13,14 @@ type MatchRow = {
   reasons: string[];
 };
 
+/** Whether the viewer saved this profile to their bookmarks (BM-03). */
+type Saved = { is_bookmarked?: boolean };
+
 /** A row of Pets for You (MT-01): a pet's public resume with the human's score for it. */
-export type PetMatch = MatchRow & { pet: Pet };
+export type PetMatch = MatchRow & { pet: Pet & Saved };
 
 /** A row of Homes for You (MT-02): a Home Profile's public details with the pet's score for it. */
-export type HomeMatch = MatchRow & { home_profile: HomeProfile };
+export type HomeMatch = MatchRow & { home_profile: HomeProfile & Saved };
 
 /** Why an account has no matches yet: the quiz isn't finished (MT-04), the resume is a Draft (MT-05), or the pet has its home. */
 export const INELIGIBLE_REASONS = ["quiz_incomplete", "resume_draft", "already_adopted"] as const;

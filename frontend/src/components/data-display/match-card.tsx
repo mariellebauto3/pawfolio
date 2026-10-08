@@ -27,7 +27,7 @@ type Props = {
   reasons?: string[];
   /** What opening the card does: "View resume", "View home". */
   cta: string;
-  /** One more thing to do from the card, beside the link: the "Why this match?" button. Pressing it doesn't open the card. */
+  /** More to do from the card, beside the link: Bookmark, "Why this match?", Remove. Pressing one doesn't open the card. */
   action?: ReactNode;
   /** Heading level for the name, so the card fits the page outline. */
   titleAs?: "h2" | "h3";
@@ -132,7 +132,7 @@ export function MatchCard({
             {cta}
           </p>
           {/* Positioned, and after the link, so it is above the link's stretched hit area. */}
-          {action && <div className="relative -mr-2">{action}</div>}
+          {action && <div className="relative -mr-2 flex items-center">{action}</div>}
         </div>
       </div>
     </article>

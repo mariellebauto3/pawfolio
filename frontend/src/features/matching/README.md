@@ -51,8 +51,9 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
   fails to load can be tried again; one whose pair has no score any more says to reload.
 - API contract: `docs/api/profiles-and-matching.md` ("Compatibility Matches"). Tests:
   `tests/unit/features/matching/`. Mock mode answers these screens from the fixtures.
-- **Not built here:** Bookmark on a match card (`BM-03`) comes with FE-14, which owns the bookmark calls. The
-  quick filters are the LoFi's five, one at a time; the full set of filters is on Browse.
+- **Bookmark on a match card (`BM-03`, FE-14):** the Bookmarks module's button, passed into
+  `components/match-results.tsx` by the page and shown before "Why this match?".
+- **Not built here:** The quick filters are the LoFi's five, one at a time; the full set of filters is on Browse.
 
 ## Requirements covered
 
