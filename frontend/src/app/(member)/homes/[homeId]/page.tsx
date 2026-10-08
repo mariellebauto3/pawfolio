@@ -6,6 +6,7 @@ import { getHomeProfileDetail, getOwnRequests } from "@/features/discovery/api/d
 import { HomeProfileActions } from "@/features/discovery/components/home-profile-actions";
 import { MatchSummary } from "@/features/discovery/components/match-summary";
 import { applyStateFor } from "@/features/discovery/schemas/apply-state";
+import { MatchBreakdownButton } from "@/features/matching/components/match-breakdown-button";
 import { isApiError } from "@/lib/api/errors";
 import { getServerApi } from "@/lib/api/server";
 import { requireAccount } from "@/lib/auth/require-account";
@@ -61,6 +62,7 @@ export default async function HomePage({ params }: Props) {
                 }
               : { text: "This home hasn’t finished its lifestyle quiz yet, so there is no score to show." }
           }
+          breakdown={<MatchBreakdownButton profileId={home.id} name={home.full_name} score={home.match?.score} placement="profile" />}
         />
       }
     />

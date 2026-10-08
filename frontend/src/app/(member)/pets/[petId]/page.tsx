@@ -6,6 +6,7 @@ import { getPetProfile, getSimilarPets } from "@/features/discovery/api/discover
 import { MatchSummary } from "@/features/discovery/components/match-summary";
 import { PetResumeActions } from "@/features/discovery/components/pet-resume-actions";
 import { SimilarPets } from "@/features/discovery/components/similar-pets";
+import { MatchBreakdownButton } from "@/features/matching/components/match-breakdown-button";
 import { isApiError } from "@/lib/api/errors";
 import { getServerApi } from "@/lib/api/server";
 import { requireAccount } from "@/lib/auth/require-account";
@@ -56,6 +57,7 @@ export default async function PetPage({ params }: Props) {
                   text: `Finish your Home Profile and lifestyle quiz to see how well you and ${pet.name} fit.`,
                   action: { href: ROUTES.homeProfileEdit, label: "Finish the quiz" },
                 }}
+                breakdown={<MatchBreakdownButton profileId={pet.id} name={pet.name} score={pet.match?.score} placement="profile" />}
               />
             )}
             <SimilarPets pets={similar} />
