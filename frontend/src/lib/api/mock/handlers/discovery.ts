@@ -1,6 +1,7 @@
 import type { Query, QueryValue } from "@/lib/api/core";
 import { ADOPTION_REQUESTS } from "@/lib/api/mock/fixtures/adoption-requests";
 import { HOME_PROFILES } from "@/lib/api/mock/fixtures/home-profiles";
+import { MATCH_REASONS, MATCH_SCORES } from "@/lib/api/mock/fixtures/match-scores";
 import { PETS } from "@/lib/api/mock/fixtures/pets";
 import { RECENTLY_HIRED } from "@/lib/api/mock/fixtures/recently-hired";
 import { type MockRoute, fail, ok, paginate, route, validationFailed } from "@/lib/api/mock/router";
@@ -9,13 +10,8 @@ import type { HomeProfile } from "@/types/home-profile";
 import type { Pet } from "@/types/pet";
 
 // Discovery in mock mode (docs/api/discovery.md): Browse, the two profile pages and search, answered from the
-// fixtures with the same rules about who is listed. Scores are made up; the real ones come from the matching rules
-// on the server.
-
-/** A made-up score for each pet and home that pass the dealbreakers, keyed "petId:homeProfileId". */
-const MATCH_SCORES: Record<string, number> = { "1:1": 86, "1:3": 78, "3:1": 72, "5:1": 64, "6:1": 91 };
-
-const MATCH_REASONS = ["Activity level matches daily energy needs", "Comfortable alone for the hours you are away"];
+// fixtures with the same rules about who is listed. Scores are made up (fixtures/match-scores.ts); the real ones
+// come from the matching rules on the server.
 
 const listOf = (value: QueryValue) =>
   String(value ?? "")

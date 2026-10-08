@@ -69,7 +69,8 @@ abstract class BrowseRequest extends FormRequest
         ];
 
         foreach ($this->listFilters() as $name => $allowed) {
-            $rules[$name] = ['sometimes', 'array', 'max:'.self::MAX_VALUES];
+            // `species=` arrives as null (ConvertEmptyStringsToNull): an empty value is no filter.
+            $rules[$name] = ['sometimes', 'nullable', 'array', 'max:'.self::MAX_VALUES];
             $rules["{$name}.*"] = $allowed === null ? ['string', 'max:40'] : ['string', Rule::in($allowed)];
         }
 

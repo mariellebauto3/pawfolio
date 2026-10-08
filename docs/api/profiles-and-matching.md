@@ -279,12 +279,151 @@ Found while wiring FE-11 (2026-10-07). The frontend never sends these, but the A
 - The rules are written in the controller, not in Form Requests with a Policy (SEC-INPUT-01, SEC-AUTHZ-01). The
   role and Active checks are done by the route middleware.
 
-## Compatibility Matches (`BE-13`, `MT-01..MT-05`)
+## Compatibility Matches (`BE-13`, `MT-01`…`MT-05`)
 
-| Method | Path | Role | Description |
-| --- | --- | --- | --- |
-| `GET` | `/api/v1/matches` | `pet`, `human` (Active) | Paginated list of compatible matches passing all 4 dealbreakers, sorted by score desc |
-| `GET` | `/api/v1/matches/{id}/breakdown` | `pet`, `human` (Active) | 4 dealbreakers + 7 weighted criteria (`20 + 15 + 15 + 15 + 15 + 10 + 10 = 100`) breakdown drawer |
+FR5, FR21. **Status: built (BE-13).** The frontend screens (FE-13) run against it through
+`frontend/src/features/matching/api/matching.ts`. In mock mode `frontend/src/lib/api/mock/handlers/matching.ts`
+answers the same way from the fixtures. A change here also changes those two files, the types
+(`frontend/src/features/matching/types/matching.ts`), the URL rules
+(`frontend/src/features/matching/schemas/match-view.ts`) and the tests on both sides in the same PR.
+
+- **Who:** a signed-in **pet** or **human**, Active. The viewer's own side of every pair (the pet, or the Home
+  Profile) comes from the session, never from the request (SEC-AUTHZ-02). Signed out: **401**. Not Active: **403**
+  `account_not_active`. An admin: **403**.
+- **One score, both directions:** a pet and a human read the same score and the same reasons for their pair
+  (`MT-02`). The reasons name "the pet" and "the home" and never say "you", so they fit either reader.
+
+| Method and path | What it does |
+| --- | --- |
+| `GET /matches` | Pets for You (a human) or Homes for You (a pet), a page at a time (`MT-01`, `MT-02`, `MT-04`, `MT-05`) |
+| `GET /matches/{profile}/breakdown` | How the viewer's score with one profile is made up (`MT-03`) |
+
+### `GET /api/v1/matches`
+
+The pairs that pass all four dealbreakers, best score first. A human gets pets that are **Looking for a Home**; a
+pet gets homes that are **Open to Adopt** with the quiz finished. Profiles whose account isn't Active are left out.
+
+| Query | Values | Meaning |
+| --- | --- | --- |
+| `species` | `dog` \| `cat` \| `other`, a list | Pets for You: any of them |
+| `size` | `small` \| `medium` \| `large`, a list | Pets for You: any of them |
+| `age` | `puppy_kitten` (up to 12 months) \| `adult` (13 to 84) \| `senior` (over 84), a list | Pets for You: any of them (added for FE-13) |
+| `home_type` | `house` \| `condo` \| `apartment` \| `townhouse`, a list | Homes for You: any of them |
+| `has_kids` | `yes` \| `no` | Homes for You: with or without kids under 6 or kids 6–12, the two groups the kids dealbreaker counts (added for FE-13) |
+| `has_other_pets` | `none`, or a list of `dogs` \| `cats` \| `other` | Homes for You: no other pets, or any of the kinds picked. `none` wins over the rest of a list (added for FE-13) |
+| `city` | up to 80 characters | The same city, exactly. Not on the screen |
+| `tier` (`high` 80+ \| `medium` 60–79 \| `low` under 60), `min_score`, `max_score` (0 to 100) | | Not on the screen |
+| `sort` | `best_match` (default) \| `newest` | Best match: the score, then the newest resume (or the home that finished its quiz last). Newest: the other way round (added for FE-13) |
+| `page`, `per_page` | default 20, at most 50 | The screen asks for 12 |
+
+- Lists travel as one comma-separated value (`species=dog,cat`), and an empty value is no filter, as on the Browse
+  lists. **Every filter is checked against an allow-list** by `ListMatchesRequest`
+  (`backend/app/Http/Requests/Matching/`, SEC-INPUT-01, SEC-INPUT-03): a value that isn't listed is **422** with
+  `errors` by field (`species.0` for one item of a list). A filter of the other side's list (a pet sending
+  `species`) is checked and then not used.
+- **200, always in the shape of a list**, with two more keys in `meta`:
+
+  ```json
+  {
+    "data": [
+      {
+        "id": 31,
+        "score": 86,
+        "tier": "high",
+        "passed_dealbreakers": true,
+        "reasons": ["An active home for a high-energy pet", "The pet is fine alone for the hours the home is empty"],
+        "criteria_scores": [{ "key": "activity", "label": "Activity level ↔ energy level", "points": 20, "max_points": 20 }],
+        "calculated_at": "2026-10-08T02:00:00.000000Z",
+        "pet": { "id": 1, "name": "Mochi", "match_score": 86, "is_bookmarked": false }
+      }
+    ],
+    "meta": { "current_page": 1, "last_page": 1, "per_page": 12, "total": 1, "from": 1, "to": 1, "path": "…", "eligible": true, "reason": null },
+    "links": {}
+  }
+  ```
+
+  | Field | Meaning |
+  | --- | --- |
+  | `pet` | For a human: the pet's public resume, the shape of `GET /pets` (no caretaker number, SEC-PRIV-02) |
+  | `home_profile` | For a pet, in place of `pet`: the Home Profile's public details, the shape of `GET /home-profiles` (the city and the household answers only, SEC-PRIV-03) |
+  | `score` | 0 to 100, as stored when the scores were last worked out. `tier` is `high`, `medium` or `low` |
+  | `reasons` | Up to three sentences. The card shows the first two |
+  | `criteria_scores` | The seven criteria of the breakdown. The screen reads them from the breakdown endpoint instead |
+  | `id` | The stored score's id. **Not** what the breakdown endpoint takes |
+  | `meta.eligible` | `false` when the account has no matches yet. `data` is then empty and `total` is 0 |
+  | `meta.reason` | `null`, or why: `quiz_incomplete` (a human who hasn't finished the quiz, `MT-04`), `resume_draft` (a pet whose resume is a Draft, `MT-05`), `already_adopted` (a Hired pet, which isn't looking any more) |
+
+- An empty list with `eligible: true` means nothing matches (or nothing passes the filter), which the screen says
+  differently from "not set up yet".
+- The order ends on the row's id, so a page is the same page when it is asked for again, also when scores tie.
+- The scores are worked out the first time an account reads its list and again whenever a resume or a quiz is saved.
+
+### `GET /api/v1/matches/{profile}/breakdown`
+
+- **`{profile}` is the other side of the pair:** a pet's id when a human asks, a Home Profile's id when a pet asks.
+  It is never the `id` of a row of the list.
+- **200:**
+
+  ```json
+  {
+    "data": {
+      "pet_id": 1,
+      "home_profile_id": 1,
+      "score": 86,
+      "tier": "high",
+      "passed_dealbreakers": true,
+      "failed_dealbreakers": [],
+      "dealbreakers": { "species_accepted": true, "ok_with_kids": true, "ok_with_other_pets": true, "same_province": true },
+      "criteria": [
+        { "key": "activity", "label": "Activity level ↔ energy level", "points": 20, "max_points": 20 },
+        { "key": "hours_away", "label": "Hours away ↔ time it can be left alone", "points": 15, "max_points": 15 }
+      ],
+      "reasons": ["An active home for a high-energy pet"]
+    }
+  }
+  ```
+
+  | Field | Meaning |
+  | --- | --- |
+  | `criteria` | Always seven, in this order: `activity` (20), `hours_away` (15), `space` (15), `experience` (15), `size_age` (15), `compatibility` (10), `special_needs` (10). Their points add up to `score`. `criteria_scores` repeats them |
+  | `failed_dealbreakers` | Any of `species_accepted`, `ok_with_kids`, `ok_with_other_pets`, `same_province`. When one failed, `passed_dealbreakers` is `false` and `score` is 0: the profile page says they aren't a match |
+  | `score` | Worked out when asked. Reading a breakdown stores nothing |
+
+- **404** `not_found` for a profile the viewer may not open, exactly as on its own page (`PetPolicy`,
+  `HomeProfilePolicy`, SEC-AUTHZ-04): a Draft, a profile whose account isn't Active, a home that isn't Open to Adopt
+  unless the pet already has a request or an invite with it. Also **404** when there is no score to explain: the
+  human hasn't finished the quiz, the pet's own resume is a Draft, or the home has no quiz answers.
+- An id that isn't a plain number of up to 15 digits isn't a route (**404**).
+
+### Found while wiring FE-13
+
+All fixed in the same PR (2026-10-08), with tests in `backend/tests/Feature/Matching/`:
+
+- **"No matches yet" wasn't a list.** A human without the quiz and a pet with a Draft got
+  `{ "data": { "is_eligible": false, "reason": "…sentence…", "items": [], "meta": {…} } }`, a different shape from
+  the list every other answer of the endpoint is (backend-guidelines §2). It is now an empty page with
+  `meta.eligible` and a `meta.reason` code; the screens have their own words (`MT-04`, `MT-05`). A Hired pet now
+  gets `already_adopted` instead of an empty list that looked like "nothing matches".
+- **The breakdown's `{id}` meant three things.** It was first tried as a stored score's id, then as a pet's or a
+  home's id, so a human asking about pet 5 could be shown the breakdown of another pet whose score row happened to
+  be number 5. It is now always the other profile's id.
+- **The breakdown skipped the visibility rules** (SEC-AUTHZ-04): a pet could read the breakdown, with the
+  dealbreakers, of a home that isn't Open to Adopt or whose account is suspended, and a human that of a suspended
+  account's pet. It now asks the same two Policies as the profile pages. It also stored a score on every read; it
+  no longer writes.
+- **The filters were read without an allow-list** (SEC-INPUT-01, SEC-INPUT-03), so an unknown `species` or `tier`
+  was accepted and simply matched nothing. They now go through a Form Request, which also holds the role check.
+- **The quick filters and the sort of the LoFi had no parameter**: `age`, `has_kids`, `has_other_pets` and `sort`
+  were added.
+- **Pages could repeat or skip rows.** The list was ordered by score and then by when the score was calculated,
+  which is the same instant for every row after a quiz is saved. The order now ends on a unique column, and
+  "then newest" is the newest resume or home, as the screen says.
+- **Each row ran three queries of its own** (view count, bookmark count, `is_bookmarked`). They are now read for
+  the whole page at once.
+- **The reasons were written to the human** ("Comfortable alone for the hours you are away", "your household"),
+  but a pet reads the same ones on Homes for You. They now name the pet and the home.
+- **`species=` (an empty value) was a 422** on the Browse lists too, although an empty value is documented as no
+  filter. Fixed in the shared `BrowseRequest`.
 
 ## Bookmarks & Invites (`BE-15`, `BM-01`, `RQ-01..RQ-02`)
 

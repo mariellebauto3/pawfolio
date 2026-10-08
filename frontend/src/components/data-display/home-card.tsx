@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { HOME_TYPE_LABELS, householdSummary } from "@/constants/home-profiles";
@@ -9,13 +10,17 @@ type Props = {
   home: HomeProfile;
   /** The viewer's match with this home, when there is one. */
   score?: number;
+  /** Why they fit, shown under the facts on a ranked list (MT-01, MT-02). */
+  reasons?: string[];
+  /** A second thing to do from the card, e.g. the "Why this match?" button. */
+  action?: ReactNode;
   titleAs?: "h2" | "h3";
 };
 
 // A home on a card, read the way a pet reads a job posting: who it is, the home in their own words, then the
 // household. Public details only: the city and a household summary, never the address or a phone number
 // (SEC-PRIV-03).
-export function HomeCard({ home, score, titleAs }: Props) {
+export function HomeCard({ home, score, reasons, action, titleAs }: Props) {
   const facts = [home.home_type && HOME_TYPE_LABELS[home.home_type], householdSummary(home)].filter(Boolean);
 
   return (
@@ -29,6 +34,8 @@ export function HomeCard({ home, score, titleAs }: Props) {
       facts={[facts.join(" · "), home.city].filter(Boolean)}
       badges={home.is_furparent && <StatusBadge status="Furparent" />}
       score={score}
+      reasons={reasons}
+      action={action}
       cta="View home"
     />
   );
