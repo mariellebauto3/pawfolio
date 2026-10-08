@@ -7,7 +7,7 @@
 | --- | --- |
 | **Owner** | The whole team; changes need review like any other rule |
 | **Applies to** | `frontend/`, `backend/`, database, deployment, and any new module or feature |
-| **Version** | 1.4 · 2026-10-08 — see the changelog at the end |
+| **Version** | 1.5 · 2026-10-09 — see the changelog at the end |
 
 ## 0. Baseline and cross-references
 
@@ -295,6 +295,7 @@ Update this table as risks are found, accepted or fixed.
 | 2026-10-04 | The admin's checklist on `AU-23`/`AU-24` is ticked in the browser and isn't sent, so the API can't tell whether the checks were made | Accepted for the pilot: Approve asks for every check to be ticked first, and the decision is logged with the admin's name (SEC-LOG-01). Storing the checks would need a column and a rule change here |
 | 2026-10-04 | The document viewer (`AU-23`, `AU-24`) shows files from `blob:` addresses | When the Content-Security-Policy is written (SEC-DEPLOY-02), allow `blob:` in `img-src` and `frame-src` only |
 | 2026-10-08 | Contact details on a confirmed Meet & Greet (`MG-07`, `MG-08`): the LoFi's `MG-05` shares them in one click | Confirm asks first and says what is shared. The API sends `contacts` only while a meeting is confirmed (and after its time, for the decision); a reschedule, a proposal or a cancellation hides them again. The screen renders them as text from the page's own answer: no browser storage, no URL, no `tel:` link (SEC-FE-04, SEC-PRIV-02) |
+| 2026-10-09 | The LoFi's request thread (`RQ-11`, `MG-03`, `MG-07`, `AL-04`) would be a private channel admins can't read and nobody can report (T11, SEC-ABUSE-02) | Not built: messaging is future scope in the proposal (§10), and its API and table are removed. The rules that name threads (T02, T11, SEC-AUTHZ-03) apply if it returns, and it then needs a way to report a message and a rule change here |
 
 ## Changelog
 
@@ -305,3 +306,4 @@ Update this table as risks are found, accepted or fixed.
 | 1.2 | 2026-10-03 | FE-08: decision in §12 that owners don't get their verification documents back on `AU-19` |
 | 1.3 | 2026-10-04 | FE-09: threat T18 (active content in a served file), rule SEC-FE-09 and its checklist line; decisions in §12 on the admin checklist and on `blob:` in the CSP |
 | 1.4 | 2026-10-08 | FE-17: decision in §12 on how contact details are shared and shown on a confirmed Meet & Greet |
+| 1.5 | 2026-10-09 | FE-30: decision in §12 that the request thread is not built |
