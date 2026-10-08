@@ -81,11 +81,6 @@ class AdoptionLifecycleAndJobsTest extends TestCase
             AdoptionRequest::query()->findOrFail($reqIds[3])->getStatus(),
         );
 
-        // Request messages thread is now unlocked for Request 1.
-        $this->actingAs($petUser)->postJson("/api/v1/adoption-requests/{$reqIds[1]}/messages", [
-            'body' => 'Thank you! Looking forward to scheduling our Meet & Greet.',
-        ])->assertCreated();
-
         // Contact details are STILL hidden before Meet & Greet is confirmed (SEC-PRIV-03).
         $detailBeforeConfirm = $this->actingAs($petUser)
             ->getJson("/api/v1/adoption-requests/{$reqIds[1]}")
@@ -140,7 +135,7 @@ class AdoptionLifecycleAndJobsTest extends TestCase
         );
         $this->assertTrue($homes[1]->fresh()->isFurparent());
 
-        // Admin views request detail: request_messages thread is NOT exposed to admin (RQ-19).
+        // Admin views request detail. There is no request thread (proposal §10), so nothing of one is sent.
         $admin = User::factory()->admin()->active()->create();
         $adminView = $this->actingAs($admin)
             ->getJson("/api/v1/admin/adoption-requests/{$reqIds[1]}")
@@ -148,7 +143,7 @@ class AdoptionLifecycleAndJobsTest extends TestCase
             ->json('data');
 
         $this->assertArrayNotHasKey('messages', $adminView);
-        $this->assertGreaterThanOrEqual(1, $adminView['messages_count']);
+        $this->assertArrayNotHasKey('messages_count', $adminView);
     }
 
     public function test_expire_sent_requests_job_is_idempotent(): void

@@ -361,7 +361,7 @@ class PetAdoptionRequestsTest extends TestCase
             ->assertJsonPath('data.home_profile.full_name', 'Ana Santos')
             ->assertJsonPath('data.match_score', 86)
             ->assertJsonPath('data.cooldown_until', null)
-            ->assertJsonPath('data.is_thread_open', false)
+            ->assertJsonMissingPath('data.is_thread_open')
             // Nothing private before a Meet & Greet is confirmed (SEC-PRIV-02).
             ->assertJsonPath('data.contact_unlocked', false)
             ->assertJsonPath('data.contacts', null);

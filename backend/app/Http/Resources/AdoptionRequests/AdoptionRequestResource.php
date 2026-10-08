@@ -13,7 +13,6 @@ use App\Models\HomeProfile;
 use App\Models\MatchScore;
 use App\Models\MeetAndGreet;
 use App\Models\MeetGreetSlot;
-use App\Models\RequestMessage;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -27,18 +26,9 @@ class AdoptionRequestResource extends JsonResource
 
     private bool $includeDetails = false;
 
-    private bool $includePrivateMessages = false;
-
     public function withDetails(bool $include = true): self
     {
         $this->includeDetails = $include;
-
-        return $this;
-    }
-
-    public function withPrivateMessages(bool $include = true): self
-    {
-        $this->includePrivateMessages = $include;
 
         return $this;
     }
@@ -118,7 +108,6 @@ class AdoptionRequestResource extends JsonResource
 
         $data['match_score'] = $matchScore !== null ? (int) $matchScore : null;
         $data['cooldown_until'] = $cooldownUntil;
-        $data['is_thread_open'] = in_array($status, AdoptionRequest::IN_PROCESS_STATUSES, true);
         $data['meet_and_greet'] = $formattedActiveMeet ?? $formattedLatestMeet;
         $data['active_meet_and_greet'] = $formattedActiveMeet;
         $data['latest_meet_and_greet'] = $formattedLatestMeet;
@@ -155,24 +144,6 @@ class AdoptionRequestResource extends JsonResource
                 ->all();
         } else {
             $data['available_slots'] = [];
-        }
-
-        $data['messages_count'] = (int) ($ar->messages_count ?? $ar->messages()->count());
-
-        if ($this->includePrivateMessages) {
-            $ar->loadMissing('messages.sender');
-            $data['messages'] = $ar->messages
-                ->sortBy('created_at')
-                ->map(fn (RequestMessage $msg) => [
-                    'id' => $msg->id,
-                    'sender_user_id' => $msg->sender_user_id,
-                    'sender_name' => $msg->sender?->displayName(),
-                    'sender_role' => $msg->sender?->getRole()->value,
-                    'body' => $msg->body,
-                    'created_at' => $msg->created_at?->toISOString(),
-                ])
-                ->values()
-                ->all();
         }
 
         return $data;
