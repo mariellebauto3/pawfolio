@@ -120,17 +120,31 @@ export async function getOwnRequests(client: ApiClient): Promise<AdoptionRequest
   return readRows(isRecord(response) && Array.isArray(response.data) ? response.data : []);
 }
 
-/** One request. 404 for a request that isn't the caller's, like one that doesn't exist (SEC-AUTHZ-04). */
-export async function getRequest(client: ApiClient, requestId: number): Promise<RequestDetail> {
+/**
+ * One request, and whatever `readMore` reads from the same answer: the Meet & Greet that rides along on it belongs
+ * to its own module, which hands its reader in, so the page makes one call for both. 404 for a request that isn't
+ * the caller's, like one that doesn't exist (SEC-AUTHZ-04).
+ */
+export async function getRequestWith<More>(
+  client: ApiClient,
+  requestId: number,
+  readMore: (data: Record<string, unknown>) => More,
+): Promise<{ request: RequestDetail; more: More }> {
   const data = (await client.get<ApiResource<unknown>>(apiPath`/adoption-requests/${requestId}`))?.data;
   const request = readRequest(data);
   if (!request || !isRecord(data)) throw unexpected(DETAIL_PROBLEM);
-  return {
+  const detail = {
     ...request,
     match_score: typeof data.match_score === "number" ? data.match_score : null,
     cooldown_until: textOrNull(data.cooldown_until),
     is_thread_open: data.is_thread_open === true,
   };
+  return { request: detail, more: readMore(data) };
+}
+
+/** One request, as far as the request screens read it. */
+export async function getRequest(client: ApiClient, requestId: number): Promise<RequestDetail> {
+  return (await getRequestWith(client, requestId, () => null)).request;
 }
 
 /**
