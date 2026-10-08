@@ -1,9 +1,11 @@
 # Bookmarks and Invite to Apply endpoints
 
 Module 5, Bookmarks (`BM-01`…`BM-04`, FR8, FR23) and the Invite to Apply part of Module 6 (`RQ-01`, `RQ-02`, FR9).
-**Status: built (BE-15), checked and corrected for FE-14 (2026-10-08).** The FE-14 screens are being built against
-this file; in mock mode the handlers in `frontend/src/lib/api/mock/handlers/` answer the same way. A change here
-also changes the frontend calls, types, mocks and the tests on both sides in the same PR.
+**Status: built (BE-15), checked and corrected for FE-14 (2026-10-08).** The frontend screens (FE-14) run against
+it through `frontend/src/features/bookmarks/api/bookmarks.ts` and
+`frontend/src/features/adoption-requests/api/invites.ts`. In mock mode
+`frontend/src/lib/api/mock/handlers/bookmarks.ts` and `invites.ts` answer the same way. A change here also changes
+those files, the types beside the calls, and the tests on both sides in the same PR.
 
 | Method and path | Who | What it does |
 | --- | --- | --- |

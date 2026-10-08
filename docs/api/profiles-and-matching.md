@@ -1,6 +1,7 @@
-# Profiles, Compatibility Matching, Bookmarks & Invites API
+# Profiles & Compatibility Matching API
 
-Endpoints for pet resumes (`BE-11`), Human Home Profiles & 6-Step Compatibility Quiz (`BE-12`), Compatibility Matches & Breakdown (`BE-13`), Bookmarks & Invite to Apply (`BE-15`).
+Endpoints for pet resumes (`BE-11`), Human Home Profiles & 6-Step Compatibility Quiz (`BE-12`), Compatibility Matches & Breakdown (`BE-13`). Bookmarks and Invite to Apply (`BE-15`) have their own file:
+[bookmarks-and-invites.md](bookmarks-and-invites.md).
 
 ## Pet resume (`BE-11`, `PR-01`…`PR-10`)
 
@@ -424,15 +425,3 @@ All fixed in the same PR (2026-10-08), with tests in `backend/tests/Feature/Matc
   but a pet reads the same ones on Homes for You. They now name the pet and the home.
 - **`species=` (an empty value) was a 422** on the Browse lists too, although an empty value is documented as no
   filter. Fixed in the shared `BrowseRequest`.
-
-## Bookmarks & Invites (`BE-15`, `BM-01`, `RQ-01..RQ-02`)
-
-| Method | Path | Role | Description |
-| --- | --- | --- | --- |
-| `GET` | `/api/v1/bookmarks` | `pet`, `human` (Active) | Paginated list of bookmarked profiles (`?type=pets\|homes`) |
-| `POST` | `/api/v1/bookmarks` | `pet`, `human` (Active) | Bookmark a Pet (`pet_id`) or Home Profile (`home_profile_id`) |
-| `DELETE` | `/api/v1/bookmarks/{bookmark}` | `pet`, `human` (Active) | Remove bookmark by bookmark ID |
-| `DELETE` | `/api/v1/bookmarks/{type}/{id}` | `pet`, `human` (Active) | Remove bookmark by target type (`pets` or `homes`) and target ID |
-| `POST` | `/api/v1/pets/{pet}/invites` | `human` (Active) | Send an Invite to Apply (`note` optional, requires `is_open_to_adopt = true`) |
-| `GET` | `/api/v1/invites` | `pet`, `human` (Active) | Paginated list of active/sent invites |
-| `POST` | `/api/v1/invites/{invite}/dismiss` | `pet` (Active) | Dismiss an invite (`dismissed_at = now()`) |
