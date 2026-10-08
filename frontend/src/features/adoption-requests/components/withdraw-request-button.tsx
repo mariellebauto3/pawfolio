@@ -30,7 +30,7 @@ export function WithdrawRequestButton({ request }: Props) {
         onClose={() => setOpen(false)}
         request={request}
         onWithdrawn={() => {
-          toast.show(`Request withdrawn. ${request.home_profile.full_name} has been notified.`);
+          toast.show(`Request withdrawn. You can apply to ${request.home_profile.full_name} again any time.`);
           router.push(requestsHref("closed"));
           router.refresh();
         }}

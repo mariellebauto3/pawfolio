@@ -6,11 +6,11 @@ import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { formatDateTime } from "@/lib/utils/format-date";
 import type { AdoptionRequest } from "@/types/adoption-request";
-import { requestTimeline } from "../schemas/request-status";
+import { type RequestReader, requestTimeline } from "../schemas/request-status";
 
-// The parts of a request's page that read the same for both sides (RQ-11, RQ-14…RQ-17): what the pet wrote, what
-// goes with it, and what has happened to it since. Everything typed by a person is rendered as plain text
-// (SEC-FE-01).
+// The parts of a request's page that both sides read (RQ-11, RQ-14…RQ-17): what the pet wrote, what goes with it,
+// and what has happened to it since. Everything typed by a person is rendered as plain text (SEC-FE-01). The
+// request thread has no place here yet: whether Pawfolio keeps it is still to be decided (FE-30).
 
 /** The cover letter and the caretaker's notes, as the pet sent them. */
 export function RequestLetter({ request }: { request: AdoptionRequest }) {
@@ -68,21 +68,9 @@ export function RequestAttachments({ request, resumeHref, children }: AttachedPr
   );
 }
 
-/** The thread between the two sides, before it exists: it opens when the human approves (RQ-11). */
-export function RequestThreadLocked({ homeName }: { homeName: string }) {
-  return (
-    <Card title="Request thread">
-      <p className="flex items-start gap-2 text-sm text-ink-muted">
-        <Icon name="lock" className="mt-0.5 size-4 shrink-0" />
-        The thread opens once {homeName} approves the request. Until then, your cover letter speaks for you.
-      </p>
-    </Card>
-  );
-}
-
-/** What has happened to the request, oldest first, from the dates the API keeps. */
-export function RequestHistory({ request }: { request: AdoptionRequest }) {
-  const events = requestTimeline(request).map(({ at, ...event }) => ({ ...event, when: formatDateTime(at), dateTime: at }));
+/** What has happened to the request, oldest first, from the dates the API keeps, told to whoever is reading. */
+export function RequestHistory({ request, reader }: { request: AdoptionRequest; reader: RequestReader }) {
+  const events = requestTimeline(request, reader).map(({ at, ...event }) => ({ ...event, when: formatDateTime(at), dateTime: at }));
   if (events.length === 0) return null;
 
   return (
