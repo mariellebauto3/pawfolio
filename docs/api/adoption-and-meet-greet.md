@@ -10,8 +10,8 @@ Endpoints for Adoption Requests (`BE-16`), Meet & Greet Scheduling (`BE-17`), Po
 | `POST` | `/api/v1/adoption-requests` | `pet` (Active) | The same, with `home_profile_id` in the body |
 | `GET` | `/api/v1/adoption-requests` | `pet`, `human` (Active) | Paginated list of the caller's own requests (`?tab=` or `?status=`), with `meta.status_counts` |
 | `GET` | `/api/v1/adoption-requests/{id}` | `pet`, `human`, `admin` | Request detail (`unlocked_contact` / `contacts` revealed only after Meet & Greet confirmation; private `messages` thread visible only to the two participants per `RQ-19`). 404 for anyone else |
-| `POST` | `/api/v1/adoption-requests/{id}/approve` | `human` (Active) | Approve a `sent` request -> transitions Pet to `in_process` and puts other `sent` requests `on_hold` |
-| `POST` | `/api/v1/adoption-requests/{id}/decline` | `human` (Active) | Decline a `sent` request (`decline_reason`, `decision_message`) -> starts 30-day cooldown |
+| `POST` | `/api/v1/adoption-requests/{id}/approve` | `human` (Active) | Approve a `sent` request (optional `approval_message`) -> transitions Pet to `in_process` and puts other `sent` requests `on_hold`. 404 for anyone but the human it was sent to |
+| `POST` | `/api/v1/adoption-requests/{id}/decline` | `human` (Active) | Decline a request (optional `decline_reason`, `decision_message`) -> starts 30-day cooldown. 404 for anyone but the human it was sent to |
 | `POST` | `/api/v1/adoption-requests/{id}/withdraw` | `pet` (Active) | Withdraw an open or in-process request (optional `withdraw_reason`); if in-process, releases Pet back to `looking_for_a_home` and restores `on_hold` requests to `sent`. 404 for anyone but the pet that sent it |
 | `GET` | `/api/v1/adoption-requests/{id}/messages` | `pet`, `human` (Active) | List private thread messages on an in-process request |
 | `POST` | `/api/v1/adoption-requests/{id}/messages` | `pet`, `human` (Active) | Send a message on an in-process request (`body` max 2000 chars) |
@@ -70,14 +70,14 @@ The caller's own requests, newest `sent_at` first: a pet's My requests (`RQ-07`,
 
 | Query | Values |
 | --- | --- |
-| `tab` | `active` (every open status), `new` (Sent), `in_progress` (Approved, Meet Scheduled, Awaiting Decision), `closed` (every final status). Anything else is **422** |
+| `tab` | `active` (every open status), `new` (Sent), `in_progress` (every open status that isn't Sent), `closed` (every final status). Anything else is **422** |
 | `status` | One or more statuses, comma-separated (`sent,on_hold`); wins over `tab`. An unknown status is **422** |
 | `page`, `per_page` | default 20, at most 50. `page` below 1 is **422** |
 
 - **200:** a page of requests, and `meta.status_counts`: how many of the caller's requests are in each status,
   whatever the tab or the page, e.g. `{ "sent": 1, "on_hold": 1, "declined": 2 }`. A status with none is left out.
   The tab counts and "2 of 3 open · 1 in process" come from it.
-- Each request: `id`, `status`, `pet` (summary), `home_profile`, `cover_letter`, `caretaker_notes`,
+- Each request: `id`, `status`, `pet` (summary, with `approximate_age_months`), `home_profile`, `cover_letter`, `caretaker_notes`,
   `approval_message`, `decline_reason`, `decision_message`, `withdraw_reason`, and the dates `sent_at`,
   `expires_at`, `approved_at`, `meet_scheduled_at`, `awaiting_decision_at`, `overdue_flagged_at`, `closed_at`.
 - `home_profile` is `{ id, full_name, city, profile_photo_url, is_furparent, home_type, household_members }`:
@@ -137,9 +137,88 @@ request sending another; that sample data is not the rule (`project-rules/backen
 
 **Left as it is, to decide:**
 
-- **The send and withdraw rules still live in the controller**, not in Actions (backend guidelines §3), as
-  approve and decline do. Moving them is one change for the whole of BE-16, best made with the human's side.
+- **The send, withdraw, approve and decline rules still live in the controller**, not in Actions (backend
+  guidelines §3). Moving them is one change for the whole of BE-16, and wants a PR of its own.
 - **The human can read `withdraw_reason`** on the request. The Withdraw dialog tells the pet so.
+
+### The human's side (`RQ-09`…`RQ-13`, FR10)
+
+**Status: built (BE-16), checked and corrected for FE-16 (2026-10-08).** The human's screens (FE-16) run against it
+through the same `frontend/src/features/adoption-requests/api/requests.ts`, and mock mode answers the same way.
+
+- **Who:** a signed-in **Active** human reads the requests sent to their own home, and answers them. Anyone else
+  who approves or declines a request is answered **404**, like a request that doesn't exist: another human, the pet
+  that sent it, an admin (`AdoptionRequestPolicy`, SEC-AUTHZ-04).
+- The new status and its dates are the system's: `status`, `approved_at`, `closed_at` and the rest are ignored
+  when sent (SEC-INPUT-04, FR27).
+
+#### The inbox: `GET /api/v1/adoption-requests?tab=`
+
+As for a pet (above), with the three tabs of `RQ-09` and `RQ-10`: `new` (Sent), `in_progress` and `closed`.
+**`in_progress` is every open status that isn't Sent, On Hold included**, so the three tabs share out every
+request and none is lost between them. A request's `pet` is `{ id, name, species, breed, city, status, photo_url,
+approximate_age_months }`: the public summary, never the caretaker's name or number (SEC-PRIV-02).
+
+`GET /adoption-requests/{id}` answers a human as it answers a pet; `match_score` is the score both sides see.
+
+#### `POST /api/v1/adoption-requests/{id}/approve`
+
+| Body | |
+| --- | --- |
+| `approval_message` | Optional, up to 600 characters, trimmed. Empty is no message. The pet reads it on the request |
+
+- **200:** the request, now `approved`, with `approved_at` and a new `expires_at` 14 days on: the time the pet has
+  to book a Meet & Greet. In the same transaction the pet becomes In Process and its other Sent requests go On
+  Hold (their `expires_at` is cleared). The pet is notified, and so is each human whose request was paused; the
+  approval and the pet's new status are written to the activity log.
+- **422:** `approval_message` "Keep the message to 600 characters or fewer."
+- **409**, with a `message` the dialog shows as it is:
+
+  | `code` | When |
+  | --- | --- |
+  | `invalid_request_state` | The request is no longer Sent: answered already, On Hold, withdrawn or expired |
+  | `request_expired` | Its 14 days are over, though the scheduled job hasn't closed it yet |
+  | `pet_unavailable` | Another home approved the pet first, or it was adopted |
+
+#### `POST /api/v1/adoption-requests/{id}/decline`
+
+| Body | |
+| --- | --- |
+| `decline_reason` | Optional: `not_right_fit`, `not_adopting_now`, `another_pet_joining` or `other` (`RQ-13`). Empty is no reason; anything else is **422** |
+| `decision_message` | Optional, up to 600 characters, trimmed. Empty is no message |
+
+- **200:** the request, now `declined`, with `closed_at` and `cooldown_until` 30 days on: until then the pet can't
+  apply to this home again (`request_cooldown`). The pet is notified and reads the reason and the message on the
+  request; the decline is written to the activity log with the reason.
+- **422:** an unknown reason, or a message over 600 characters.
+- **409** `invalid_request_state`: the request has already reached a final status, or its Meet & Greet is already
+  scheduled.
+- The API also accepts a decline of a request that is On Hold or Approved (an Approved one frees the pet and its
+  requests On Hold). The screens offer Decline on a new request only, as the LoFi does (`RQ-11`); the decision
+  after a Meet & Greet has its own endpoint (BE-18).
+
+#### Found while wiring FE-16
+
+All fixed in the same PR (2026-10-08), with tests in
+`backend/tests/Feature/AdoptionRequests/HumanAdoptionRequestsTest.php`.
+
+- **Approving or declining someone else's request answered 403**, which told the caller that the id exists. Both
+  are 404 now, as withdrawing became with FE-15.
+- **A request On Hold was in none of the inbox's tabs.** `in_progress` listed Approved, Meet Scheduled and
+  Awaiting Decision only, so a paused request showed under no tab while it was still counted. It lists every open
+  status that isn't Sent now.
+- **A row had no age**, where `RQ-09` shows the breed, the age and the city. A request's pet carries
+  `approximate_age_months`.
+- Validation moved into Form Requests (SEC-INPUT-01), with messages the dialogs show, and who may answer into
+  `AdoptionRequestPolicy` (SEC-AUTHZ-01). The two messages are trimmed before they are counted.
+
+**Left as it is, to decide:**
+
+- **The request thread.** The API has it (`/messages`, open while a request is in process), but whether Pawfolio
+  keeps it is still open (FE-30). No screen shows or promises it: the "thread opens once the human approves" card
+  FE-15 put on the pet's request page is gone until that is decided.
+- **A notification is not sent** to an account that turned "Adoption requests and invites" off, so "the pet is
+  notified" means "unless it asked not to be". The screens' toasts don't claim it.
 
 ## Meet & Greet (`BE-17`, `MG-01..MG-11`)
 
