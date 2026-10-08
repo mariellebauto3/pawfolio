@@ -8,10 +8,11 @@ use App\Models\AdoptionRequest;
 use App\Models\User;
 
 /**
- * Who may use adoption requests as the pet that sends them (RQ-03…RQ-08, RQ-14…RQ-17, FR24, FR25). A request is
- * between one pet and one human: only those two and admins read it (SEC-AUTHZ-03), and anyone else is answered 404,
- * so ids can't be probed (SEC-AUTHZ-04). The rules of sending (3 open, 1 in process, the cooldown) are the
- * controller's, inside its transaction.
+ * Who may use adoption requests: the pet that sends them (RQ-03…RQ-08, RQ-14…RQ-17, FR24, FR25) and the human that
+ * answers them (RQ-09…RQ-13, FR10). A request is between one pet and one human: only those two and admins read it
+ * (SEC-AUTHZ-03), and anyone else is answered 404, so ids can't be probed (SEC-AUTHZ-04). The rules of sending (3
+ * open, 1 in process, the cooldown) and of answering (still Sent, not expired) are the controller's, inside its
+ * transaction.
  */
 class AdoptionRequestPolicy
 {
@@ -36,6 +37,17 @@ class AdoptionRequestPolicy
     public function withdraw(User $user, AdoptionRequest $request): bool
     {
         return $this->sent($user, $request);
+    }
+
+    /** Only the human it was sent to (FR10). Whether its status still allows an answer is the controller's to say. */
+    public function approve(User $user, AdoptionRequest $request): bool
+    {
+        return $this->received($user, $request);
+    }
+
+    public function decline(User $user, AdoptionRequest $request): bool
+    {
+        return $this->received($user, $request);
     }
 
     private function sent(User $user, AdoptionRequest $request): bool

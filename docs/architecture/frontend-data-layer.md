@@ -157,8 +157,10 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
   (`/requests/2`, `RQ-15`) and Declined by Marco Reyes a week ago (`/requests/5`, `RQ-17`), so `/homes/4` opens
   the cooldown dialog (`RQ-06`) and `/homes/3` shows "View my request". Mochi is In Process, so no home offers
   the form: the Sent state (`RQ-14`), Send request (`RQ-03`, `RQ-04`) and the limit dialog (`RQ-05`) need
-  `live`. Withdrawing works in the browser, but the page it lands on is rendered on the server, which still has
-  the fixtures. The `human` persona gets Page not found on these addresses until its side is built.
+  `live`. As `human` (FE-16), Ana Santos's inbox has one of each: Pepper's request is new (`/requests/3`, `RQ-11`,
+  with Approve and Decline), Mochi's is in progress and Tofu's is closed. Withdrawing, approving and declining
+  work in the browser, but the page that follows is rendered on the server, which still has the fixtures: the
+  toast shows and the status doesn't change. Use `live` to see an answer through.
 - **No mock for the pet resume:** `/me` and `/resume/edit` (FE-10) were built on the real `/me/pet` endpoints. In mock
   mode they show the error state; use `live` for them.
 - **Adding mocks:** add a file in `src/lib/api/mock/handlers/` and register it in `handlers/index.ts`. Follow the

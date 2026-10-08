@@ -72,6 +72,10 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
 - **RQ-07, RQ-08:** `/requests` for a pet (`components/request-list.tsx`): Active and Closed in `?tab=`, a page at
   a time, each row a home with its city, home type and household, the dates and the status. The tab counts and
   "2 of 3 open · 1 in process" come from the API's count of each status.
+- **RQ-09, RQ-10 (FE-16):** `/requests` for a human, the inbox (`InboxList` in the same file): New, In progress
+  and Closed in `?tab=`, each row a pet with its breed, age and city. What waits on the human is marked "New" or
+  "Decision needed"; every other row carries its status. In progress holds every open request that isn't new, On
+  Hold included, so the three tabs leave none out. Manage availability links to `/availability`.
 - **RQ-14, RQ-15, RQ-17, and every other status:** `/requests/[requestId]` for a pet, on
   `components/request-detail-layout.tsx`: the header (`components/request-header.tsx`: who, the read-only status
   badge and the path Sent → Adopted — Hired, or "Closed on" once it ended otherwise), the action panel, the
@@ -82,18 +86,31 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
 - **RQ-16:** `dialogs/withdraw-request-dialog.tsx`, opened by `components/withdraw-request-button.tsx`: what
   happens (it differs when the request is the one in process), an optional reason, Keep request and Withdraw
   request. Afterwards the pet lands on the Closed tab with a toast.
-- **Building on the detail layout (FE-16, FE-17, FE-18):** hand `RequestDetailLayout` a `header`, a `panel` and
-  the content. `RequestHeader` takes the title and facts for the reader; `RequestLetter`, `RequestAttachments`
-  (its `children` take more attachments, such as the match for the human) and `RequestHistory` read the same for
-  both sides. The history's wording is the pet's (`schemas/request-status.ts`); the human's side needs its own.
+- **RQ-11:** `/requests/[requestId]` for a human, on the same layout: "Mochi wants to join your home", the cover
+  letter and the caretaker's notes, the resume, the health summary and the match with "Why this match?" (the
+  Matching module's breakdown, passed in by the page), the history in the human's words, and the pet's public
+  details. The panel is `components/human-request-panel.tsx`: what each status means to the human, with Approve
+  and Decline while the request is new (`components/answer-request-buttons.tsx`).
+- **RQ-12, RQ-13:** `dialogs/approve-request-dialog.tsx` (what happens to the pet and its other requests, an
+  optional message) and `dialogs/decline-request-dialog.tsx` (an optional reason and message, the 30-day note). A
+  refusal from the API is shown in the dialog in its own words, and the page behind is read again. Afterwards the
+  page shows the new status, a toast confirms, and focus moves to the action panel
+  (`components/request-panel-frame.tsx`), since the buttons that were pressed are gone.
+- **Building on the detail layout (FE-17, FE-18):** hand `RequestDetailLayout` a `header`, a `panel` and the
+  content. `RequestHeader` takes the title and facts for the reader; `RequestLetter` and `RequestAttachments` (its
+  `children` take more attachments) read the same for both sides, and `RequestHistory` takes a `reader`, since
+  each side is "you" in its own history (`schemas/request-status.ts`). The page (`app/(member)/requests/
+  [requestId]/page.tsx`) picks the view by role. A step that changes the status in place should sit inside
+  `RequestPanelFrame`, so focus follows.
 - API contracts: `docs/api/bookmarks-and-invites.md` and `docs/api/adoption-and-meet-greet.md` ("The pet's
   side"). Tests: `tests/unit/features/adoption-requests/`. Mock mode answers these screens from memory
   (`docs/architecture/frontend-data-layer.md`).
-- **Not built here:** the human's side of `/requests` and `/requests/[requestId]` (`RQ-09`…`RQ-13`, FE-16): a
-  human opening either gets Page not found until then, and an admin is sent to the dashboard. Booking a
-  Meet & Greet and the request thread (FE-17): an Approved request says that booking comes next and offers only
-  Withdraw. An adopted pet or a pet with a Draft resume still sees Apply on a Home Profile; the API refuses the
-  request and the form shows its message. A human has no list of the invites they sent.
+- **Not built here:** Booking a Meet & Greet, availability (`/availability`, which Manage availability links
+  to) and the decision after the meeting (FE-17, FE-18): an Approved request says that booking comes next, and
+  one that is Awaiting Decision says the decision is the human's, with no buttons yet. The request thread: whether
+  Pawfolio keeps it is undecided (FE-30), so no screen shows or promises it. An admin opening `/requests` is sent
+  to the dashboard. An adopted pet or a pet with a Draft resume still sees Apply on a Home Profile; the API
+  refuses the request and the form shows its message. A human has no list of the invites they sent.
 
 ## Requirements covered
 
