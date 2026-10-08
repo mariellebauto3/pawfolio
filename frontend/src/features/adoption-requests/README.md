@@ -57,10 +57,43 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
   why Apply isn't offered: the 30-day cooldown, or Open to Adopt turned off (`schemas/invites.ts`, in the order the
   Home Profile page uses). Dismiss takes the card away with a toast. A human or an admin opening `/invites` is
   sent home.
-- API contract: `docs/api/bookmarks-and-invites.md`. Tests: `tests/unit/features/adoption-requests/`. Mock mode
-  answers these screens from memory (`docs/architecture/frontend-data-layer.md`).
-- **Not built here:** the pages the invite cards link to, Send adoption request (`RQ-03`, `/apply/[homeId]`) and the
-  request itself (`/requests/[requestId]`), which come with FE-15. A human has no list of the invites they sent.
+- **RQ-03, RQ-04 (FE-15):** `/apply/[homeId]`, the pet's job application (`forms/send-request-form.tsx`): who it
+  goes to with the match (`components/request-recipient.tsx`), the cover letter (50 to 600 characters, counted as
+  it is typed), the caretaker's notes, and the resume and health summary that go with it. Once sent, Request sent
+  takes the form's place (`components/request-sent.tsx`) with the open request count and the expiry date the API
+  answered. The page reads the pet's own requests first: a request already open with this home goes to that
+  request, and a pet that can't apply right now reads why in place of the form (`components/apply-unavailable.tsx`).
+- **RQ-05, RQ-06:** `dialogs/apply-blocked-dialog.tsx`, one dialog for the three rules that stop a request: 3 open
+  requests (the three are listed, with Manage my requests), the 30-day cooldown (the last request's dates and the
+  day it ends), and a request already in process with another home. It opens from Apply on a Home Profile
+  (`components/apply-button.tsx`, mounted by `/homes/[homeId]`), and from the form when the API answers 409 after
+  the page was rendered; the form then reads the pet's requests again to fill it. Which rule it is:
+  `schemas/apply-state.ts`, in the API's order.
+- **RQ-07, RQ-08:** `/requests` for a pet (`components/request-list.tsx`): Active and Closed in `?tab=`, a page at
+  a time, each row a home with its city, home type and household, the dates and the status. The tab counts and
+  "2 of 3 open · 1 in process" come from the API's count of each status.
+- **RQ-14, RQ-15, RQ-17, and every other status:** `/requests/[requestId]` for a pet, on
+  `components/request-detail-layout.tsx`: the header (`components/request-header.tsx`: who, the read-only status
+  badge and the path Sent → Adopted — Hired, or "Closed on" once it ended otherwise), the action panel, the
+  request (`components/request-content.tsx`: cover letter, notes, what is attached, the locked thread) and, beside
+  it, the history and the home. On a phone the action panel comes first. The pet's panel is
+  `components/pet-request-panel.tsx`: what the status means, the human's reason and message on a decline, the day
+  the cooldown ends, and Withdraw for every open status.
+- **RQ-16:** `dialogs/withdraw-request-dialog.tsx`, opened by `components/withdraw-request-button.tsx`: what
+  happens (it differs when the request is the one in process), an optional reason, Keep request and Withdraw
+  request. Afterwards the pet lands on the Closed tab with a toast.
+- **Building on the detail layout (FE-16, FE-17, FE-18):** hand `RequestDetailLayout` a `header`, a `panel` and
+  the content. `RequestHeader` takes the title and facts for the reader; `RequestLetter`, `RequestAttachments`
+  (its `children` take more attachments, such as the match for the human) and `RequestHistory` read the same for
+  both sides. The history's wording is the pet's (`schemas/request-status.ts`); the human's side needs its own.
+- API contracts: `docs/api/bookmarks-and-invites.md` and `docs/api/adoption-and-meet-greet.md` ("The pet's
+  side"). Tests: `tests/unit/features/adoption-requests/`. Mock mode answers these screens from memory
+  (`docs/architecture/frontend-data-layer.md`).
+- **Not built here:** the human's side of `/requests` and `/requests/[requestId]` (`RQ-09`…`RQ-13`, FE-16): a
+  human opening either gets Page not found until then, and an admin is sent to the dashboard. Booking a
+  Meet & Greet and the request thread (FE-17): an Approved request says that booking comes next and offers only
+  Withdraw. An adopted pet or a pet with a Draft resume still sees Apply on a Home Profile; the API refuses the
+  request and the form shows its message. A human has no list of the invites they sent.
 
 ## Requirements covered
 

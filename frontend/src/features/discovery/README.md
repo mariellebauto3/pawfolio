@@ -48,16 +48,17 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
   banner and no actions. A pet opening its own id goes to `/me`.
 - **DS-06:** the photo viewer is shared (`@/components/overlays/photo-viewer`), opened by the resume's photo
   grid (`@/components/data-display/photo-gallery`), so a pet's own `/me` has it too.
-- **DS-07:** `/homes/[homeId]` on the shared `@/components/data-display/home-profile-view`. Apply links to
-  `/apply/[homeId]`; "View my request" takes its place while a request is open, and a cooldown or a home that
-  isn't accepting requests shows no Apply (`schemas/apply-state.ts`). A human opening their own id goes to `/me`.
+- **DS-07:** `/homes/[homeId]` on the shared `@/components/data-display/home-profile-view`. Apply is the
+  Adoption Requests module's button (FE-15), put on the page beside Bookmark: it links to `/apply/[homeId]`,
+  shows "View my request" while a request is open, and explains the limit and the cooldown in a dialog
+  (`RQ-05`, `RQ-06`). A human opening their own id goes to `/me`.
 - **Cards** are shared (`@/components/data-display/match-card`, `pet-card`, `home-card`) for the matches and
   bookmarks lists that come next.
 - API contract: `docs/api/discovery.md`. Tests: `tests/unit/features/discovery/`. Mock mode answers these
   screens from the fixtures.
 - **Invite to Apply and Bookmark (FE-14):** the Adoption Requests and Bookmarks modules' buttons, put on the
-  resume by its page and passed into `components/home-profile-actions.tsx` by the Home Profile page. A resume
-  offers Invite to Apply only while the pet is Looking for a Home, and neither once it is adopted.
+  resume and on the Home Profile by their pages. A resume offers Invite to Apply only while the pet is Looking
+  for a Home, and neither once it is adopted.
 - **Not built here:** Report (RP-01) belongs to the
   Reports module, and Adoption details on an alumni profile (AL-06) to Adoption. "See full breakdown" (MT-03) is
   the Matching module's button, passed into `components/match-summary.tsx` by the two profile pages. Latest activity on someone else's resume needs the pet's account id, which the resume doesn't carry.

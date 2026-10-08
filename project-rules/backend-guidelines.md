@@ -62,6 +62,7 @@ backend/
 - Statuses change only through actions (FR27, NFR3). No endpoint accepts a raw `status` field from users.
 - Max **3 open requests** per pet, only **1 in process**; one request per pet + human; **30-day cooldown** after Declined/Not Adopted.
 - When a request is approved, the pet becomes In Process and its other open requests go On Hold; they return to Sent (fresh 14 days) if it ends without adoption.
+- A pet that is In Process can't send a request and can't be invited to apply (`409 pet_in_process`, `409 pet_not_looking_for_home`). A pet that is only applying (Sent requests, none approved) can do both (agreed 2026-10-08).
 - Sent requests expire after **14 days**; approved requests without a booking expire after 14 days (reminder at 7).
 - Meet & Greet booking only after approval; Adopt/Decline only after the meeting time; reminders 1 day and 1 hour before; overdue flag 7 days after.
 - On Adopt: pet → Adopted — Hired (permanent), linked to one Furparent; human gets the Furparent label; other open requests close.

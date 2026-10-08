@@ -1,5 +1,5 @@
 import type { IsoDateTime } from "@/types/api";
-import type { HomeProfileSummary } from "@/types/home-profile";
+import type { HomeProfile, HomeProfileSummary } from "@/types/home-profile";
 import type { PetSummary } from "@/types/pet";
 import type { RequestStatus } from "@/types/statuses";
 
@@ -10,13 +10,19 @@ import type { RequestStatus } from "@/types/statuses";
 export type DeclineReason = "not_right_fit" | "not_adopting_now" | "another_pet_joining" | "other";
 export type WithdrawReason = "found_better_match" | "caretaker_cant_make_schedule" | "pet_no_longer_available" | "other";
 
+/**
+ * The home as a request names it: the summary, and the two public facts a row of My requests shows beside the city
+ * (RQ-07). Never the address or the phone number (SEC-PRIV-03).
+ */
+export type RequestHome = HomeProfileSummary & Pick<HomeProfile, "home_type" | "household_members">;
+
 export type AdoptionRequest = {
   id: number;
   status: RequestStatus;
   /** The sender (FR24). */
   pet: PetSummary;
   /** The recipient. */
-  home_profile: HomeProfileSummary;
+  home_profile: RequestHome;
   /** "Why I'd fit your home", 50–600 characters (RQ-03). */
   cover_letter: string;
   caretaker_notes: string | null;

@@ -91,7 +91,7 @@ describe("mock transport", () => {
     });
     await expect(
       client.post("/adoption-requests", { home_profile_id: 3, cover_letter: "x".repeat(60) }),
-    ).rejects.toMatchObject({ kind: "conflict", code: "request_already_open" });
+    ).rejects.toMatchObject({ kind: "conflict", code: "pet_in_process" });
   });
 
   it("never passes 5xx server text through", async () => {

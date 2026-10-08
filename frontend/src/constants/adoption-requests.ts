@@ -12,5 +12,14 @@ export const REQUEST_COOLDOWN_DAYS = 30;
 /** A request that is still moving: it counts toward the limit and stands in for "Apply" on the home (DS-07). */
 export const OPEN_REQUEST_STATUSES: readonly RequestStatus[] = ["sent", "on_hold", "approved", "meet_scheduled", "awaiting_decision"];
 
+/** Approved and moving toward a decision. Only one of a pet's requests is here at a time; its others are On Hold. */
+export const IN_PROCESS_REQUEST_STATUSES: readonly RequestStatus[] = ["approved", "meet_scheduled", "awaiting_decision"];
+
+/** A request that reached an ending (RQ-08). Only Adopted is a happy one. */
+export const CLOSED_REQUEST_STATUSES: readonly RequestStatus[] = ["adopted", "declined", "not_adopted", "withdrawn", "closed", "expired"];
+
+/** Days a human has to answer a Sent request before it expires (§5.3). */
+export const REQUEST_EXPIRY_DAYS = 14;
+
 /** The two endings that start the cooldown. */
 export const COOLDOWN_REQUEST_STATUSES: readonly RequestStatus[] = ["declined", "not_adopted"];

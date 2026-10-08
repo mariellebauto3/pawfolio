@@ -9,6 +9,7 @@ use App\Enums\MeetAndGreetStatus;
 use App\Http\Resources\Profiles\HomeProfileResource;
 use App\Http\Resources\Profiles\PetResource;
 use App\Models\AdoptionRequest;
+use App\Models\HomeProfile;
 use App\Models\MatchScore;
 use App\Models\MeetAndGreet;
 use App\Models\MeetGreetSlot;
@@ -43,7 +44,7 @@ class AdoptionRequestResource extends JsonResource
     {
         /** @var AdoptionRequest $ar */
         $ar = $this->resource;
-        $ar->loadMissing(['pet.photos', 'homeProfile']);
+        $ar->loadMissing(['pet.photos', 'homeProfile.householdMembers']);
 
         $status = $ar->getStatus()->value;
 
@@ -51,7 +52,7 @@ class AdoptionRequestResource extends JsonResource
             'id' => $ar->id,
             'status' => $status,
             'pet' => $ar->pet ? PetResource::summary($ar->pet) : null,
-            'home_profile' => $ar->homeProfile ? HomeProfileResource::summary($ar->homeProfile) : null,
+            'home_profile' => $ar->homeProfile ? self::home($ar->homeProfile) : null,
             'cover_letter' => $ar->cover_letter,
             'caretaker_notes' => $ar->caretaker_notes,
             'approval_message' => $ar->approval_message,
@@ -171,6 +172,23 @@ class AdoptionRequestResource extends JsonResource
         }
 
         return $data;
+    }
+
+    /**
+     * The home as a request names it: the summary, and the two public facts a row of My requests shows beside the
+     * city (RQ-07). Never the address or the phone number (SEC-PRIV-03); those are `contacts`, above.
+     *
+     * @return array<string, mixed>
+     */
+    private static function home(HomeProfile $home): array
+    {
+        $value = fn ($answer) => $answer instanceof \BackedEnum ? $answer->value : $answer;
+
+        return [
+            ...HomeProfileResource::summary($home),
+            'home_type' => $value($home->home_type),
+            'household_members' => $home->householdMembers->map(fn ($row) => $value($row->member))->values()->all(),
+        ];
     }
 
     /**

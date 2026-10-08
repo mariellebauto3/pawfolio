@@ -3,7 +3,6 @@ import {
   browseHomes,
   browsePets,
   getHomeProfileDetail,
-  getOwnRequests,
   getPetProfile,
   getSimilarPets,
   search,
@@ -118,14 +117,6 @@ describe("profiles (DS-05, DS-07, DS-08)", () => {
   it("suggests other pets of the species, never the pet itself", async () => {
     const similar = await getSimilarPets(as("human"), { id: 5, species: "dog" });
     expect(names(similar)).toEqual(["Biscuit"]);
-  });
-
-  it("reads the pet's own requests for the Apply button", async () => {
-    const requests = await getOwnRequests(as("pet"));
-    expect(requests.map((request) => [request.home_profile.id, request.status])).toEqual([
-      [1, "meet_scheduled"],
-      [3, "on_hold"],
-    ]);
   });
 });
 
