@@ -1,16 +1,16 @@
 import { HOME_PROFILES } from "@/lib/api/mock/fixtures/home-profiles";
 import { PETS } from "@/lib/api/mock/fixtures/pets";
-import type { AdoptionRequest, RequestHome } from "@/types/adoption-request";
-import type { PetSummary } from "@/types/pet";
+import type { AdoptionRequest, RequestHome, RequestPet } from "@/types/adoption-request";
 
 // Made-up adoption requests (SEC-PRIV-06). Mochi is In Process with Ana, as in the LoFi, so its request to Paolo is
 // On Hold (RQ-15); Marco declined it a week ago (RQ-17), so the 30-day cooldown with his home is still running.
 
-export function petSummary(petId: number): PetSummary {
+/** The pet as a request names it: the summary, and the age a row of the inbox shows. */
+export function petSummary(petId: number): RequestPet {
   const pet = PETS.find((p) => p.id === petId);
   if (!pet) throw new Error(`Mock pet ${petId} does not exist.`);
-  const { id, name, species, breed, city, status } = pet;
-  return { id, name, species, breed, city, status, photo_url: pet.photos[0]?.url ?? null };
+  const { id, name, species, breed, city, status, approximate_age_months } = pet;
+  return { id, name, species, breed, city, status, approximate_age_months, photo_url: pet.photos[0]?.url ?? null };
 }
 
 /** The home as a request names it: the summary, and the two public facts a row of My requests shows. */
@@ -72,8 +72,9 @@ export const ADOPTION_REQUESTS: AdoptionRequest[] = [
     home_profile: homeProfileSummary(1),
     cover_letter:
       "I have a lot of energy and I'm still learning to sit, but I learn fast. Your active weekends sound perfect for me.",
-    sent_at: "2026-09-28T11:00:00.000000Z",
-    expires_at: "2026-10-12T11:00:00.000000Z",
+    // Counted from today, so the one new request in the inbox never expires on its own.
+    sent_at: daysAgo(3),
+    expires_at: daysAgo(-11),
   },
   {
     ...EMPTY,

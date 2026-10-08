@@ -14,23 +14,26 @@ import { MATCH_SCORES } from "@/lib/api/mock/fixtures/match-scores";
 import { PETS } from "@/lib/api/mock/fixtures/pets";
 import { type MockContext, type MockResult, type MockRoute, fail, ok, paginate, route, validationFailed } from "@/lib/api/mock/router";
 import type { Account } from "@/types/account";
-import type { AdoptionRequest, WithdrawReason } from "@/types/adoption-request";
+import type { AdoptionRequest, DeclineReason, WithdrawReason } from "@/types/adoption-request";
 import { REQUEST_STATUSES, type RequestStatus } from "@/types/statuses";
 
-// Adoption requests in mock mode (docs/api/adoption-and-meet-greet.md), with the pet's side answered as the API
-// answers it: sending within the rules of proposal §5.5, My requests by tab with the count of each status, one
-// request, and withdrawing. What is sent or withdrawn lives in memory, so it is back to the fixtures after a
-// reload, and a page rendered on the server doesn't see what the browser changed.
+// Adoption requests in mock mode (docs/api/adoption-and-meet-greet.md), answered as the API answers them: a pet
+// sends within the rules of proposal §5.5, reads My requests by tab and withdraws; a human reads the inbox and
+// approves or declines. What is sent or answered lives in memory, so it is back to the fixtures after a reload,
+// and a page rendered on the server doesn't see what the browser changed.
 
 const COVER_LETTER_MIN = 50;
 const COVER_LETTER_MAX = 600;
 const CARETAKER_NOTES_MAX = 600;
+const ANSWER_MESSAGE_MAX = 600;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WITHDRAW_REASONS: readonly unknown[] = ["found_better_match", "caretaker_cant_make_schedule", "pet_no_longer_available", "other"] satisfies WithdrawReason[];
+const DECLINE_REASONS: readonly unknown[] = ["not_right_fit", "not_adopting_now", "another_pet_joining", "other"] satisfies DeclineReason[];
 const TABS: Record<string, readonly RequestStatus[]> = {
   active: OPEN_REQUEST_STATUSES,
   new: ["sent"],
-  in_progress: IN_PROCESS_REQUEST_STATUSES,
+  // Everything still open that isn't new, On Hold included, so the inbox's three tabs leave nothing out.
+  in_progress: OPEN_REQUEST_STATUSES.filter((status) => status !== "sent"),
   closed: CLOSED_REQUEST_STATUSES,
 };
 
@@ -74,6 +77,35 @@ function withDetails(request: AdoptionRequest) {
     contacts: null,
   };
 }
+
+/** The pet's status as every one of its requests carries it. */
+function setPetStatus(petId: number, status: "looking_for_a_home" | "in_process") {
+  const pet = PETS.find((p) => p.id === petId);
+  if (pet) pet.status = status;
+  for (const request of ADOPTION_REQUESTS) if (request.pet.id === petId) request.pet = { ...request.pet, status };
+}
+
+/** The request in process ended without an adoption: the pet is free, and its requests On Hold are Sent again (RQ-15). */
+function releasePet(petId: number, now: number) {
+  setPetStatus(petId, "looking_for_a_home");
+  for (const other of ADOPTION_REQUESTS) {
+    if (other.pet.id !== petId || other.status !== "on_hold") continue;
+    other.status = "sent";
+    other.expires_at = new Date(now + REQUEST_EXPIRY_DAYS * DAY_MS).toISOString();
+  }
+}
+
+/** The human's optional message with an answer: trimmed, null when empty, or an error when it is too long. */
+function readMessage(value: unknown): { message: string | null } | { error: string } {
+  if (value !== undefined && value !== null && typeof value !== "string") return { error: `Keep the message to ${ANSWER_MESSAGE_MAX} characters or fewer.` };
+  const message = typeof value === "string" ? value.trim() : "";
+  if (message.length > ANSWER_MESSAGE_MAX) return { error: `Keep the message to ${ANSWER_MESSAGE_MAX} characters or fewer.` };
+  return { message: message === "" ? null : message };
+}
+
+/** The request, when the account is the human it was sent to; anyone else is answered 404 (SEC-AUTHZ-04). */
+const receivedBy = (requestId: string, account: Account | null) =>
+  ADOPTION_REQUESTS.find((r) => String(r.id) === requestId && account?.role === "human" && r.home_profile.id === account.profile_id);
 
 type NewRequestBody = { home_profile_id?: unknown; cover_letter?: unknown; caretaker_notes?: unknown };
 
@@ -201,17 +233,65 @@ export const adoptionRequestRoutes: MockRoute[] = [
     request.closed_at = new Date(now).toISOString();
     request.expires_at = null;
 
-    // The pet is free again, and its requests On Hold go back to Sent with a fresh 14 days (RQ-15).
-    if (wasInProcess) {
-      const pet = PETS.find((p) => p.id === request.pet.id);
-      if (pet?.status === "in_process") pet.status = "looking_for_a_home";
-      for (const other of ADOPTION_REQUESTS.filter((r) => r.pet.id === request.pet.id)) {
-        other.pet = { ...other.pet, status: pet?.status ?? other.pet.status };
-        if (other.status !== "on_hold") continue;
-        other.status = "sent";
-        other.expires_at = new Date(now + REQUEST_EXPIRY_DAYS * DAY_MS).toISOString();
-      }
+    if (wasInProcess) releasePet(request.pet.id, now);
+
+    return ok(withDetails(request));
+  }),
+
+  // RQ-12: the pet becomes In Process and its other Sent requests go On Hold.
+  route("POST", "/adoption-requests/:requestId/approve", ({ params, body, account }) => {
+    const request = receivedBy(params.requestId, account);
+    if (!request) return fail(404, NOT_FOUND);
+
+    const read = readMessage(((body ?? {}) as { approval_message?: unknown }).approval_message);
+    if ("error" in read) return validationFailed({ approval_message: read.error });
+
+    if (request.status !== "sent") return fail(409, "Only a Sent adoption request can be approved.", { code: "invalid_request_state" });
+    const now = Date.now();
+    if (request.expires_at && new Date(request.expires_at).getTime() < now) return fail(409, "This adoption request has expired.", { code: "request_expired" });
+    if (PETS.find((p) => p.id === request.pet.id)?.status !== "looking_for_a_home") {
+      return fail(409, "This pet is already in an adoption process or has been adopted.", { code: "pet_unavailable" });
     }
+
+    request.status = "approved";
+    request.approval_message = read.message;
+    request.approved_at = new Date(now).toISOString();
+    request.expires_at = new Date(now + REQUEST_EXPIRY_DAYS * DAY_MS).toISOString();
+    setPetStatus(request.pet.id, "in_process");
+    for (const other of ADOPTION_REQUESTS) {
+      if (other.pet.id !== request.pet.id || other.id === request.id || other.status !== "sent") continue;
+      other.status = "on_hold";
+      other.expires_at = null;
+    }
+
+    return ok(withDetails(request));
+  }),
+
+  // RQ-13: ends the request and starts the 30-day cooldown.
+  route("POST", "/adoption-requests/:requestId/decline", ({ params, body, account }) => {
+    const request = receivedBy(params.requestId, account);
+    if (!request) return fail(404, NOT_FOUND);
+
+    const sent = (body ?? {}) as { decline_reason?: unknown; decision_message?: unknown };
+    const reason = sent.decline_reason ?? null;
+    const read = readMessage(sent.decision_message);
+    const errors: Record<string, string> = {};
+    if (reason !== null && reason !== "" && !DECLINE_REASONS.includes(reason)) errors.decline_reason = "Choose a reason from the list, or leave it out.";
+    if ("error" in read) errors.decision_message = read.error;
+    if ("error" in read || Object.keys(errors).length) return validationFailed(errors);
+
+    if (!["sent", "on_hold", "approved"].includes(request.status)) {
+      return fail(409, "This request cannot be declined at its current stage.", { code: "invalid_request_state" });
+    }
+
+    const wasInProcess = IN_PROCESS_REQUEST_STATUSES.includes(request.status);
+    const now = Date.now();
+    request.status = "declined";
+    request.decline_reason = reason === "" ? null : (reason as DeclineReason | null);
+    request.decision_message = read.message;
+    request.closed_at = new Date(now).toISOString();
+    request.expires_at = null;
+    if (wasInProcess) releasePet(request.pet.id, now);
 
     return ok(withDetails(request));
   }),

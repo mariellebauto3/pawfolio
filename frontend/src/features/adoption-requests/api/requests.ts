@@ -1,22 +1,23 @@
 import { type ApiClient, apiPath } from "@/lib/api/core";
 import { isRecord, isText, readPage, unexpected } from "@/lib/api/readers";
-import type { AdoptionRequest, DeclineReason, RequestHome, WithdrawReason } from "@/types/adoption-request";
+import type { AdoptionRequest, DeclineReason, RequestHome, RequestPet, WithdrawReason } from "@/types/adoption-request";
 import type { ApiResource } from "@/types/api";
 import type { HomeType, HouseholdMember } from "@/types/home-profile";
-import type { PetSummary } from "@/types/pet";
 import { REQUEST_STATUSES, type RequestStatus } from "@/types/statuses";
-import { REQUESTS_PAGE_SIZE, type RequestTab } from "../schemas/requests";
+import { type InboxTab, REQUESTS_PAGE_SIZE, type RequestTab } from "../schemas/requests";
 import type { RequestDetail, RequestPage, RequestStatusCounts, SentRequest } from "../types/requests";
 
-// Adoption request calls for the pet that sends them (docs/api/adoption-and-meet-greet.md, RQ-03…RQ-08,
-// RQ-14…RQ-17, FR24, FR25). The reads work from Server Components with `getServerApi()`; sending and withdrawing
-// run in the browser. The pet is the session's own and the status is the system's, so neither is ever sent
-// (SEC-AUTHZ-02, FR27). Every path with an id is built with apiPath (SEC-FE-08).
+// Adoption request calls, for the pet that sends them and the human that answers them
+// (docs/api/adoption-and-meet-greet.md, RQ-03…RQ-17, FR10, FR24, FR25). The reads work from Server Components with
+// `getServerApi()`; sending, withdrawing, approving and declining run in the browser. Whose request it is comes
+// from the session and the status is the system's, so neither is ever sent (SEC-AUTHZ-02, FR27). Every path with
+// an id is built with apiPath (SEC-FE-08).
 
 const LIST_PROBLEM = "We couldn't load your requests. Please try again.";
 const DETAIL_PROBLEM = "We couldn't load this request. Please try again.";
 const SEND_PROBLEM = "We couldn't tell whether your request was sent. Check My requests before sending it again.";
 const WITHDRAW_PROBLEM = "We couldn't tell whether your request was withdrawn. Reload the page to see where it stands.";
+const ANSWER_PROBLEM = "We couldn't tell whether your answer went through. Reload the page to see where the request stands.";
 
 const DECLINE_REASONS: readonly unknown[] = ["not_right_fit", "not_adopting_now", "another_pet_joining", "other"] satisfies DeclineReason[];
 const WITHDRAW_REASONS: readonly unknown[] = ["found_better_match", "caretaker_cant_make_schedule", "pet_no_longer_available", "other"] satisfies WithdrawReason[];
@@ -39,7 +40,12 @@ function readHome(value: unknown): RequestHome | null {
   };
 }
 
-const isPetSummary = (value: unknown): value is PetSummary => isRecord(value) && typeof value.id === "number" && isText(value.name);
+/** The pet on a request: its name and public summary. An age that isn't a number is "not there". */
+function readPet(value: unknown): RequestPet | null {
+  if (!isRecord(value) || typeof value.id !== "number" || !isText(value.name)) return null;
+  const age = value.approximate_age_months;
+  return { ...(value as RequestPet), approximate_age_months: typeof age === "number" && Number.isFinite(age) ? age : null };
+}
 
 /**
  * A request as the screens read it, or null when the answer isn't one. The status and the dates choose every badge
@@ -47,14 +53,15 @@ const isPetSummary = (value: unknown): value is PetSummary => isRecord(value) &&
  * no reason.
  */
 function readRequest(value: unknown): AdoptionRequest | null {
-  if (!isRecord(value) || typeof value.id !== "number" || !isStatus(value.status) || !isPetSummary(value.pet)) return null;
+  if (!isRecord(value) || typeof value.id !== "number" || !isStatus(value.status)) return null;
+  const pet = readPet(value.pet);
   const home = readHome(value.home_profile);
-  if (!home) return null;
+  if (!pet || !home) return null;
 
   return {
     id: value.id,
     status: value.status,
-    pet: value.pet,
+    pet,
     home_profile: home,
     cover_letter: isText(value.cover_letter) ? value.cover_letter : "",
     caretaker_notes: textOrNull(value.caretaker_notes),
@@ -86,11 +93,21 @@ function readRows(rows: unknown[]): AdoptionRequest[] {
   return rows.map(readRequest).filter((request): request is AdoptionRequest => request !== null);
 }
 
-/** One tab of the signed-in pet's requests, newest first, with the count of every status (RQ-07, RQ-08). */
-export async function getMyRequests(client: ApiClient, tab: RequestTab, page = 1): Promise<RequestPage> {
+/** One tab of the caller's own requests, newest first, with the count of every status whatever the tab. */
+async function listRequests(client: ApiClient, tab: string, page: number): Promise<RequestPage> {
   const response = await client.get<unknown>("/adoption-requests", { query: { tab, page: page > 1 ? page : undefined, per_page: REQUESTS_PAGE_SIZE } });
   const rows = readPage(response, isRecord, LIST_PROBLEM);
   return { ...rows, data: readRows(rows.data), counts: readCounts((rows.meta as { status_counts?: unknown }).status_counts) };
+}
+
+/** One tab of the signed-in pet's requests (RQ-07, RQ-08). */
+export function getMyRequests(client: ApiClient, tab: RequestTab, page = 1): Promise<RequestPage> {
+  return listRequests(client, tab, page);
+}
+
+/** One tab of the signed-in human's inbox: the requests pets sent to their home (RQ-09, RQ-10). */
+export function getInbox(client: ApiClient, tab: InboxTab, page = 1): Promise<RequestPage> {
+  return listRequests(client, tab === "in-progress" ? "in_progress" : tab, page);
 }
 
 /**
@@ -142,4 +159,38 @@ export async function withdrawRequest(client: ApiClient, requestId: number, reas
   const request = readRequest(data);
   if (!request) throw unexpected(WITHDRAW_PROBLEM);
   return request;
+}
+
+/** The request after an answer, with the cooldown a decline starts. */
+function readAnswered(data: unknown): RequestDetail {
+  const request = readRequest(data);
+  if (!request || !isRecord(data)) throw unexpected(ANSWER_PROBLEM);
+  return {
+    ...request,
+    match_score: typeof data.match_score === "number" ? data.match_score : null,
+    cooldown_until: textOrNull(data.cooldown_until),
+    is_thread_open: data.is_thread_open === true,
+  };
+}
+
+/**
+ * Approves a request sent to the human's home (RQ-12, FR10), with an optional message. The pet becomes In Process
+ * and its other open requests go On Hold. 409 with a message to show when it can't be approved any more:
+ * `invalid_request_state` (no longer Sent), `request_expired`, `pet_unavailable` (another home was first).
+ */
+export async function approveRequest(client: ApiClient, requestId: number, message: string | null): Promise<RequestDetail> {
+  return readAnswered((await client.post<ApiResource<unknown>>(apiPath`/adoption-requests/${requestId}/approve`, { approval_message: message }))?.data);
+}
+
+/**
+ * Declines a request (RQ-13, FR10), with an optional reason from the list and an optional message. The pet can't
+ * apply to this home again for 30 days. 409 `invalid_request_state` when it was answered or ended in the meantime.
+ */
+export async function declineRequest(
+  client: ApiClient,
+  requestId: number,
+  answer: { reason: DeclineReason | null; message: string | null },
+): Promise<RequestDetail> {
+  const body = { decline_reason: answer.reason, decision_message: answer.message };
+  return readAnswered((await client.post<ApiResource<unknown>>(apiPath`/adoption-requests/${requestId}/decline`, body))?.data);
 }

@@ -16,11 +16,14 @@ export type WithdrawReason = "found_better_match" | "caretaker_cant_make_schedul
  */
 export type RequestHome = HomeProfileSummary & Pick<HomeProfile, "home_type" | "household_members">;
 
+/** The pet as a request names it: the summary, and the age a row of the inbox shows beside the breed (RQ-09). */
+export type RequestPet = PetSummary & { approximate_age_months: number | null };
+
 export type AdoptionRequest = {
   id: number;
   status: RequestStatus;
   /** The sender (FR24). */
-  pet: PetSummary;
+  pet: RequestPet;
   /** The recipient. */
   home_profile: RequestHome;
   /** "Why I'd fit your home", 50–600 characters (RQ-03). */
