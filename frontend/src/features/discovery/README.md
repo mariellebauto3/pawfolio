@@ -57,8 +57,8 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
   screens from the fixtures.
 - **Not built here:** Invite to Apply and Bookmark are on the pages but can't be pressed until FE-14 wires them
   (`components/pet-resume-actions.tsx`, `components/home-profile-actions.tsx`). Report (RP-01) belongs to the
-  Reports module, "See full breakdown" (MT-03) to Matching, and Adoption details on an alumni profile (AL-06) to
-  Adoption. Latest activity on someone else's resume needs the pet's account id, which the resume doesn't carry.
+  Reports module, and Adoption details on an alumni profile (AL-06) to Adoption. "See full breakdown" (MT-03) is
+  the Matching module's button, passed into `components/match-summary.tsx` by the two profile pages. Latest activity on someone else's resume needs the pet's account id, which the resume doesn't carry.
   Browse filters by province only: the API matches a city exactly, so cities are found through the search box.
 
 ## Requirements covered

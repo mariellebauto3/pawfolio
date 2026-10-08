@@ -68,6 +68,9 @@ whose API doesn't answer shows its error state with "Try again" instead of a loa
   always safe to show.
 - A cancelled request (your `signal` aborted, or your timeout fired) rejects with the abort reason itself, not an
   `ApiError`. A bug, such as an unsafe path, throws a plain `Error`. Only real network failures become `network`.
+- **Check what a list answered** with the readers in `src/lib/api/readers.ts` (`readPage`, `isPet`, `isHome`): a
+  page that isn't a page is refused, and a row that doesn't match the contract is left out. Discovery and Matching
+  share them; a module that lists pets or homes should too.
 - **Files the API serves to one account** (verification documents) are read with
   `api.getFile(path, { accept: [...] })`, which resolves to a `Blob`. `accept` is required: the media types the
   screen can show safely. Any other answer is refused, because a file shown from a `blob:` address runs with this
@@ -140,6 +143,10 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
   Ana Santos (`/homes/1` shows "View my request") and Luna (`/pets/4`) is the alumni profile. There aren't enough
   fixtures to fill a second page; use `live` to see pagination. The mock doesn't check filter values the way the
   API's Form Requests do (422); the screens only send known ones.
+- **Matching:** `/matches` (FE-13) is answered from the same fixtures and made-up scores: as `human` three pets
+  for Ana Santos, as `pet` two homes for Mochi, with the breakdown dialog on each. The Open to Adopt switch is left
+  out, since the Home Profile endpoints have no mock. No persona is an Active human without the quiz or an Active
+  pet with a Draft, so the two empty states (`MT-04`, `MT-05`) show in `live` only.
 - **No mock for the pet resume:** `/me` and `/resume/edit` (FE-10) were built on the real `/me/pet` endpoints. In mock
   mode they show the error state; use `live` for them.
 - **Adding mocks:** add a file in `src/lib/api/mock/handlers/` and register it in `handlers/index.ts`. Follow the
