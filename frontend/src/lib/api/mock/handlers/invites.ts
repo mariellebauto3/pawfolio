@@ -2,6 +2,7 @@ import { ADOPTION_REQUESTS } from "@/lib/api/mock/fixtures/adoption-requests";
 import { HOME_PROFILES } from "@/lib/api/mock/fixtures/home-profiles";
 import { MATCH_SCORES } from "@/lib/api/mock/fixtures/match-scores";
 import { PETS } from "@/lib/api/mock/fixtures/pets";
+import { isBookmarked } from "@/lib/api/mock/handlers/bookmarks";
 import { type MockRoute, fail, ok, paginate, route, validationFailed } from "@/lib/api/mock/router";
 import type { RequestStatus } from "@/types/statuses";
 
@@ -23,6 +24,11 @@ const COOLDOWN_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const OPEN_STATUSES: readonly RequestStatus[] = ["sent", "on_hold", "approved", "meet_scheduled", "awaiting_decision"];
 const COOLDOWN_STATUSES: readonly RequestStatus[] = ["declined", "not_adopted"];
+
+/** When this home's live invite to the pet was sent, for `invited_at` on the resume a human reads; null without one. */
+export function liveInviteAt(petId: number, homeProfileId: number | null): string | null {
+  return INVITES.find((invite) => invite.pet_id === petId && invite.home_profile_id === homeProfileId && invite.dismissed_at === null)?.created_at ?? null;
+}
 
 const requestsBetween = (petId: number, homeProfileId: number) =>
   ADOPTION_REQUESTS.filter((request) => request.pet.id === petId && request.home_profile.id === homeProfileId);
@@ -55,7 +61,7 @@ export const inviteRoutes: MockRoute[] = [
             created_at,
             open_request_id: requestsBetween(petId, home.id).find((request) => OPEN_STATUSES.includes(request.status))?.id ?? null,
             cooldown_until: cooldownUntil(petId, home.id),
-            home_profile: { ...home, is_bookmarked: false, ...(score === undefined ? {} : { match_score: score, match_reasons: [] }) },
+            home_profile: { ...home, is_bookmarked: isBookmarked(account, { homeProfileId: home.id }), ...(score === undefined ? {} : { match_score: score, match_reasons: [] }) },
           },
         ];
       });
@@ -88,7 +94,7 @@ export const inviteRoutes: MockRoute[] = [
       return fail(409, `${pet.name} has already applied to your home. Find the request in your Requests.`, { code: "request_already_open" });
     }
     // One live invite per pet and home; a dismissed one doesn't count.
-    if (INVITES.some((invite) => invite.pet_id === pet.id && invite.home_profile_id === home.id && invite.dismissed_at === null)) {
+    if (liveInviteAt(pet.id, home.id) !== null) {
       return fail(409, `You have already invited ${pet.name} to apply.`, { code: "invite_already_sent" });
     }
 

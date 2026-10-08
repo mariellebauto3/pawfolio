@@ -20,6 +20,14 @@ const BOOKMARKS: Bookmark[] = [
   { id: 5, user_id: 1, pet_id: null, home_profile_id: 1, created_at: "2026-09-19T20:15:00.000000Z" },
 ];
 
+/** Whether this account saved the pet or the home, for `is_bookmarked` on the lists and profiles of other modules. */
+export function isBookmarked(account: Account | null, target: { petId: number } | { homeProfileId: number }): boolean {
+  return BOOKMARKS.some(
+    (bookmark) =>
+      bookmark.user_id === account?.id && ("petId" in target ? bookmark.pet_id === target.petId : bookmark.home_profile_id === target.homeProfileId),
+  );
+}
+
 /** Admins have no bookmarks (403), like the `role:pet,human` middleware. */
 function refusedRole(account: Account | null): MockResult | null {
   return account?.role === "pet" || account?.role === "human" ? null : fail(403, "You do not have permission to perform this action.");

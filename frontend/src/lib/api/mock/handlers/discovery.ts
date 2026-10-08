@@ -4,6 +4,8 @@ import { HOME_PROFILES } from "@/lib/api/mock/fixtures/home-profiles";
 import { MATCH_REASONS, MATCH_SCORES } from "@/lib/api/mock/fixtures/match-scores";
 import { PETS } from "@/lib/api/mock/fixtures/pets";
 import { RECENTLY_HIRED } from "@/lib/api/mock/fixtures/recently-hired";
+import { isBookmarked } from "@/lib/api/mock/handlers/bookmarks";
+import { liveInviteAt } from "@/lib/api/mock/handlers/invites";
 import { type MockRoute, fail, ok, paginate, route, validationFailed } from "@/lib/api/mock/router";
 import type { Account } from "@/types/account";
 import type { HomeProfile } from "@/types/home-profile";
@@ -103,7 +105,7 @@ export const discoveryRoutes: MockRoute[] = [
   route("GET", "/public/recently-hired", () => ok(RECENTLY_HIRED.slice(0, 8)), "public"),
 
   route("GET", "/pets", ({ query, account }) => {
-    const rows = petsMatching(query).map((pet) => ({ ...pet, match_score: scoreFor(account, { petId: pet.id }), is_bookmarked: false }));
+    const rows = petsMatching(query).map((pet) => ({ ...pet, match_score: scoreFor(account, { petId: pet.id }), is_bookmarked: isBookmarked(account, { petId: pet.id }) }));
     return { status: 200, body: paginate(byScore(rows, query, (row) => row.match_score), query, "/api/v1/pets") };
   }),
 
@@ -113,11 +115,13 @@ export const discoveryRoutes: MockRoute[] = [
     // Draft resumes are hidden from everyone but their pet (§5.2, PR-02).
     if (!pet || (pet.status === "draft" && !own)) return fail(404, "We couldn't find that pet.");
     const match = account?.role === "human" ? matchFor(scoreFor(account, { petId: pet.id })) : undefined;
-    return ok({ ...pet, is_bookmarked: false, match });
+    // A human also learns whether their own invite is with the pet (RQ-01).
+    const invited = account?.role === "human" ? { invited_at: liveInviteAt(pet.id, account.profile_id) } : {};
+    return ok({ ...pet, is_bookmarked: isBookmarked(account, { petId: pet.id }), match, ...invited });
   }),
 
   route("GET", "/home-profiles", ({ query, account }) => {
-    const rows = homesMatching(query).map((home) => ({ ...home, match_score: scoreFor(account, { homeId: home.id }), is_bookmarked: false }));
+    const rows = homesMatching(query).map((home) => ({ ...home, match_score: scoreFor(account, { homeId: home.id }), is_bookmarked: isBookmarked(account, { homeProfileId: home.id }) }));
     return { status: 200, body: paginate(byScore(rows, query, (row) => row.match_score), query, "/api/v1/home-profiles") };
   }),
 
@@ -130,7 +134,7 @@ export const discoveryRoutes: MockRoute[] = [
       return fail(404, "We couldn't find that Home Profile.");
     }
     const match = account?.role === "pet" ? matchFor(scoreFor(account, { homeId: home.id })) : undefined;
-    return ok({ ...home, is_bookmarked: false, match });
+    return ok({ ...home, is_bookmarked: isBookmarked(account, { homeProfileId: home.id }), match });
   }),
 
   // The overview (the first few of each kind) or, with `type`, one kind a page at a time. Both carry the totals.

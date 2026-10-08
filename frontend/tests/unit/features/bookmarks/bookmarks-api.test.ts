@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { getSavedHomes, getSavedPets, removeBookmark, saveBookmark } from "@/features/bookmarks/api/bookmarks";
+import { browsePets, getHomeProfileDetail, getPetProfile } from "@/features/discovery/api/discovery";
+import { NO_FILTERS } from "@/features/discovery/schemas/browse-filters";
+import { getHomeMatches, getPetMatches } from "@/features/matching/api/matching";
+import { ALL_MATCHES } from "@/features/matching/schemas/match-view";
 import { type ApiClient, type Transport, createApiClient } from "@/lib/api/core";
 import { MOCK_PERSONA_COOKIE, createMockTransport } from "@/lib/api/mock/transport";
 
@@ -61,6 +65,31 @@ describe("the Bookmarks list (BM-01, BM-02)", () => {
     await expect(getSavedPets(as("admin"))).rejects.toMatchObject({ kind: "forbidden" });
     await expect(getSavedPets(as("pet-suspended"))).rejects.toMatchObject({ kind: "account_not_active" });
     await expect(getSavedPets(as("signed-out"))).rejects.toMatchObject({ kind: "unauthenticated" });
+  });
+});
+
+describe("what is saved, on the other lists and profiles", () => {
+  it("marks a human's saved pets on Browse, on a resume and on Pets for You", async () => {
+    const human = as("human");
+    const browsed = (await browsePets(human, NO_FILTERS)).data.map((pet) => [pet.name, pet.is_bookmarked]);
+    expect(browsed).toEqual([["Tofu", true], ["Biscuit", true], ["Pepper", false]]);
+    expect((await getPetProfile(human, 6)).is_bookmarked).toBe(true);
+    expect((await getPetProfile(human, 5)).is_bookmarked).toBe(false);
+
+    const matches = await getPetMatches(human, ALL_MATCHES);
+    expect(matches.eligible && matches.page.data.map(({ pet }) => [pet.name, pet.is_bookmarked])).toEqual([["Tofu", true], ["Biscuit", true], ["Pepper", false]]);
+  });
+
+  it("marks a pet's saved homes on a Home Profile and on Homes for You", async () => {
+    const pet = as("pet");
+    expect((await getHomeProfileDetail(pet, 3)).is_bookmarked).toBe(true);
+    const matches = await getHomeMatches(pet, ALL_MATCHES);
+    expect(matches.eligible && matches.page.data.map(({ home_profile: home }) => [home.full_name, home.is_bookmarked])).toEqual([
+      ["Ana Santos", true],
+      ["Paolo Garcia", true],
+    ]);
+    // Someone else's bookmark is not the viewer's: Ana saved Tofu, Mochi did not.
+    expect((await getPetProfile(pet, 6)).is_bookmarked).toBe(false);
   });
 });
 

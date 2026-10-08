@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dismissInvite, getInvites, sendInvite } from "@/features/adoption-requests/api/invites";
 import { INVITE_NOTE_MAX, inviteApplyState, inviteNote, validateInviteNote } from "@/features/adoption-requests/schemas/invites";
+import { getPetProfile } from "@/features/discovery/api/discovery";
 import { type Transport, createApiClient } from "@/lib/api/core";
 import { HOME_PROFILES } from "@/lib/api/mock/fixtures/home-profiles";
 import { MOCK_PERSONA_COOKIE, createMockTransport } from "@/lib/api/mock/transport";
@@ -127,9 +128,18 @@ describe("sending an invite (RQ-01)", () => {
 
   it("goes out once: a second one is refused while the first is live", async () => {
     const human = as("human");
+    expect((await getPetProfile(human, 3)).invited_at).toBeNull();
+
     const invite = await sendInvite(human, 3, "  We have a yard waiting for you.  ");
     expect(invite).toMatchObject({ pet_id: 3, home_profile_id: 1, note: "We have a yard waiting for you." });
     await expect(sendInvite(human, 3, null)).rejects.toMatchObject({ kind: "conflict", code: "invite_already_sent" });
+
+    // The resume now tells this human their invite is out, so the page shows "Invite sent" (RQ-01).
+    expect((await getPetProfile(human, 3)).invited_at).toBe(invite.created_at);
+    // Only the human who sent it is told; and anything but a date reads as "not invited".
+    expect((await getPetProfile(as("pet"), 3)).invited_at).toBeNull();
+    const odd = { ...(await as("human").get<{ data: object }>("/pets/3")).data, invited_at: 5 };
+    expect((await getPetProfile(answering({ data: odd }).client, 3)).invited_at).toBeNull();
   });
 });
 
