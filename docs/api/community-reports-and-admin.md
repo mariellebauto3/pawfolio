@@ -30,6 +30,9 @@ The frontend screens (`FD-01`…`FD-07`) run against these endpoints through
   an `update` for a pet and a `post` for a human; `for_hire` and `hired` are posted by the system when a resume goes
   live and when a pet is adopted (FR27, FR28). The screens send no `type`.
 - **Every write is limited** to 60 a minute per account (`throttle:writes`, SEC-API-04): **429**.
+- **An account that isn't Active is hidden with its words.** The posts and comments of a suspended or
+  deactivated account are left out of every list and count, and its posts and comments answer **404** by their
+  own address too (SEC-ABUSE-04, SEC-PRIV-05). Nothing is deleted: they are back when the account is Active again.
 - **Words are text.** `title`, `body` and a comment's `body` are trimmed and stored as written. The frontend renders
   them as text and turns nothing in them into a link (SEC-FE-01, SEC-FE-02).
 
@@ -70,7 +73,7 @@ The frontend screens (`FD-01`…`FD-07`) run against these endpoints through
 | `author.is_profile_viewable` | Whether **this viewer** may open the author's resume or Home Profile, by the same policy as `GET /pets/{id}` and `GET /home-profiles/{id}`. `false` for a Draft resume and for a home whose Open to Adopt is off: the frontend then shows the name without a link (SEC-AUTHZ-04) |
 | `adopted_pet` | The pet an adoption story or a Hired post is about: `{ id, name, species, breed, city, status, photo_url }`, or `null` |
 | `photos` | Up to 4, in order. Public storage (SEC-FILE-04); re-encoded and stripped of EXIF by the API (SEC-FILE-05) |
-| `comments_count` | The comments and replies the post's page lists: not a removed one, and not a reply whose comment was removed |
+| `comments_count` | The comments and replies the post's page lists: not a removed one, not one by an account that isn't Active, and not a reply whose comment is hidden for either reason |
 | `has_reacted` | Whether the viewer liked it |
 
 A comment is `{ id, post_id, parent_comment_id, body, author, reactions_count, has_reacted, created_at }`, with the
@@ -92,7 +95,8 @@ for the reader's role, each `{ id, title, message, audience, published_at }`.
 #### `GET /api/v1/posts/{post}`
 
 The post, plus `comments`: the top-level comments, oldest first, each with `replies` (one level, oldest first).
-**404** for a post that was deleted, or removed by an admin, like one that never existed.
+**404** for a post that was deleted, removed by an admin, or written by an account that isn't Active, like one
+that never existed. An admin still reads a removed post and a non-Active account's post, to moderate.
 
 #### `POST /api/v1/posts` and `POST /api/v1/posts/adoption-story`
 
@@ -124,10 +128,10 @@ with the post.
 
 | Call | Body | Answers |
 | --- | --- | --- |
-| `POST /posts/{post}/comments` | `body` (required, up to 1,000), optional `parent_comment_id` | **201** with the comment (no `replies` key). **404** when the post or the parent is gone; **422** `parent_comment_id` for a reply to a reply. The post's author is notified (`post_comment`, link `/posts/{id}`) |
+| `POST /posts/{post}/comments` | `body` (required, up to 1,000), optional `parent_comment_id` | **201** with the comment (no `replies` key). **404** when the post or the parent is gone or hidden; **422** `parent_comment_id` for a reply to a reply. The post's author is notified (`post_comment`, link `/posts/{id}`) |
 | `DELETE /comments/{comment}` | — | `{ "deleted": true }`. Allowed to the comment's author, the author of the post it is on, and admins; **403** otherwise. Its replies stop being listed and counted with it |
-| `POST /posts/{post}/reactions` | — | Toggles the caller's like: `{ "reacted": true, "reactions_count": 4 }` |
-| `POST /comments/{comment}/reactions` | — | The same for a comment or a reply |
+| `POST /posts/{post}/reactions` | — | Toggles the caller's like: `{ "reacted": true, "reactions_count": 4 }`. **404** when the post is gone or hidden |
+| `POST /comments/{comment}/reactions` | — | The same for a comment or a reply. **404** when the comment, or the post it is on, is gone or hidden |
 
 ## Reports & Moderation (`BE-22`, `RP-01..RP-05`)
 

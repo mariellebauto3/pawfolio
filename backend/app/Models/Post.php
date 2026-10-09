@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AccountStatus;
 use App\Enums\PostType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -56,6 +57,15 @@ class Post extends Model
     public function scopeVisible($query)
     {
         return $query->whereNull('removed_at')->whereNull('deleted_at');
+    }
+
+    /**
+     * Written by an account that is Active. A suspended or deactivated account's words are hidden with its profile
+     * (SEC-ABUSE-04, SEC-PRIV-05); nothing is deleted, so they are back when the account is.
+     */
+    public function scopeByActiveAuthor($query)
+    {
+        return $query->whereHas('author', fn ($author) => $author->where('status', AccountStatus::Active->value));
     }
 
     public function getPostType(): PostType

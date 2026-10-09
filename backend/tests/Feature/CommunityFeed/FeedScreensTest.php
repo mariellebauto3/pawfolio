@@ -232,4 +232,63 @@ class FeedScreensTest extends TestCase
 
         $this->assertSame(1, Reaction::query()->count());
     }
+
+    /**
+     * A suspended or deactivated account's posts and comments are hidden with its profile (SEC-ABUSE-04, SEC-PRIV-05):
+     * not only left out of the feed, but closed by their own address too.
+     */
+    public function test_the_posts_and_comments_of_an_account_that_is_not_active_are_hidden(): void
+    {
+        $ana = $this->human();
+        $mochi = $this->pet('Mochi');
+        $admin = User::factory()->admin()->active()->create();
+
+        foreach (['suspended', 'deactivated'] as $status) {
+            $biscuit = $this->pet('Biscuit');
+            $theirs = Post::factory()->update()->for($biscuit, 'author')->create(['body' => 'Message me about a rehoming fee.']);
+            $onTheirs = Comment::factory()->for($theirs)->for($mochi, 'author')->create();
+
+            $mochis = Post::factory()->update()->for($mochi, 'author')->create();
+            $kept = Comment::factory()->for($mochis)->for($ana, 'author')->create();
+            $hidden = Comment::factory()->for($mochis)->for($biscuit, 'author')->create(['body' => 'Message me.']);
+            $underHidden = Comment::factory()->for($mochis)->for($ana, 'author')->create(['parent_comment_id' => $hidden->id]);
+            $hiddenReply = Comment::factory()->for($mochis)->for($biscuit, 'author')->create(['parent_comment_id' => $kept->id]);
+
+            // While the account is Active, all of it is there.
+            $this->actingAs($ana)->getJson("/api/v1/posts/{$theirs->id}")->assertOk();
+            $this->actingAs($ana)->getJson("/api/v1/posts/{$mochis->id}")->assertOk()->assertJsonPath('data.comments_count', 4)->assertJsonCount(2, 'data.comments');
+
+            $biscuit->forceFill(['status' => $status])->save();
+
+            // Their post: gone from the feed, and its own address answers like a post that never existed.
+            $feed = collect($this->actingAs($ana)->getJson('/api/v1/feed')->assertOk()->json('data'));
+            $this->assertFalse($feed->contains('id', $theirs->id), "a {$status} account's post is still on the feed");
+            $this->actingAs($ana)->getJson("/api/v1/posts/{$theirs->id}")->assertNotFound();
+            $this->actingAs($ana)->postJson("/api/v1/posts/{$theirs->id}/comments", ['body' => 'Hello?'])->assertNotFound();
+            $this->actingAs($ana)->postJson("/api/v1/posts/{$theirs->id}/reactions")->assertNotFound();
+            $this->actingAs($ana)->postJson("/api/v1/comments/{$onTheirs->id}/reactions")->assertNotFound();
+            // An admin still reads it, to moderate.
+            $this->actingAs($admin)->getJson("/api/v1/posts/{$theirs->id}")->assertOk();
+
+            // Their comments on someone else's post: not listed, not counted, and what was said under them goes too.
+            $detail = $this->actingAs($ana)->getJson("/api/v1/posts/{$mochis->id}")->assertOk();
+            $detail->assertJsonPath('data.comments_count', 1)->assertJsonCount(1, 'data.comments')->assertJsonPath('data.comments.0.id', $kept->id)->assertJsonCount(0, 'data.comments.0.replies');
+            $this->assertSame(1, $feed->firstWhere('id', $mochis->id)['comments_count']);
+            $this->actingAs($ana)->postJson("/api/v1/comments/{$hidden->id}/reactions")->assertNotFound();
+            $this->actingAs($ana)->postJson("/api/v1/comments/{$hiddenReply->id}/reactions")->assertNotFound();
+            $this->actingAs($ana)->postJson("/api/v1/posts/{$mochis->id}/comments", ['body' => 'Hello?', 'parent_comment_id' => $hidden->id])->assertNotFound();
+
+            $this->assertSame(0, Reaction::query()->count());
+            $this->assertSame(5, Comment::query()->whereIn('post_id', [$theirs->id, $mochis->id])->count());
+
+            // Nothing was deleted: reactivated, the account's words are back where they were.
+            $biscuit->forceFill(['status' => 'active'])->save();
+            $this->actingAs($ana)->getJson("/api/v1/posts/{$theirs->id}")->assertOk()->assertJsonPath('data.comments_count', 1);
+            $this->actingAs($ana)->getJson("/api/v1/posts/{$mochis->id}")->assertOk()->assertJsonPath('data.comments_count', 4)->assertJsonCount(2, 'data.comments');
+            $this->assertSame($underHidden->id, $this->actingAs($ana)->getJson("/api/v1/posts/{$mochis->id}")->json('data.comments.1.replies.0.id'));
+
+            // The next round starts from a feed without this one's posts.
+            Post::query()->whereIn('id', [$theirs->id, $mochis->id])->update(['deleted_at' => now()]);
+        }
+    }
 }

@@ -77,7 +77,7 @@ class CommunityFeedController extends Controller
                 'adoptedPet.photos',
             ])
             ->withCount($this->postCounts())
-            ->whereHas('author', fn ($u) => $u->where('status', AccountStatus::Active->value))
+            ->byActiveAuthor()
             ->orderByDesc('created_at')
             ->orderByDesc('id');
 
@@ -158,7 +158,7 @@ class CommunityFeedController extends Controller
     {
         $user = $request->user();
 
-        if ($post->isDeleted() || ($post->isRemoved() && ! $user->isAdmin())) {
+        if ($post->isDeleted() || (($post->isRemoved() || ! $this->isByActiveAccount($post->author)) && ! $user->isAdmin())) {
             return ErrorResource::notFound("We couldn't find that post.")->toResponse($request);
         }
 
@@ -176,10 +176,11 @@ class CommunityFeedController extends Controller
 
         $topComments = Comment::query()
             ->visible()
+            ->byActiveAuthor()
             ->with([
                 'author.pet.photos',
                 'author.homeProfile',
-                'replies' => fn ($q) => $q->whereNull('removed_at')->with(['author.pet.photos', 'author.homeProfile'])->withCount('reactions')->orderBy('created_at'),
+                'replies' => fn ($q) => $q->whereNull('removed_at')->byActiveAuthor()->with(['author.pet.photos', 'author.homeProfile'])->withCount('reactions')->orderBy('created_at'),
             ])
             ->withCount('reactions')
             ->where('post_id', $post->id)
@@ -398,7 +399,7 @@ class CommunityFeedController extends Controller
     {
         $user = $request->user();
 
-        if ($post->isDeleted() || $post->isRemoved()) {
+        if ($this->isClosedToMembers($post)) {
             return ErrorResource::notFound("We couldn't find that post.")->toResponse($request);
         }
 
@@ -411,6 +412,7 @@ class CommunityFeedController extends Controller
         if (! empty($validated['parent_comment_id'])) {
             $parent = Comment::query()
                 ->visible()
+                ->byActiveAuthor()
                 ->where('post_id', $post->id)
                 ->find((int) $validated['parent_comment_id']);
 
@@ -478,7 +480,7 @@ class CommunityFeedController extends Controller
     {
         $user = $request->user();
 
-        if ($post->isDeleted() || $post->isRemoved()) {
+        if ($this->isClosedToMembers($post)) {
             return ErrorResource::notFound("We couldn't find that post.")->toResponse($request);
         }
 
@@ -510,7 +512,8 @@ class CommunityFeedController extends Controller
     {
         $user = $request->user();
 
-        if ($comment->removed_at !== null) {
+        // A like needs a comment that is still listed: on a post that is still open, by an account that is still Active.
+        if ($comment->removed_at !== null || ! $this->isByActiveAccount($comment->author) || $comment->post === null || $this->isClosedToMembers($comment->post)) {
             return ErrorResource::notFound('Comment not found.')->toResponse($request);
         }
 
@@ -576,9 +579,22 @@ class CommunityFeedController extends Controller
         }
     }
 
+    /** Whether the account that wrote a post or a comment is Active. A suspended or deactivated one's words are hidden (SEC-ABUSE-04, SEC-PRIV-05). */
+    private function isByActiveAccount(?User $author): bool
+    {
+        return $author !== null && $author->getStatus() === AccountStatus::Active;
+    }
+
+    /** A post nobody can comment on or like any more: deleted, removed by an admin, or by an account that isn't Active. */
+    private function isClosedToMembers(Post $post): bool
+    {
+        return $post->isDeleted() || $post->isRemoved() || ! $this->isByActiveAccount($post->author);
+    }
+
     /**
      * The two counts every post carries. A comment counts while it can be read on the post's page (FD-05): not once
-     * it is removed, and not a reply whose comment was removed, since that reply is no longer listed.
+     * it is removed, not while its author's account isn't Active, and not a reply whose comment is hidden for either
+     * reason, since that reply is no longer listed.
      *
      * @return array<int|string, mixed>
      */
@@ -588,9 +604,10 @@ class CommunityFeedController extends Controller
             'reactions',
             'comments as comments_count' => fn ($q) => $q
                 ->whereNull('removed_at')
+                ->byActiveAuthor()
                 ->where(fn ($visible) => $visible
                     ->whereNull('parent_comment_id')
-                    ->orWhereHas('parent', fn ($parent) => $parent->whereNull('removed_at'))),
+                    ->orWhereHas('parent', fn ($parent) => $parent->whereNull('removed_at')->byActiveAuthor())),
         ];
     }
 
