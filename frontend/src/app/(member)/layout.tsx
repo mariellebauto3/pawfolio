@@ -1,8 +1,14 @@
 import type { ReactNode } from "react";
 import { MemberShell } from "@/components/layout/member-shell";
+import { AlertsFeed } from "@/features/notifications/components/alerts-feed";
 
 // Pet and Human pages. proxy.ts sends signed-out and non-Active visitors away first, as a convenience only: the API
-// refuses their requests on its own (SEC-FE-06).
+// refuses their requests on its own (SEC-FE-06). AlertsFeed keeps the top bar's Alerts count and dropdown (NT-01)
+// current for as long as the visitor stays on these pages.
 export default function MemberLayout({ children }: { children: ReactNode }) {
-  return <MemberShell>{children}</MemberShell>;
+  return (
+    <AlertsFeed>
+      <MemberShell>{children}</MemberShell>
+    </AlertsFeed>
+  );
 }
