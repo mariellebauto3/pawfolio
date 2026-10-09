@@ -59,8 +59,10 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
 - **Invite to Apply and Bookmark (FE-14):** the Adoption Requests and Bookmarks modules' buttons, put on the
   resume and on the Home Profile by their pages. A resume offers Invite to Apply only while the pet is Looking
   for a Home, and neither once it is adopted.
+- **The alumni profile as its Furparent reads it (AL-05, FE-18):** the pet page puts the Adoption module's
+  Adoption details (AL-06) and "Write an adoption story" where a human otherwise gets Invite and Bookmark.
 - **Not built here:** Report (RP-01) belongs to the
-  Reports module, and Adoption details on an alumni profile (AL-06) to Adoption. "See full breakdown" (MT-03) is
+  Reports module. "See full breakdown" (MT-03) is
   the Matching module's button, passed into `components/match-summary.tsx` by the two profile pages. Latest activity on someone else's resume needs the pet's account id, which the resume doesn't carry.
   Browse filters by province only: the API matches a city exactly, so cities are found through the search box.
 

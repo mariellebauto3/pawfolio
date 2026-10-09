@@ -120,7 +120,7 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
 - **Personas:** sign in with any persona email and password `password`, or set the cookie in the browser console:
   `document.cookie = "pf_mock_persona=human; path=/"`. Personas: `pet` (Mochi, default), `human` (Ana Santos),
   `admin`, `pet-pending`, `human-pending`, `human-denied`, `human-resubmitted`, `pet-suspended`, `human-closed`
-  (Jun Reyes, deactivated), `signed-out`.
+  (Jun Reyes, deactivated), `pet-hired` (Luna, adopted by Ana Santos), `signed-out`.
   Without the cookie you are signed in as `pet`; set `signed-out` to see the sign-in screens.
 - **Auth states:** a wrong password 5 times for one email pauses its sign-in for 15 minutes (until reload).
   `/reset-password#token=mock-reset-token&email=mochi%40example.com` opens a working reset link; any other token is

@@ -80,6 +80,21 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
   picks another open slot, with an optional reason. The human confirms the new time.
 - **MG-10:** `dialogs/cancel-meeting-dialog.tsx`, for either side: what happens, the required reason (the button
   waits for it) and optional details. Booking reopens.
+- **MG-11, MG-12 (FE-18):** once the meeting time has passed, the same panel is at `decide`: the meeting that took
+  place and the other side's contact details, still shared while the decision is open (`components/meet-card.tsx`,
+  `when="past"`). The human gets the three choices stacked, most to least final
+  (`components/decision-actions.tsx`): Adopt (the Adoption module's button, handed in by the page), Decline, and
+  "It didn't happen", with the note that reminders continue for 7 days, or that the decision is overdue once an
+  admin was flagged. The pet reads that the human is deciding, and can still withdraw. Whether the time has passed
+  is the API's to say (`meeting_passed`): no screen compares clocks, and the decision is open in the minutes before
+  the status reads Awaiting Decision too.
+- **MG-13:** `dialogs/didnt-happen-dialog.tsx`: what happened (one of four, required: the button waits for it) and
+  optional details. Booking reopens and the pet's side reads what was reported (`components/booking-notice.tsx`).
+- **MG-14:** `dialogs/decline-after-meeting-dialog.tsx`: what ends, an optional message to the pet's caretaker, and
+  the 30-day note. The request ends as Not Adopted.
+- **After an adoption** the two sides keep each other's contact details on the request
+  (`components/handover-contact.tsx`, shown by the page on AL-03 and AL-04): they still have a pet to hand over,
+  and no other way to reach each other here (`project-rules/ui-guidelines.md` §6).
 - After every change the page is read again, a toast confirms, and focus moves to the action panel
   (`RequestPanelFrame`), since the buttons that were pressed are gone. A refusal from the API is shown in its own
   words; a 409 also reads the page again, because what it showed is out of date (`hooks/use-meet-change.ts`).
@@ -89,11 +104,10 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
   `src/types/meet-and-greet.ts`. Tests: `tests/unit/features/meet-and-greet/`. The request and its Meet & Greet
   come from one call: the page hands `readRequestMeeting` to `getRequestWith` of Adoption Requests.
 - **Mock mode** answers every endpoint (`src/lib/api/mock/handlers/meet-and-greet.ts`): Ana Santos has four slots
-  and Mochi's confirmed meeting on the first. A page rendered on the server doesn't see what the browser changed,
+  and Mochi's confirmed meeting on the first, and met Bantay yesterday, so request 7 is at the decision. A page rendered on the server doesn't see what the browser changed,
   so the steps before confirmation are walked against the API, not in mock mode.
-- **Not built here:** editing a slot (the LoFi's "Edit" has no endpoint: remove it and add another). MG-11…MG-14,
-  the decision after the meeting and "It didn’t happen" (FE-18); an Approved request whose meeting was reported as
-  not having happened already says so. MG-15, MG-16 (admin).
+- **Not built here:** editing a slot (the LoFi's "Edit" has no endpoint: remove it and add another). MG-15, MG-16
+  (admin).
 
 ## Requirements covered
 
