@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Modal } from "@/components/overlays/modal";
 import { buttonClasses } from "@/components/ui/button-styles";
-import { ROUTES, petPath } from "@/constants/routes";
+import { ADOPTION_STORY_PATH, petPath } from "@/constants/routes";
 import { AdoptionLink } from "../components/adoption-link";
 import type { AdoptionPair } from "../types/adoptions";
 
@@ -27,7 +27,7 @@ export function FurparentDialog({ open, onClose, pet, home }: Props) {
           <Link href={petPath(pet.id)} className={buttonClasses()}>
             View {pet.name}’s alumni profile
           </Link>
-          <Link href={ROUTES.memberHome} className={buttonClasses({ variant: "primary" })}>
+          <Link href={ADOPTION_STORY_PATH} className={buttonClasses({ variant: "primary" })}>
             Share your adoption story
           </Link>
         </>

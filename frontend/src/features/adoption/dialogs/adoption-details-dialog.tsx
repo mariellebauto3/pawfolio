@@ -8,7 +8,7 @@ import { Modal } from "@/components/overlays/modal";
 import { Button } from "@/components/ui/button";
 import { buttonClasses } from "@/components/ui/button-styles";
 import { SPECIES_LABELS } from "@/constants/pets";
-import { ROUTES, requestPath } from "@/constants/routes";
+import { ADOPTION_STORY_PATH, requestPath } from "@/constants/routes";
 import { formatDate, formatDateTime } from "@/lib/utils/format-date";
 import { AdoptionLink } from "../components/adoption-link";
 import { useAdoptionRecord } from "../hooks/use-adoption-record";
@@ -61,7 +61,7 @@ function Record({ record }: { record: AdoptionRecord }) {
       )}
 
       {/* Stories are written on the community feed (FD-04). */}
-      <Link href={ROUTES.memberHome} className={buttonClasses({ size: "sm", className: "self-start" })}>
+      <Link href={ADOPTION_STORY_PATH} className={buttonClasses({ size: "sm", className: "self-start" })}>
         Write an adoption story
       </Link>
     </>

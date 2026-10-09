@@ -170,6 +170,13 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
   kept by whichever side made the call: the count and the dropdown follow at once, and the page, rendered on the
   server, shows the fixtures again after "Mark all as read". Nothing here sends one: an invite or an approval
   reaching the other account's Alerts needs `live`.
+- **Community feed:** `/feed` and `/posts/[postId]` (FE-20) are answered from memory with the LoFi's posts,
+  written by the fixtures' pets and homes: as `pet`, Mochi's own update is `/posts/4` (Edit and Delete in its
+  menu); as `human`, Ana Santos's adoption story is `/posts/5`. Posting, liking, commenting, replying, editing
+  and deleting work in the browser. A post made there has no page of its own (`/posts/7` is rendered on the
+  server, which still has the fixtures), and a reload brings the fixtures back. A photo added to a mock post
+  shows a placeholder. The mini profile shows the name only and "Write an adoption story" (`FD-04`) is left
+  out, since `/me/pet` and `/me/home-profile` have no mock; use `live` for both.
 - **No mock for the pet resume:** `/me` and `/resume/edit` (FE-10) were built on the real `/me/pet` endpoints. In mock
   mode they show the error state; use `live` for them.
 - **Adding mocks:** add a file in `src/lib/api/mock/handlers/` and register it in `handlers/index.ts`. Follow the
