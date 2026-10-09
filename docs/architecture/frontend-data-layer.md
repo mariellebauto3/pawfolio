@@ -68,6 +68,9 @@ whose API doesn't answer shows its error state with "Try again" instead of a loa
   always safe to show.
 - A cancelled request (your `signal` aborted, or your timeout fired) rejects with the abort reason itself, not an
   `ApiError`. A bug, such as an unsafe path, throws a plain `Error`. Only real network failures become `network`.
+- **A call nobody pressed** (the top bar counting unread notifications every minute) passes
+  `{ skipAuthRedirect: true }` and stops asking after a 401 or `account_not_active`: a background check must not
+  pull someone off a form they are filling in. Their own next step gets the same answer, and the redirect.
 - **Check what a list answered** with the readers in `src/lib/api/readers.ts` (`readPage`, `isPet`, `isHome`): a
   page that isn't a page is refused, and a row that doesn't match the contract is left out. Discovery and Matching
   share them; a module that lists pets or homes should too.
@@ -161,6 +164,12 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
   with Approve and Decline), Mochi's is in progress and Tofu's is closed. Withdrawing, approving and declining
   work in the browser, but the page that follows is rendered on the server, which still has the fixtures: the
   toast shows and the status doesn't change. Use `live` to see an answer through.
+- **Notifications:** the Alerts count and dropdown and `/notifications` (FE-19) are answered from memory, with the
+  LoFi's lists pointed at the fixtures' requests: as `pet` seven (two unread), as `human` six (two unread, the
+  first a decision that is due), as `pet-hired` one, as `admin` none (the empty state). What is marked as read is
+  kept by whichever side made the call: the count and the dropdown follow at once, and the page, rendered on the
+  server, shows the fixtures again after "Mark all as read". Nothing here sends one: an invite or an approval
+  reaching the other account's Alerts needs `live`.
 - **No mock for the pet resume:** `/me` and `/resume/edit` (FE-10) were built on the real `/me/pet` endpoints. In mock
   mode they show the error state; use `live` for them.
 - **Adding mocks:** add a file in `src/lib/api/mock/handlers/` and register it in `handlers/index.ts`. Follow the

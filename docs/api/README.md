@@ -8,6 +8,7 @@ follows. Each module gets its own file listing its endpoints (method, path, role
 - [profiles-and-matching.md](profiles-and-matching.md) — Pet Résumé, Home Profile Quiz, and Compatibility Matches (`BE-11`–`BE-13`)
 - [bookmarks-and-invites.md](bookmarks-and-invites.md) — Bookmarks and Invite to Apply (`BE-15`)
 - [adoption-and-meet-greet.md](adoption-and-meet-greet.md) — Adoption Requests, Meet & Greet, Adoption Decisions, and Admin Resolution (`BE-16`–`BE-20`)
+- [notifications.md](notifications.md) — Notifications: the list by tab, the unread count, marking as read (`BE-10`)
 - [community-reports-and-admin.md](community-reports-and-admin.md) — Community Feed, Reports, Account Settings, Announcements, Analytics, and Activity Logs (`BE-10`, `BE-21`–`BE-26`)
 
 Rules: `project-rules/backend-guidelines.md` §2 and `security-guidelines.md` §5 and §7.
