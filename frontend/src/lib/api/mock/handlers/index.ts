@@ -4,6 +4,7 @@ import { adoptionRoutes } from "@/lib/api/mock/handlers/adoption";
 import { adoptionRequestRoutes } from "@/lib/api/mock/handlers/adoption-requests";
 import { authRoutes } from "@/lib/api/mock/handlers/auth";
 import { bookmarkRoutes } from "@/lib/api/mock/handlers/bookmarks";
+import { communityFeedRoutes } from "@/lib/api/mock/handlers/community-feed";
 import { discoveryRoutes } from "@/lib/api/mock/handlers/discovery";
 import { inviteRoutes } from "@/lib/api/mock/handlers/invites";
 import { matchingRoutes } from "@/lib/api/mock/handlers/matching";
@@ -27,4 +28,5 @@ export const MOCK_ROUTES: readonly MockRoute[] = [
   ...bookmarkRoutes,
   ...inviteRoutes,
   ...notificationRoutes,
+  ...communityFeedRoutes,
 ];
