@@ -21,6 +21,7 @@ use App\Models\Comment;
 use App\Models\Post;
 use App\Models\Reaction;
 use App\Models\Report;
+use App\Models\User;
 use App\Services\ActivityLogs\ActivityLogger;
 use App\Services\Notifications\NotificationService;
 use App\Services\Uploads\FileUploadService;
@@ -49,6 +50,14 @@ class CommunityFeedController extends Controller
         'pm for price',
     ];
 
+    /**
+     * The author block of each account already written into this answer, by user id: a page of posts and a thread of
+     * comments name the same few accounts again and again.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    private array $authorBlocks = [];
+
     public function __construct(
         private readonly FileUploadService $uploads,
         private readonly NotificationService $notifications,
@@ -67,10 +76,7 @@ class CommunityFeedController extends Controller
                 'photos',
                 'adoptedPet.photos',
             ])
-            ->withCount([
-                'reactions',
-                'comments as comments_count' => fn ($q) => $q->whereNull('removed_at'),
-            ])
+            ->withCount($this->postCounts())
             ->whereHas('author', fn ($u) => $u->where('status', AccountStatus::Active->value))
             ->orderByDesc('created_at')
             ->orderByDesc('id');
@@ -121,7 +127,7 @@ class CommunityFeedController extends Controller
             ->all();
 
         $items = $paginator->getCollection()
-            ->map(fn (Post $post) => $this->formatPost($post, $reactedPostIds->has($post->id)))
+            ->map(fn (Post $post) => $this->formatPost($post, $reactedPostIds->has($post->id), $user))
             ->values()
             ->all();
 
@@ -161,10 +167,7 @@ class CommunityFeedController extends Controller
             'author.homeProfile',
             'photos',
             'adoptedPet.photos',
-        ])->loadCount([
-            'reactions',
-            'comments as comments_count' => fn ($q) => $q->whereNull('removed_at'),
-        ]);
+        ])->loadCount($this->postCounts());
 
         $hasReacted = Reaction::query()
             ->where('user_id', $user->id)
@@ -198,11 +201,11 @@ class CommunityFeedController extends Controller
                 ->flip()
             : collect();
 
-        $data = $this->formatPost($post, $hasReacted);
-        $data['comments'] = $topComments->map(function (Comment $comment) use ($reactedCommentIds): array {
-            $row = $this->formatComment($comment, $reactedCommentIds->has($comment->id));
+        $data = $this->formatPost($post, $hasReacted, $user);
+        $data['comments'] = $topComments->map(function (Comment $comment) use ($reactedCommentIds, $user): array {
+            $row = $this->formatComment($comment, $reactedCommentIds->has($comment->id), $user);
             $row['replies'] = $comment->replies
-                ->map(fn (Comment $reply) => $this->formatComment($reply, $reactedCommentIds->has($reply->id)))
+                ->map(fn (Comment $reply) => $this->formatComment($reply, $reactedCommentIds->has($reply->id), $user))
                 ->values()
                 ->all();
 
@@ -262,9 +265,9 @@ class CommunityFeedController extends Controller
         });
 
         $post->load(['author.pet.photos', 'author.homeProfile', 'photos', 'adoptedPet.photos'])
-            ->loadCount(['reactions', 'comments as comments_count']);
+            ->loadCount($this->postCounts());
 
-        return ResponseResource::created($this->formatPost($post, false));
+        return ResponseResource::created($this->formatPost($post, false, $user));
     }
 
     public function storeAdoptionStory(Request $request)
@@ -331,9 +334,9 @@ class CommunityFeedController extends Controller
         });
 
         $post->load(['author.pet.photos', 'author.homeProfile', 'photos', 'adoptedPet.photos'])
-            ->loadCount(['reactions', 'comments as comments_count']);
+            ->loadCount($this->postCounts());
 
-        return ResponseResource::created($this->formatPost($post, false));
+        return ResponseResource::created($this->formatPost($post, false, $user));
     }
 
     public function update(Request $request, Post $post)
@@ -358,9 +361,15 @@ class CommunityFeedController extends Controller
         $this->flagIfContainsSellingKeywords($post, $user->id);
 
         $post->load(['author.pet.photos', 'author.homeProfile', 'photos', 'adoptedPet.photos'])
-            ->loadCount(['reactions', 'comments as comments_count']);
+            ->loadCount($this->postCounts());
 
-        return ResponseResource::make($this->formatPost($post, false));
+        // An edit changes the words only: the author's own like stays as it was.
+        $hasReacted = Reaction::query()
+            ->where('user_id', $user->id)
+            ->where('post_id', $post->id)
+            ->exists();
+
+        return ResponseResource::make($this->formatPost($post, $hasReacted, $user));
     }
 
     public function destroy(Request $request, Post $post)
@@ -448,7 +457,7 @@ class CommunityFeedController extends Controller
 
         $comment->load(['author.pet.photos', 'author.homeProfile'])->loadCount('reactions');
 
-        return ResponseResource::created($this->formatComment($comment, false));
+        return ResponseResource::created($this->formatComment($comment, false, $user));
     }
 
     public function destroyComment(Request $request, Comment $comment)
@@ -568,22 +577,69 @@ class CommunityFeedController extends Controller
     }
 
     /**
+     * The two counts every post carries. A comment counts while it can be read on the post's page (FD-05): not once
+     * it is removed, and not a reply whose comment was removed, since that reply is no longer listed.
+     *
+     * @return array<int|string, mixed>
+     */
+    private function postCounts(): array
+    {
+        return [
+            'reactions',
+            'comments as comments_count' => fn ($q) => $q
+                ->whereNull('removed_at')
+                ->where(fn ($visible) => $visible
+                    ->whereNull('parent_comment_id')
+                    ->orWhereHas('parent', fn ($parent) => $parent->whereNull('removed_at'))),
+        ];
+    }
+
+    /**
+     * Who wrote a post or a comment, as the feed names them (FD-01, FD-05): the name and photo, and the public line
+     * under the name: a pet's breed and city, a human's city and Furparent label (SEC-PRIV-03). `is_profile_viewable`
+     * is the profile's own policy, so a name links to a resume or a Home Profile only when this viewer may open it:
+     * a Draft isn't linked, nor a home whose Open to Adopt is off (SEC-AUTHZ-04).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function formatAuthor(?User $author, User $viewer): ?array
+    {
+        if ($author === null) {
+            return null;
+        }
+
+        if (isset($this->authorBlocks[$author->id])) {
+            return $this->authorBlocks[$author->id];
+        }
+
+        $pet = $author->isPet() ? $author->pet : null;
+        $home = $author->isHuman() ? $author->homeProfile : null;
+        $profile = $pet ?? $home;
+
+        return $this->authorBlocks[$author->id] = [
+            'id' => $author->id,
+            'role' => $author->getRole()->value,
+            'display_name' => $author->displayName(),
+            'avatar_url' => $author->avatarUrl(),
+            'profile_id' => $author->profileId(),
+            'breed' => $pet?->breed,
+            'city' => $profile?->city,
+            'is_furparent' => $home?->isFurparent() ?? false,
+            'is_profile_viewable' => $profile !== null && $viewer->can('view', $profile),
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
-    private function formatPost(Post $post, bool $hasReacted): array
+    private function formatPost(Post $post, bool $hasReacted, User $viewer): array
     {
         return [
             'id' => $post->id,
             'type' => $post->getPostType()->value,
             'title' => $post->title,
             'body' => $post->body,
-            'author' => $post->author ? [
-                'id' => $post->author->id,
-                'role' => $post->author->getRole()->value,
-                'display_name' => $post->author->displayName(),
-                'avatar_url' => $post->author->avatarUrl(),
-                'profile_id' => $post->author->profileId(),
-            ] : null,
+            'author' => $this->formatAuthor($post->author, $viewer),
             'adopted_pet' => $post->adoptedPet ? PetResource::summary($post->adoptedPet) : null,
             'photos' => $post->photos->map(fn ($p) => [
                 'id' => $p->id,
@@ -600,20 +656,14 @@ class CommunityFeedController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function formatComment(Comment $comment, bool $hasReacted): array
+    private function formatComment(Comment $comment, bool $hasReacted, User $viewer): array
     {
         return [
             'id' => $comment->id,
             'post_id' => $comment->post_id,
             'parent_comment_id' => $comment->parent_comment_id,
             'body' => $comment->body,
-            'author' => $comment->author ? [
-                'id' => $comment->author->id,
-                'role' => $comment->author->getRole()->value,
-                'display_name' => $comment->author->displayName(),
-                'avatar_url' => $comment->author->avatarUrl(),
-                'profile_id' => $comment->author->profileId(),
-            ] : null,
+            'author' => $this->formatAuthor($comment->author, $viewer),
             'reactions_count' => (int) ($comment->reactions_count ?? 0),
             'has_reacted' => $hasReacted,
             'created_at' => $comment->created_at?->toISOString(),
