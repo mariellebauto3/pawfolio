@@ -438,10 +438,10 @@ class CommunityFeedController extends Controller
                         'category' => 'Feed',
                         'post_id' => $post->id,
                         'comment_id' => $comment->id,
-                        'link' => "/post/{$post->id}",
+                        'link' => "/posts/{$post->id}",
                     ],
                     urgency: 'info',
-                    actionUrl: "/post/{$post->id}",
+                    actionUrl: "/posts/{$post->id}",
                 );
             }
         }
