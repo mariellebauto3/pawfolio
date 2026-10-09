@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PetResume } from "@/components/data-display/pet-resume";
 import { buttonClasses } from "@/components/ui/button-styles";
-import { ROUTES, petPath } from "@/constants/routes";
+import { ADOPTION_STORY_PATH, ROUTES, petPath } from "@/constants/routes";
 import { AdoptionDetailsButton } from "@/features/adoption/components/adoption-details-button";
 import { InviteToApplyButton } from "@/features/adoption-requests/components/invite-to-apply-button";
 import { BookmarkButton } from "@/features/bookmarks/components/bookmark-button";
@@ -58,7 +58,7 @@ export default async function PetPage({ params }: Props) {
         adoption ? (
           <>
             <AdoptionDetailsButton adoptionId={adoption.adoption_id} petName={pet.name} variant="primary" />
-            <Link href={ROUTES.memberHome} className={buttonClasses()}>
+            <Link href={ADOPTION_STORY_PATH} className={buttonClasses()}>
               Write an adoption story
             </Link>
           </>

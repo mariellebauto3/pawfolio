@@ -65,6 +65,13 @@ export function postPath(postId: number): string {
   return `/posts/${postId}`;
 }
 
+/** The feed's query parameter that opens a form on arrival, and its one value: the adoption story form (FD-04). */
+export const FEED_COMPOSE_PARAM = "compose";
+export const FEED_COMPOSE_STORY = "story";
+
+/** The feed with the adoption story form open: where "Write an adoption story" leads from a profile or an adoption (FD-04). */
+export const ADOPTION_STORY_PATH = `/feed?${FEED_COMPOSE_PARAM}=${FEED_COMPOSE_STORY}`;
+
 /** The edit resume wizard opened on a step, 1 to 6 as the screen counts them (PR-03…PR-08). */
 export function resumeEditPath(step: number): string {
   return `${ROUTES.resumeEdit}?step=${step}`;
