@@ -18,6 +18,7 @@ export type MockPersonaId =
   | "human-resubmitted"
   | "pet-suspended"
   | "human-closed"
+  | "pet-hired"
   | "signed-out";
 
 export const DEFAULT_MOCK_PERSONA: MockPersonaId = "pet";
@@ -107,6 +108,16 @@ export const MOCK_PERSONAS: Record<MockPersonaId, Account | null> = {
     display_name: "Jun Reyes",
     avatar_url: null,
     profile_id: 3,
+  },
+  // Luna, adopted by Ana Santos: an alumni profile on "/me", and "You got Hired" (AL-03) on request 6.
+  "pet-hired": {
+    id: 9,
+    role: "pet",
+    status: "active",
+    email: "luna@example.com",
+    display_name: "Luna",
+    avatar_url: null,
+    profile_id: 4,
   },
   "signed-out": null,
 };

@@ -17,8 +17,8 @@ import type { RequestStatus } from "@/types/statuses";
 
 // The human's adoption request calls against the mock API, which answers in the shapes of
 // docs/api/adoption-and-meet-greet.md. The mock keeps requests in memory for the whole file, so the tests that
-// change it come last. Ana Santos (the `human` persona) has three: Pepper's is new, Mochi's is Meet Scheduled and
-// Tofu's was declined.
+// change it come last. Ana Santos (the `human` persona) has five: Pepper's is new, Mochi's is Meet Scheduled,
+// Bantay's waits for her decision, Tofu's was declined and Luna's ended in an adoption.
 function as(persona: string) {
   return createApiClient(createMockTransport({ readCookie: (name) => (name === MOCK_PERSONA_COOKIE ? persona : null), writePersona: () => {}, latencyMs: 0 }));
 }
@@ -110,15 +110,21 @@ describe("the inbox (RQ-09, RQ-10)", () => {
     const page = await getInbox(as("human"), "new");
     expect(page.data.map((row) => [row.pet.name, row.status])).toEqual([["Pepper", "sent"]]);
     // Every status is counted, whatever the tab.
-    expect(page.counts).toEqual({ sent: 1, meet_scheduled: 1, declined: 1 });
+    expect(page.counts).toEqual({ sent: 1, meet_scheduled: 1, awaiting_decision: 1, declined: 1, adopted: 1 });
     // The pet is named by its public summary, with the age a row shows.
     expect(page.data[0].pet).toMatchObject({ id: 5, name: "Pepper", species: "dog", status: "looking_for_a_home" });
     expect(typeof page.data[0].pet.approximate_age_months).toBe("number");
   });
 
   it("gives the ones in progress and the closed ones on their own tabs", async () => {
-    expect((await getInbox(as("human"), "in-progress")).data.map((row) => [row.pet.name, row.status])).toEqual([["Mochi", "meet_scheduled"]]);
-    expect((await getInbox(as("human"), "closed")).data.map((row) => [row.pet.name, row.status])).toEqual([["Tofu", "declined"]]);
+    expect((await getInbox(as("human"), "in-progress")).data.map((row) => [row.pet.name, row.status])).toEqual([
+      ["Bantay", "awaiting_decision"],
+      ["Mochi", "meet_scheduled"],
+    ]);
+    expect((await getInbox(as("human"), "closed")).data.map((row) => [row.pet.name, row.status])).toEqual([
+      ["Luna", "adopted"],
+      ["Tofu", "declined"],
+    ]);
   });
 
   it("asks the API for its own name of the tab", async () => {
@@ -195,7 +201,7 @@ describe("approving and declining (RQ-12, RQ-13)", () => {
     expect(days).toBe(14);
 
     expect((await getInbox(human, "new")).data).toEqual([]);
-    expect((await getInbox(human, "in-progress")).data.map((row) => row.pet.name).sort()).toEqual(["Mochi", "Pepper"]);
+    expect((await getInbox(human, "in-progress")).data.map((row) => row.pet.name).sort()).toEqual(["Bantay", "Mochi", "Pepper"]);
     // It can't be approved twice.
     await expect(approveRequest(human, 3, null)).rejects.toMatchObject({ kind: "conflict", code: "invalid_request_state" });
   });
@@ -208,7 +214,7 @@ describe("approving and declining (RQ-12, RQ-13)", () => {
     expect(daysLeft).toBeGreaterThan(29.9);
     expect(daysLeft).toBeLessThanOrEqual(30);
 
-    expect((await getInbox(human, "closed")).counts).toEqual({ meet_scheduled: 1, declined: 2 });
+    expect((await getInbox(human, "closed")).counts).toEqual({ meet_scheduled: 1, awaiting_decision: 1, declined: 2, adopted: 1 });
     // The pet's own list is unaffected by what a human does with another pet's request.
     expect((await getMyRequests(as("pet"), "active")).meta.total).toBe(2);
   });

@@ -1,15 +1,15 @@
 import { REQUEST_EXPIRY_DAYS } from "@/constants/adoption-requests";
 import { ADOPTION_REQUESTS } from "@/lib/api/mock/fixtures/adoption-requests";
-import { MEET_AND_GREETS, MEET_GREET_SLOTS, type MockBooking, type MockSlot, activeBooking, isBookable } from "@/lib/api/mock/fixtures/meet-and-greet";
+import { MEET_AND_GREETS, MEET_GREET_SLOTS, type MockBooking, type MockSlot, activeBooking, isBookable, meetingPassed } from "@/lib/api/mock/fixtures/meet-and-greet";
 import { withDetails } from "@/lib/api/mock/handlers/adoption-requests";
 import { type MockResult, type MockRoute, fail, ok, paginate, route, validationFailed } from "@/lib/api/mock/router";
 import type { Account } from "@/types/account";
 import type { AdoptionRequest } from "@/types/adoption-request";
-import type { CancelReason, MeetEndReason, MeetGreetSlot, PlaceType } from "@/types/meet-and-greet";
+import type { CancelReason, DidntHappenReason, MeetEndReason, MeetGreetSlot, PlaceType } from "@/types/meet-and-greet";
 
 // Meet & Greet in mock mode (docs/api/adoption-and-meet-greet.md), answered as the API answers it: a human keeps
-// slots, a pet books one on an Approved request, the human confirms or proposes another time, and either side
-// reschedules or cancels. What is booked lives in memory, so it is back to the fixtures after a reload, and a page
+// slots, a pet books one on an Approved request, the human confirms or proposes another time, either side
+// reschedules or cancels, and the human reports a meeting that didn't happen. What is booked lives in memory, so it is back to the fixtures after a reload, and a page
 // rendered on the server doesn't see what the browser changed.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -19,6 +19,7 @@ const NOTE_MAX = 600;
 const MAX_WEEKS = 4;
 const PLACE_TYPES: readonly unknown[] = ["public_spot", "shelter", "caretaker_location"] satisfies PlaceType[];
 const CANCEL_REASONS: readonly unknown[] = ["schedule_conflict", "pet_unwell", "weather_or_travel", "other"] satisfies CancelReason[];
+const DIDNT_HAPPEN_REASONS: readonly unknown[] = ["didnt_show_pet_side", "didnt_show_human_side", "moved_to_another_day", "other"] satisfies DidntHappenReason[];
 const NOT_FOUND = "We couldn't find that request.";
 const HUMANS_ONLY = "Only a human account keeps Meet & Greet slots.";
 
@@ -75,6 +76,8 @@ function end(booking: MockBooking, by: Side, reason: MeetEndReason, details: str
 function reopenBooking(request: AdoptionRequest) {
   request.status = "approved";
   request.meet_scheduled_at = null;
+  request.awaiting_decision_at = null;
+  request.overdue_flagged_at = null;
   request.expires_at = new Date(Date.now() + REQUEST_EXPIRY_DAYS * DAY_MS).toISOString();
 }
 
@@ -293,6 +296,32 @@ export const meetAndGreetRoutes: MockRoute[] = [
     if (!booking) return conflict("There is no Meet & Greet to cancel.", "no_active_booking");
 
     end(booking, side, sent.reason as CancelReason, read.note);
+    reopenBooking(request);
+    return ok(withDetails(request));
+  }),
+
+  // MG-13: once its time has come, the human reports that the meeting didn't take place. Booking reopens.
+  route("POST", "/adoption-requests/:requestId/meet-and-greet/didnt-happen", ({ params, body, account }) => {
+    const sent = (body ?? {}) as { reason?: unknown; details?: unknown };
+    const read = readNote(sent.details, "details");
+    const errors: Record<string, string> = {};
+    if (!DIDNT_HAPPEN_REASONS.includes(sent.reason)) errors.reason = "Choose what happened.";
+    if ("error" in read) errors.details = read.error;
+    if ("error" in read || Object.keys(errors).length) return validationFailed(errors);
+
+    const found = requestFor(params.requestId, account, ["human"]);
+    if (!found) return fail(404, NOT_FOUND);
+    const { request } = found;
+
+    if (!meetingPassed(request)) {
+      return request.status === "meet_scheduled"
+        ? conflict("The Meet & Greet time hasn't passed yet. Reschedule or cancel it instead.", "meeting_not_yet_passed")
+        : conflict("This request isn't waiting for a decision.", "invalid_request_state");
+    }
+
+    // The meeting that was confirmed: still standing, or already ended when its time came.
+    const booking = activeBooking(request.id) ?? MEET_AND_GREETS.findLast((b) => b.adoption_request_id === request.id);
+    if (booking) end(booking, "human", sent.reason as DidntHappenReason, read.note);
     reopenBooking(request);
     return ok(withDetails(request));
   }),

@@ -2,7 +2,7 @@
 // only give the screens something to rank and explain.
 
 /** A score for each pet and home that pass the dealbreakers, keyed "petId:homeProfileId". A pair that isn't here fails one. */
-export const MATCH_SCORES: Record<string, number> = { "1:1": 86, "1:3": 78, "3:1": 72, "5:1": 64, "6:1": 91 };
+export const MATCH_SCORES: Record<string, number> = { "1:1": 86, "1:3": 78, "3:1": 72, "5:1": 64, "6:1": 91, "7:1": 81 };
 
 /** Worded as the API words them: for both readers, so nobody is "you". */
 export const MATCH_REASONS = [

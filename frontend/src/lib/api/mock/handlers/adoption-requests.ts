@@ -9,6 +9,7 @@ import {
 } from "@/constants/adoption-requests";
 import type { QueryValue } from "@/lib/api/core";
 import { ADOPTION_REQUESTS, homeProfileSummary, petSummary } from "@/lib/api/mock/fixtures/adoption-requests";
+import { ADOPTIONS } from "@/lib/api/mock/fixtures/adoptions";
 import { HOME_PROFILES } from "@/lib/api/mock/fixtures/home-profiles";
 import { activeBooking, meetDetails } from "@/lib/api/mock/fixtures/meet-and-greet";
 import { MATCH_SCORES } from "@/lib/api/mock/fixtures/match-scores";
@@ -16,7 +17,7 @@ import { PETS } from "@/lib/api/mock/fixtures/pets";
 import { type MockContext, type MockResult, type MockRoute, fail, ok, paginate, route, validationFailed } from "@/lib/api/mock/router";
 import type { Account } from "@/types/account";
 import type { AdoptionRequest, DeclineReason, WithdrawReason } from "@/types/adoption-request";
-import { REQUEST_STATUSES, type RequestStatus } from "@/types/statuses";
+import { type PetStatus, REQUEST_STATUSES, type RequestStatus } from "@/types/statuses";
 
 // Adoption requests in mock mode (docs/api/adoption-and-meet-greet.md), answered as the API answers them: a pet
 // sends within the rules of proposal §5.5, reads My requests by tab and withdraws; a human reads the inbox and
@@ -67,28 +68,30 @@ function cooldownEnd(petId: number, homeProfileId: number): number | null {
 }
 
 /**
- * What `GET /adoption-requests/{id}` adds to the request: the match, the cooldown, and its Meet & Greet with the
- * contact details a confirmed meeting opens (`meetDetails`).
+ * What `GET /adoption-requests/{id}` adds to the request: the match, the cooldown, the adoption an Adopted request
+ * ended in, and its Meet & Greet with the contact details a confirmed meeting opens (`meetDetails`).
  */
 export function withDetails(request: AdoptionRequest) {
   const cooldown = COOLDOWN_REQUEST_STATUSES.includes(request.status) && request.closed_at ? new Date(request.closed_at).getTime() + REQUEST_COOLDOWN_DAYS * DAY_MS : 0;
+  const adoption = ADOPTIONS.find((a) => a.adoption_request_id === request.id);
   return {
     ...request,
     match_score: MATCH_SCORES[`${request.pet.id}:${request.home_profile.id}`] ?? null,
     cooldown_until: cooldown > Date.now() ? new Date(cooldown).toISOString() : null,
+    adoption: adoption ? { id: adoption.id, adopted_at: adoption.adopted_at } : null,
     ...meetDetails(request),
   };
 }
 
 /** The pet's status as every one of its requests carries it. */
-function setPetStatus(petId: number, status: "looking_for_a_home" | "in_process") {
+export function setPetStatus(petId: number, status: PetStatus) {
   const pet = PETS.find((p) => p.id === petId);
   if (pet) pet.status = status;
   for (const request of ADOPTION_REQUESTS) if (request.pet.id === petId) request.pet = { ...request.pet, status };
 }
 
 /** The request in process ended without an adoption: the pet is free, and its requests On Hold are Sent again (RQ-15). */
-function releasePet(petId: number, now: number) {
+export function releasePet(petId: number, now: number) {
   setPetStatus(petId, "looking_for_a_home");
   for (const other of ADOPTION_REQUESTS) {
     if (other.pet.id !== petId || other.status !== "on_hold") continue;
@@ -98,7 +101,7 @@ function releasePet(petId: number, now: number) {
 }
 
 /** The human's optional message with an answer: trimmed, null when empty, or an error when it is too long. */
-function readMessage(value: unknown): { message: string | null } | { error: string } {
+export function readMessage(value: unknown): { message: string | null } | { error: string } {
   if (value !== undefined && value !== null && typeof value !== "string") return { error: `Keep the message to ${ANSWER_MESSAGE_MAX} characters or fewer.` };
   const message = typeof value === "string" ? value.trim() : "";
   if (message.length > ANSWER_MESSAGE_MAX) return { error: `Keep the message to ${ANSWER_MESSAGE_MAX} characters or fewer.` };
@@ -106,7 +109,7 @@ function readMessage(value: unknown): { message: string | null } | { error: stri
 }
 
 /** The request, when the account is the human it was sent to; anyone else is answered 404 (SEC-AUTHZ-04). */
-const receivedBy = (requestId: string, account: Account | null) =>
+export const receivedBy = (requestId: string, account: Account | null) =>
   ADOPTION_REQUESTS.find((r) => String(r.id) === requestId && account?.role === "human" && r.home_profile.id === account.profile_id);
 
 type NewRequestBody = { home_profile_id?: unknown; cover_letter?: unknown; caretaker_notes?: unknown };

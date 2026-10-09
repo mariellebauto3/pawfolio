@@ -135,4 +135,23 @@ export const PETS: Pet[] = [
     status: "looking_for_a_home",
     published_at: "2026-09-25T08:00:00.000000Z",
   },
+  {
+    // In Process: met Ana Santos yesterday, and waits for her decision (MG-11), as in the LoFi.
+    ...BASE,
+    id: 7,
+    name: "Bantay",
+    species: "dog",
+    breed: "Labrador mix",
+    approximate_age_months: 96,
+    sex: "male",
+    size: "large",
+    energy_level: "low",
+    city: "Pasig",
+    bio: "I'm Bantay, a senior gentleman looking for a quiet retirement and a soft bed near the family.",
+    temperament_tags: ["Gentle", "Calm"],
+    skills: ["leash_trained", "house_trained"],
+    photos: [photo(71, "bantay")],
+    status: "in_process",
+    published_at: "2026-09-01T08:00:00.000000Z",
+  },
 ];
