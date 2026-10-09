@@ -137,7 +137,7 @@ with the post.
 
 | Method | Path | Role | Description |
 | --- | --- | --- | --- |
-| `POST` | `/api/v1/reports` | Active member | Submit a report on a `profile`, `post`, `comment`, or `account` |
+| `POST` | `/api/v1/reports` | Active member | Submit a report on a `profile`, `post`, `comment`, or `account`. Reporting your own content or account answers **422** with the reason under `errors.target_id` |
 | `GET` | `/api/v1/admin/reports` | `admin` | Paginated reports queue (`?status=`, `?target_type=`, `?reason=`), open reports prioritized by `reporters_count` |
 | `GET` | `/api/v1/admin/reports/{report}` | `admin` | Report detail with target preview, all sibling reporters, and account history |
 | `POST` | `/api/v1/admin/reports/{report}/actions` | `admin` | Resolve report (`remove_content`, `restore_content`, `suspend_account`, `remove_content_and_suspend`, `dismiss`) |

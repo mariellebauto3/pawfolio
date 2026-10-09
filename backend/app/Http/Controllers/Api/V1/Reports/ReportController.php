@@ -98,7 +98,7 @@ class ReportController extends Controller
         }
 
         if ($reportedUserId === $reporter->id) {
-            return ErrorResource::validationFailed('You cannot report your own content or account.', [
+            return ErrorResource::unprocessable('You cannot report your own content or account.', [
                 'target_id' => ['You cannot report your own content or account.'],
             ])->toResponse($request);
         }
