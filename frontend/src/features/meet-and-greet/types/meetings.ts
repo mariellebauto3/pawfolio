@@ -4,9 +4,9 @@ import type { RequestStatus } from "@/types/statuses";
 // What the Meet & Greet screens read beyond the shared types (docs/api/adoption-and-meet-greet.md).
 
 /**
- * The Meet & Greet part of `GET /adoption-requests/{id}`, read beside the request itself (MG-03…MG-10): the booking
- * that stands, the last one whatever became of it, the slots that can still be taken, and the contact details a
- * confirmed meeting opens (SEC-PRIV-02).
+ * The Meet & Greet part of `GET /adoption-requests/{id}`, read beside the request itself (MG-03…MG-14): the booking
+ * that stands, the last one whatever became of it, the slots that can still be taken, whether its time has passed,
+ * and the contact details a confirmed meeting opens (SEC-PRIV-02).
  */
 export type RequestMeeting = {
   /** The booking that is booked or confirmed now; null when booking is open. */
@@ -15,7 +15,12 @@ export type RequestMeeting = {
   latest: MeetAndGreet | null;
   /** The home's slots that are still ahead and held by nobody, soonest first. */
   slots: MeetGreetSlot[];
-  /** Null until a Meet & Greet is confirmed, and again once it is moved or cancelled. */
+  /**
+   * The confirmed meeting's time is behind us, so the human's decision is open (MG-11, MG-12). The API says so; no
+   * screen compares clocks, and it is true before the request's status reads Awaiting Decision as well.
+   */
+  passed: boolean;
+  /** Null until a Meet & Greet is confirmed, and again once it is moved, cancelled or declined afterwards. */
   contacts: MeetContacts | null;
 };
 

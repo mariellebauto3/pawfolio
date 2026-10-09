@@ -1,17 +1,15 @@
+import { PLACE_TYPE_LABELS, slotPlace, slotPlaceKind } from "@/constants/meet-and-greet";
 import { philippineTimeToIso } from "@/lib/utils/format-date";
-import type { MeetGreetSlot, PlaceType } from "@/types/meet-and-greet";
+import type { PlaceType } from "@/types/meet-and-greet";
 import type { NewSlot } from "../types/meetings";
 
 // The rules of a Meet & Greet slot that the screens need (MG-01, MG-02; docs/api/adoption-and-meet-greet.md). The
 // API's Form Request is the authority; these mirror its limits and messages so the dialog answers at once
 // (SEC-INPUT-05).
 
-/** Where a meeting takes place, in the words of the Add slot dialog (MG-02). */
-export const PLACE_TYPE_LABELS = {
-  public_spot: "Public spot",
-  shelter: "Shelter",
-  caretaker_location: "Caretaker’s location",
-} as const satisfies Record<PlaceType, string>;
+// The words for a slot's place are also read outside this module (the adoption record, AL-06), so they live with
+// the shared constants.
+export { PLACE_TYPE_LABELS, slotPlace, slotPlaceKind };
 
 export const PLACE_TYPES = Object.keys(PLACE_TYPE_LABELS) as PlaceType[];
 
@@ -27,19 +25,6 @@ export const SLOTS_PAGE_SIZE = 50;
 export const PAST_MEETINGS_SHOWN = 10;
 
 const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
-
-/**
- * Where a slot is, in one line: the place the human named, or the kind of place when there is no name (a meeting
- * at the caretaker's, which the two sides arrange once it is confirmed).
- */
-export function slotPlace(slot: Pick<MeetGreetSlot, "place_type" | "place_details">): string {
-  return slot.place_details ?? PLACE_TYPE_LABELS[slot.place_type];
-}
-
-/** The kind of place, when it says more than the place's own name. */
-export function slotPlaceKind(slot: Pick<MeetGreetSlot, "place_type" | "place_details">): string | null {
-  return slot.place_details ? PLACE_TYPE_LABELS[slot.place_type] : null;
-}
 
 /** What the Add slot dialog holds while it is filled in. Date and time are typed in Philippine time. */
 export type SlotDraft = {

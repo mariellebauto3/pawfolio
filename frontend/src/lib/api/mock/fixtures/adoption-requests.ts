@@ -35,6 +35,7 @@ const EMPTY: Omit<AdoptionRequest, "id" | "status" | "pet" | "home_profile" | "c
   approved_at: null,
   meet_scheduled_at: null,
   awaiting_decision_at: null,
+  overdue_flagged_at: null,
   closed_at: null,
 };
 

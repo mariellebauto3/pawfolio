@@ -61,7 +61,7 @@ describe("where a Meet & Greet stands (MG-03…MG-08)", () => {
   });
 
   it("has no step for any other status, or when the status and the booking disagree", () => {
-    for (const status of ["sent", "on_hold", "awaiting_decision", "adopted", "declined", "withdrawn"] as const) {
+    for (const status of ["sent", "on_hold", "adopted", "declined", "not_adopted", "withdrawn"] as const) {
       expect(meetStage(status, { active: null })).toBeNull();
     }
     expect(meetStage("meet_scheduled", { active: null })).toBeNull();
@@ -97,9 +97,21 @@ describe("why booking is open again (MG-06, MG-10, MG-13)", () => {
 
   it("reads a booking that ended after its time as a meeting that didn't happen", () => {
     const missed = ended({ ended_at: "2026-10-12T02:00:00.000Z", ended_by: "human", end_reason: "didnt_show_pet_side" });
-    expect(bookingNotice(missed, "pet")).toEqual({ kind: "didnt_happen", was: slot(1) });
+    expect(bookingNotice(missed, "pet")).toEqual({ kind: "didnt_happen", was: slot(1), reason: "didnt_show_pet_side", details: null });
     // Even with a reason a cancellation shares.
-    expect(bookingNotice(ended({ ended_at: "2026-10-12T02:00:00.000Z", ended_by: "human", end_reason: "other" }), "pet")).toMatchObject({ kind: "didnt_happen" });
+    expect(bookingNotice(ended({ ended_at: "2026-10-12T02:00:00.000Z", ended_by: "human", end_reason: "other", end_details: "The road was flooded." }), "pet")).toEqual({
+      kind: "didnt_happen",
+      was: slot(1),
+      reason: "other",
+      details: "The road was flooded.",
+    });
+    // Only the human reports what happened (MG-13): a pet's late cancellation is told without a reason.
+    expect(bookingNotice(ended({ ended_at: "2026-10-12T02:00:00.000Z", ended_by: "pet", end_reason: "other", end_details: "Sorry!" }), "human")).toEqual({
+      kind: "didnt_happen",
+      was: slot(1),
+      reason: null,
+      details: null,
+    });
   });
 
   it("puts the offered slot first while it can still be booked", () => {

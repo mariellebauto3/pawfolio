@@ -24,8 +24,11 @@ export type MeetAndGreetStatus = "booked" | "confirmed" | "ended";
 /** Why a meeting was called off before it happened (MG-10). */
 export type CancelReason = "schedule_conflict" | "pet_unwell" | "weather_or_travel" | "other";
 
+/** What happened to a meeting whose time came without the two sides meeting, as the human reports it (MG-13). */
+export type DidntHappenReason = "didnt_show_pet_side" | "didnt_show_human_side" | "moved_to_another_day" | "other";
+
 /** Why a booking ended: called off (MG-10), moved to another slot (MG-06, MG-09), or what happened instead (MG-13). */
-export type MeetEndReason = CancelReason | "didnt_show_pet_side" | "didnt_show_human_side" | "moved_to_another_day";
+export type MeetEndReason = CancelReason | DidntHappenReason;
 
 /** One booking of a slot for a request. A request has several over its life; at most one is booked or confirmed. */
 export type MeetAndGreet = {

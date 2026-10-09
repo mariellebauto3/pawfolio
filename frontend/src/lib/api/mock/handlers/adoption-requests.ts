@@ -172,6 +172,7 @@ function send({ body, account }: MockContext, homeId: unknown): MockResult {
     approved_at: null,
     meet_scheduled_at: null,
     awaiting_decision_at: null,
+    overdue_flagged_at: null,
     closed_at: null,
   };
   ADOPTION_REQUESTS.push(created);
