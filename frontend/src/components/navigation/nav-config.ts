@@ -54,7 +54,7 @@ export function memberNavItems(role: Role | null): MemberNavItem[] {
       matches: [ROUTES.search, "/pets", "/homes"],
     },
     { id: "requests", href: ROUTES.requests, label: "Requests", shortLabel: "Requests", icon: "briefcase", matches: ["/apply"] },
-    // Placeholder for the NT-01 dropdown: a link to the full list until that task replaces it.
+    // The desktop top bar opens the NT-01 dropdown here instead (`AlertsMenu`); the phone tab bar links to the list.
     { id: "alerts", href: ROUTES.notifications, label: "Alerts", shortLabel: "Alerts", icon: "bell" },
   ];
 }

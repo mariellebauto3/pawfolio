@@ -6,7 +6,9 @@ import { Skeleton } from "@/components/feedback/skeleton";
 import { Icon } from "@/components/ui/icon";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/utils/cn";
+import { type Alerts, useAlerts } from "@/providers/alerts-provider";
 import { useSession } from "@/providers/session-provider";
+import { AlertsMenu } from "./alerts-menu";
 import { Logo } from "./logo";
 import { MeMenu } from "./me-menu";
 import { MemberSearch } from "./member-search";
@@ -29,6 +31,8 @@ const ACTIVE_CLASSES: Record<Placement, string> = {
   top: "border-b-primary text-ink",
   bottom: "border-t-primary text-ink",
 };
+// The count over a tab's icon. The ring keeps a wide count ("99+") readable where it overlaps the icon's surroundings.
+const COUNT_CLASSES = "absolute top-1.5 left-1/2 ml-1 ring-2 ring-surface";
 
 // The Me trigger: a round avatar button on phones, a tab like the others from lg.
 const ME_CLASSES =
@@ -37,23 +41,26 @@ const ME_CLASSES =
   "lg:h-16 lg:w-auto lg:min-w-16 lg:rounded-none lg:border-y-[3px] lg:border-transparent lg:px-2";
 
 type Props = {
-  /** Unread counts for Requests and Alerts. Filled in by the requests and notifications tasks (RQ, NT-01). */
+  /** Counts a page hands in. Alerts counts itself where `AlertsFeed` runs (the member layout), and that count wins. */
   counts?: MemberNavCounts;
 };
 
 // GN-01. Desktop: one 64 px row with logo, search, tabs and Me. Phones and tablets: logo, search and Me on top, and the
 // tabs in a bar fixed to the bottom of the screen, so neither row is crowded and the counts stay in view
-// (ui-guidelines §1).
+// (ui-guidelines §1). Alerts opens the NT-01 dropdown from the desktop row; in the bottom bar it stays a link to the
+// Notifications page, which is the same list at phone width.
 export function MemberTopBar({ counts = {} }: Props) {
   const pathname = usePathname();
   const { account, role, status } = useSession();
+  const alerts = useAlerts();
+  const navCounts = alerts ? { ...counts, alerts: alerts.unreadCount } : counts;
   const items = memberNavItems(role);
   const { profileLink, sections } = meMenuFor(role);
   const meLinks = [...(profileLink ? [profileLink] : []), ...sections.flatMap((section) => section.links)];
   const meActive = meLinks.some((link) => isNavLinkActive(pathname, link));
 
   const tabs = (placement: Placement) => (
-    <NavTabs placement={placement} items={items} pathname={pathname} counts={counts} loading={status === "loading"} />
+    <NavTabs placement={placement} items={items} pathname={pathname} counts={navCounts} alerts={alerts} loading={status === "loading"} />
   );
 
   return (
@@ -86,11 +93,13 @@ type TabsProps = {
   items: MemberNavItem[];
   pathname: string;
   counts: MemberNavCounts;
+  /** What feeds the Alerts dropdown; null where nothing does, and Alerts is a plain link. */
+  alerts: Alerts | null;
   /** The account is still loading: hold the place of the role's own tab so the row doesn't jump. */
   loading: boolean;
 };
 
-function NavTabs({ placement, items, pathname, counts, loading }: TabsProps) {
+function NavTabs({ placement, items, pathname, counts, alerts, loading }: TabsProps) {
   const entries: Array<MemberNavItem | "placeholder"> = loading ? [items[0], "placeholder", ...items.slice(1)] : items;
 
   return (
@@ -109,6 +118,18 @@ function NavTabs({ placement, items, pathname, counts, loading }: TabsProps) {
         }
 
         const active = isNavLinkActive(pathname, item);
+        if (item.id === "alerts" && placement === "top" && alerts) {
+          return (
+            <li key={item.id} className={itemClasses}>
+              <AlertsMenu
+                alerts={alerts}
+                triggerClassName={cn(TAB_CLASSES.top, "aria-expanded:text-ink", active && ACTIVE_CLASSES.top)}
+                countClassName={COUNT_CLASSES}
+              />
+            </li>
+          );
+        }
+
         const count = item.id === "requests" || item.id === "alerts" ? counts[item.id] : undefined;
         return (
           <li key={item.id} className={itemClasses}>
@@ -122,8 +143,7 @@ function NavTabs({ placement, items, pathname, counts, loading }: TabsProps) {
               <NavCount
                 count={count}
                 noun={item.id === "alerts" ? "unread" : "new"}
-                // The ring keeps a wide count ("99+") readable where it overlaps the icon's surroundings.
-                className="absolute top-1.5 left-1/2 ml-1 ring-2 ring-surface"
+                className={COUNT_CLASSES}
               />
             </Link>
           </li>
