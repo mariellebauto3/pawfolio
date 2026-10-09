@@ -108,6 +108,14 @@ class AdoptionRequestResource extends JsonResource
 
         $data['match_score'] = $matchScore !== null ? (int) $matchScore : null;
         $data['cooldown_until'] = $cooldownUntil;
+        // Whether the confirmed meeting's time is behind us, so the human's decision is open (MG-11, MG-12). The
+        // screens read this instead of comparing clocks: it is true before the job moves the status as well.
+        $data['meeting_passed'] = $ar->meetingHasPassed();
+        // The adoption an Adopted request ended in, for its record (AL-04, AL-06); null for every other request,
+        // and once an admin removed the link (AL-07).
+        $data['adoption'] = $ar->adoption && $ar->adoption->isActiveLink()
+            ? ['id' => $ar->adoption->id, 'adopted_at' => $ar->adoption->adopted_at?->toISOString()]
+            : null;
         $data['meet_and_greet'] = $formattedActiveMeet ?? $formattedLatestMeet;
         $data['active_meet_and_greet'] = $formattedActiveMeet;
         $data['latest_meet_and_greet'] = $formattedLatestMeet;
