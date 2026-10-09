@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\NotificationCategory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,6 +15,7 @@ use Illuminate\Support\Carbon;
  * @property string $id
  * @property int $user_id
  * @property string $type
+ * @property string|null $category
  * @property string $title
  * @property string $body
  * @property array|null $data
@@ -52,6 +54,20 @@ class Notification extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    /**
+     * Every row gets the tab it is listed under (NT-02) as it is written, whoever writes it: the category its
+     * sender named in `data`, or its type's own.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (Notification $notification): void {
+            $notification->category ??= NotificationCategory::of(
+                (string) $notification->type,
+                $notification->data['category'] ?? null,
+            )?->value;
+        });
+    }
 
     public function user(): BelongsTo
     {

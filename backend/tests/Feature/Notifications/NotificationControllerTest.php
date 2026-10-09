@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Notifications;
 
+use App\Enums\AccountStatus;
 use App\Models\Notification;
 use App\Models\NotificationPreference;
 use App\Models\User;
+use App\Services\Notifications\NotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -76,6 +78,69 @@ class NotificationControllerTest extends TestCase
         $response = $this->getJson('/api/v1/notifications');
 
         $response->assertJsonPath('meta.total', 0);
+    }
+
+    /** The tabs of NT-02 and NT-03: each lists its own category, and every row sits under exactly one tab. */
+    public function test_index_lists_each_tab_by_category(): void
+    {
+        $this->actingAsOwner();
+
+        $service = app(NotificationService::class);
+        $service->store($this->owner, 'request_received', 'New adoption request', 'Kulit sent you a request.', ['category' => 'Requests']);
+        // A decision reminder reuses a request type, and its sender files it under Meet & Greets.
+        $service->store($this->owner, 'request_under_review', 'Decision needed for Bantay', 'Adopt or decline?', ['category' => 'Meet & Greets']);
+        $service->store($this->owner, 'verification_approved', 'Account approved', 'Welcome to Pawfolio!', ['category' => 'Account']);
+        $service->store($this->owner, 'post_comment', 'Ana Santos commented on your post', 'So cute!', ['category' => 'Feed']);
+        // A sender that names no category is filed by the kind of notification it is.
+        $service->store($this->owner, 'meet_greet_booked', 'Meet & Greet booked', 'Sat, Oct 10, 10:00 AM.');
+
+        $titles = fn (string $query) => collect($this->getJson('/api/v1/notifications'.$query)->assertOk()->json('data'))
+            ->pluck('title')->sort()->values()->all();
+
+        $this->assertSame(['New adoption request'], $titles('?category=requests'));
+        $this->assertSame(['Decision needed for Bantay', 'Meet & Greet booked'], $titles('?category=meet_and_greets'));
+        $this->assertSame(['Account approved'], $titles('?category=account'));
+        $this->assertCount(5, $titles(''));
+        $this->assertCount(5, $titles('?category=all'));
+
+        $this->getJson('/api/v1/notifications?category=account')
+            ->assertJsonPath('data.0.category', 'account')
+            ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_index_refuses_a_category_that_is_no_tab(): void
+    {
+        $this->actingAsOwner();
+
+        $this->getJson('/api/v1/notifications?category=secrets')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['category']);
+    }
+
+    public function test_index_and_unread_count_are_closed_to_accounts_that_are_not_active(): void
+    {
+        $pending = User::factory()->create(['status' => AccountStatus::PendingVerification]);
+        $this->actingAs($pending, 'sanctum');
+
+        $this->getJson('/api/v1/notifications')->assertStatus(403)->assertJsonPath('code', 'account_not_active');
+        $this->getJson('/api/v1/notifications/unread-count')->assertStatus(403);
+        $this->postJson('/api/v1/notifications/read-all')->assertStatus(403);
+    }
+
+    public function test_mark_all_as_read_clears_the_unread_count_for_the_owner_only(): void
+    {
+        $this->actingAsOwner();
+
+        $other = User::factory()->create(['email' => 'other@example.com']);
+        Notification::factory()->count(3)->create(['user_id' => $this->owner->id]);
+        $theirs = Notification::factory()->create(['user_id' => $other->id]);
+
+        $this->postJson('/api/v1/notifications/read-all')
+            ->assertOk()
+            ->assertJsonPath('data.marked_read_count', 3);
+
+        $this->getJson('/api/v1/notifications/unread-count')->assertJsonPath('data.unread_count', 0);
+        $this->assertNull($theirs->fresh()->read_at);
     }
 
     public function test_show_returns_single_notification(): void
