@@ -61,8 +61,9 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
   for a Home, and neither once it is adopted.
 - **The alumni profile as its Furparent reads it (AL-05, FE-18):** the pet page puts the Adoption module's
   Adoption details (AL-06) and "Write an adoption story" where a human otherwise gets Invite and Bookmark.
-- **Not built here:** Report (RP-01) belongs to the
-  Reports module. "See full breakdown" (MT-03) is
+- **Report (RP-01, FE-21):** the Reports module's button, put last among the actions of a resume and a Home
+  Profile by their pages, for a pet or a human reading someone else's.
+- **Not built here:** "See full breakdown" (MT-03) is
   the Matching module's button, passed into `components/match-summary.tsx` by the two profile pages. Latest activity on someone else's resume needs the pet's account id, which the resume doesn't carry.
   Browse filters by province only: the API matches a city exactly, so cities are found through the search box.
 

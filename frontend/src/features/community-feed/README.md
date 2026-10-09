@@ -29,7 +29,7 @@ and adoption stories.
 | FD-03 | Create post dialog | Dialog | Human, Pet | `/feed` | Built (FE-20) |
 | FD-04 | Write an adoption story | Dialog | Human (Furparent) | `/feed`, `/feed?compose=story` | Built (FE-20) |
 | FD-05 | Post detail & comments | Screen | Human, Pet | `/posts/[postId]` | Built (FE-20) |
-| FD-06 | Post options menu | Dropdown | Human, Pet | `/feed`, `/posts/[postId]` | Built (FE-20), without Report |
+| FD-06 | Post options menu | Dropdown | Human, Pet | `/feed`, `/posts/[postId]` | Built (FE-20); Report added with FE-21 |
 | FD-07 | Delete post dialog | Dialog | Human, Pet | `/feed`, `/posts/[postId]` | Built (FE-20) |
 
 Dialogs, menus, toasts and states render on top of (or inside) the route shown; they are not separate pages.
@@ -74,8 +74,10 @@ The card itself is shared: `PostCard` and `PostPhotos` in `src/components/data-d
 - **The side rails are extras.** They are read from the account's own profile, matches, invites and bookmarks; one
   that can't be read is left out and the feed still shows. Below `lg` they are hidden, and the latest announcement
   moves above the posts.
-- **Not here yet:** Report on a post or a comment (`FD-06`, `FD-05`) arrives with Reports & Moderation (`RP-01`,
-  FE-21): the post menu's items are built in `feed-post.tsx` and a comment's actions in `comment-item.tsx`.
+- **Report** (`RP-01`, FE-21) is on everyone else's posts and comments, never on the reader's own: "Report post"
+  and "Report this account" in the post menu (`feed-post.tsx`), and Report among a comment's actions
+  (`comment-item.tsx`). They call `useReport()` (`src/providers/report-provider.tsx`); the dialog itself belongs
+  to the Reports module.
 
 ## Requirements covered
 

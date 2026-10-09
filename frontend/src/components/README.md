@@ -108,6 +108,11 @@ notifications: `unreadCount`, the `latest` few, `isUnread(row)`, `markRead(row)`
 only the contract; the notifications feature fills it (`AlertsFeed`, mounted by `app/(member)/layout.tsx`), so shared
 navigation imports no feature. It is `null` where nothing feeds it.
 
+**Report:** `useReport()?.report(target)` (`src/providers/report-provider.tsx`) opens the report dialog (RP-01) for
+a post, a comment, a resume, a Home Profile or an account (`ReportTarget`, `src/types/report.ts`). Like Alerts, the
+provider is only the contract: the reports feature fills it (`ReportHost`, mounted by `app/(member)/layout.tsx`).
+It is `null` where nothing feeds it; leave Report out there. Offer it only on what isn't the reader's own.
+
 **Toasts:** `const toast = useToast(); toast.show("Saved to Bookmarks.")` from any client component
 (`src/providers/toast-provider.tsx`, mounted in the root layout). Tones: `success` (default), `info`, `error`. One short
 sentence that names what happened. They leave after 5 s and pause while hovered or focused. A modal dialog covers
