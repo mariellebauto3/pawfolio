@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1\Notifications;
 
 use App\Actions\Notifications\SendNotification;
+use App\Enums\NotificationCategory;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Notifications\SendNotificationRequest;
 use App\Http\Resources\ErrorResource;
@@ -35,41 +36,20 @@ class NotificationController extends Controller
             ->whereNull('dismissed_at')
             ->newestFirst();
 
-        $category = $request->query('category');
-        if (is_string($category) && trim($category) !== '' && strtolower(trim($category)) !== 'all') {
-            $normalized = strtolower(trim($category));
-            $typesForCategory = match ($normalized) {
-                'requests', 'request' => [
-                    'invite_sent', 'invite_received', 'request_received', 'request_withdrawn',
-                    'request_approved', 'request_declined', 'request_expired', 'request_on_hold',
-                    'request_under_review', 'adoption_complete', 'not_adopted',
-                ],
-                'meet & greets', 'meet_and_greets', 'meet-and-greets' => [
-                    'meet_greet_booked', 'meet_greet_confirmed', 'meet_greet_rescheduled',
-                    'meet_greet_cancelled', 'meet_greet_reminder', 'decision_needed',
-                ],
-                'account' => [
-                    'verification_approved', 'verification_denied', 'account_action',
-                    'account_suspended', 'account_reactivated', 'report_outcome', 'announcement',
-                ],
-                default => [],
-            };
+        // The tab (NT-02, NT-03): `requests`, `meet_and_greets` or `account`; no value, or `all`, lists everything.
+        // It filters on the `category` column, not on a path into `data` (a text column), so it reads the same on
+        // SQLite and PostgreSQL. A value that is no tab is refused, not answered with an empty list (SEC-INPUT-03).
+        $requested = $request->query('category');
+        if (is_string($requested) && trim($requested) !== '' && strtolower(trim($requested)) !== 'all') {
+            $category = NotificationCategory::fromLabel($requested);
 
-            $canonicalCategory = match ($normalized) {
-                'requests', 'request' => 'Requests',
-                'meet & greets', 'meet_and_greets', 'meet-and-greets' => 'Meet & Greets',
-                'account' => 'Account',
-                default => trim($category),
-            };
+            if ($category === null) {
+                return ErrorResource::unprocessable('The given data was invalid.', [
+                    'category' => ['Choose All, Requests, Meet & Greets or Account.'],
+                ])->toResponse($request);
+            }
 
-            $query->where(function ($q) use ($typesForCategory, $canonicalCategory) {
-                if (! empty($typesForCategory)) {
-                    $q->whereIn('type', $typesForCategory)
-                        ->orWhere('data->category', $canonicalCategory);
-                } else {
-                    $q->where('data->category', $canonicalCategory);
-                }
-            });
+            $query->where('category', $category->value);
         }
 
         $notifications = $query->paginate($perPage);

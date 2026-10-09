@@ -28,7 +28,7 @@ Each route group's `layout.tsx` renders its shell, so screens only render their 
 | --- | --- | --- | --- |
 | `GuestShell` | `layout/guest-shell.tsx` | `app/page.tsx`, `(public)` | Logo, How it works · Success stories · FAQ (footer only on phones), Join now, Sign in; footer. Pages set their own width |
 | `AccountStatusShell` | `layout/account-status-shell.tsx` | `(account-status)` | Logo (not a link), Help center, Log out. Content 760 px wide |
-| `MemberShell` | `layout/member-shell.tsx` | `(member)` | `MemberTopBar` (GN-01), content up to 1128 px. `counts={{ requests, alerts }}` for the unread badges |
+| `MemberShell` | `layout/member-shell.tsx` | `(member)` | `MemberTopBar` (GN-01), content up to 1128 px. `counts={{ requests }}` for a count a page hands in; Alerts counts itself (below) |
 | `AdminShell` | `layout/admin-shell.tsx` | `admin` | `AdminSidebar`, content fills the rest. `counts={{ verification, reports, … }}` for queue sizes |
 | `SessionShell` | `layout/session-shell.tsx` | `app/not-found.tsx` | Whichever of the four fits the signed-in account (`shellAreaFor`) |
 
@@ -37,7 +37,8 @@ Inside a shell, start a page with **`PageHeader`** (`layout/page-header.tsx`): t
 
 | Component | File | Notes |
 | --- | --- | --- |
-| `MemberTopBar` | `navigation/member-top-bar.tsx` | Role from `useSession()`: pets get "Homes for You", humans "Pets for You" ("Matches" on phones). Desktop: one 64 px row. Below `lg`: logo mark, search and the Me avatar on top, and the tabs in a bar fixed to the bottom of the screen (`data-bottom-nav`; toasts and the page end stay above it through `--pf-bottom-offset`). Alerts links to `/notifications` until NT-01 replaces it with its dropdown |
+| `MemberTopBar` | `navigation/member-top-bar.tsx` | Role from `useSession()`: pets get "Homes for You", humans "Pets for You" ("Matches" on phones). Desktop: one 64 px row. Below `lg`: logo mark, search and the Me avatar on top, and the tabs in a bar fixed to the bottom of the screen (`data-bottom-nav`; toasts and the page end stay above it through `--pf-bottom-offset`). Alerts reads `useAlerts()`: its live unread count in both rows, and `AlertsMenu` in the desktop row. In the phone tab bar, and on a page nothing feeds (the app-wide not-found page), it is a link to `/notifications` |
+| `AlertsMenu` | `navigation/alerts-menu.tsx` | NT-01 Alerts dropdown: the latest 4 as `NotificationRow`s, Mark all as read, See all notifications; loading, empty and error states. A disclosure, not a menu: Tab reaches its links in order, Escape closes and returns focus, and so does a click or focus elsewhere. It shows what `useAlerts()` gives it and calls nothing itself |
 | `MeMenu` | `navigation/me-menu.tsx` | Profile card and the role's links in groups, as in the LoFi; Log out ends the Account group |
 | `MemberSearch` | `navigation/member-search.tsx` | `next/form` GET to `/search?q=` (DS-03) |
 | `AdminSidebar` | `navigation/admin-sidebar.tsx` | 240 px sidebar from `lg`. Below `lg`: a top bar with the current section and a menu button (showing the total waiting) that opens the same links, counts and Log out in a `Drawer`. `aria-current="page"` on a section's own page, `"true"` on pages inside it |
@@ -102,6 +103,11 @@ the same message for missing pages and for hidden, suspended or deactivated prof
 | `ToastViewport` | `toast.tsx` | The toast stack. Don't render it yourself — `ToastProvider` does |
 | `PhotoViewer` | `photo-viewer.tsx` | Full-size photos on a dark surface (DS-06). Controlled: `open`, `onClose`, `photos`, `index` + `onIndexChange`, and a `title` such as "Mochi’s photos". ← → move and wrap around, Home / End jump, Escape closes, a sideways swipe moves on touch screens, focus returns to the photo that opened it. Usually reached through `PhotoGallery` |
 
+**Alerts:** `useAlerts()` (`src/providers/alerts-provider.tsx`) is what the shell knows about the account's
+notifications: `unreadCount`, the `latest` few, `isUnread(row)`, `markRead(row)`, `markAllRead()`. The provider is
+only the contract; the notifications feature fills it (`AlertsFeed`, mounted by `app/(member)/layout.tsx`), so shared
+navigation imports no feature. It is `null` where nothing feeds it.
+
 **Toasts:** `const toast = useToast(); toast.show("Saved to Bookmarks.")` from any client component
 (`src/providers/toast-provider.tsx`, mounted in the root layout). Tones: `success` (default), `info`, `error`. One short
 sentence that names what happened. They leave after 5 s and pause while hovered or focused. A modal dialog covers
@@ -135,6 +141,7 @@ Dialogs with typed input don't close on a backdrop click. Nothing closes while a
 | `PetCard` | `pet-card.tsx` | A pet as a `MatchCard`: profile photo, breed · age · size, the place, the first two temperament tags; a status badge only when it isn't Looking for a Home. Passes `score`, `reasons` and `action` through |
 | `HomeCard` | `home-card.tsx` | A home as a `MatchCard`, read like a job posting: avatar, headline, home type and household, the city (SEC-PRIV-03), the Furparent badge. Passes `score`, `reasons` and `action` through |
 | `PhotoGallery` | `photo-gallery.tsx` | A grid of a pet's photos with captions; each opens `PhotoViewer` on that photo. Client component |
+| `NotificationRow` | `notification-row.tsx` | One notification in a list (NT-01…NT-03): an icon by category (blue when someone must act, read out as "Important"), title, message, `when` ("2h ago", written by the caller) and an unread dot on a tinted row (read out as "Unread"). The whole row is one link, and only to a path `notificationHref` accepts (SEC-FE-07); a row that leads nowhere is a button while unread. `density="compact"` in the dropdown. Client component |
 
 ### `navigation/`
 

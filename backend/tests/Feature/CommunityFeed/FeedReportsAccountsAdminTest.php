@@ -47,6 +47,14 @@ class FeedReportsAccountsAdminTest extends TestCase
         ])->assertCreated()
             ->json('data.id');
 
+        // The post's author is told, with a link to the page the post has in the app (`/posts/{id}`, FD-05).
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $petUser->id,
+            'type' => 'post_comment',
+            'category' => 'feed',
+            'action_url' => "/posts/{$postId}",
+        ]);
+
         $replyId = $this->actingAs($petUser)->postJson("/api/v1/posts/{$postId}/comments", [
             'body' => 'Understood, thank you.',
             'parent_comment_id' => $topCommentId,

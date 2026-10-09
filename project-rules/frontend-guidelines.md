@@ -48,7 +48,9 @@ routes and the requirements they cover. Update it when scope changes.
 | A type used across modules | `src/types/` |
 
 **Import direction:** `app → features → components → lib`. Features must not import from other features' internals; if two
-features need the same thing, move it to `components/`, `lib/`, `hooks/` or `types/`.
+features need the same thing, move it to `components/`, `lib/`, `hooks/` or `types/`. When a shell needs a feature's
+data (the top bar's Alerts), the contract is a context in `src/providers/` and the feature fills it from the route
+group's `layout.tsx`; shared code still imports no feature.
 
 ## 3. Routing
 
@@ -88,6 +90,9 @@ Planned routes (from the LoFi, full list in the feature READMEs):
   field names in `snake_case` as the API sends them (ADR 0004).
 - Build screens before their endpoint exists with **mock mode** (`NEXT_PUBLIC_API_MODE=mock`): add handlers in
   `src/lib/api/mock/handlers/` that follow the endpoint's entry in `docs/api/`.
+- Nothing is pushed to the browser (no websockets). A count that must stay current is asked for again on a timer
+  and when the window is looked at again, as Alerts does (`features/notifications/hooks/alerts-store.ts`): not while
+  the tab is hidden, never with a redirect on failure (`skipAuthRedirect`), and it stops once the session is over.
 - Show loading states (`loading.tsx` or skeletons) and handle empty and error states for every data view.
 
 ## 6. Security
