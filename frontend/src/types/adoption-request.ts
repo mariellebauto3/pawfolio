@@ -39,5 +39,7 @@ export type AdoptionRequest = {
   approved_at: IsoDateTime | null;
   meet_scheduled_at: IsoDateTime | null;
   awaiting_decision_at: IsoDateTime | null;
+  /** Set when 7 days went by after the meeting without a decision: an admin follows up (§5.4, MG-16). */
+  overdue_flagged_at: IsoDateTime | null;
   closed_at: IsoDateTime | null;
 };

@@ -110,6 +110,21 @@ class DemoSeeder extends Seeder
             completeResume: true,
         );
 
+        // 3b. Active Pet — Siopao (In Process: met Ana Santos, who now decides)
+        [, $siopao] = $this->upsertPetAccount(
+            email: 'siopao@example.com',
+            name: 'Siopao',
+            accountStatus: AccountStatus::Active,
+            petStatus: PetStatus::InProcess,
+            species: 'dog',
+            breed: 'Aspin',
+            ageMonths: 20,
+            city: 'Quezon City',
+            province: 'Metro Manila',
+            passwordHash: $passwordHash,
+            completeResume: true,
+        );
+
         // 4. Active Pet — Luna (Adopted / Hired)
         [$lunaUser, $luna] = $this->upsertPetAccount(
             email: 'luna@example.com',
@@ -254,6 +269,7 @@ class DemoSeeder extends Seeder
         $calculator = app(MatchScoreCalculator::class);
         $calculator->recalculateForPet($mochi);
         $calculator->recalculateForPet($bantay);
+        $calculator->recalculateForPet($siopao);
 
         // 13. Invite to Apply (Ana -> Mochi)
         if (! Invite::query()->where('pet_id', $mochi->id)->where('home_profile_id', $anaHome->id)->exists()) {
@@ -305,6 +321,50 @@ class DemoSeeder extends Seeder
             $mg->booked_at = now()->subDays(2);
             $mg->confirmed_at = now()->subDay();
             $mg->save();
+        }
+
+        // Awaiting Decision: Siopao met Ana Santos yesterday, so Adopt, Decline and "It didn't happen" are open to
+        // her (MG-11, AL-01). Its request to Marco Cruz is On Hold: it closes on Adopt, and is Sent again on Decline.
+        if (! AdoptionRequest::query()->where('pet_id', $siopao->id)->where('home_profile_id', $anaHome->id)->exists()) {
+            $metAt = now()->subDay()->setHour(15)->setMinute(0)->setSecond(0);
+
+            $arDecide = new AdoptionRequest;
+            $arDecide->pet_id = $siopao->id;
+            $arDecide->home_profile_id = $anaHome->id;
+            $arDecide->status = AdoptionRequestStatus::AwaitingDecision->value;
+            $arDecide->cover_letter = 'Hi Ana! I am Siopao, a calm young Aspin who walks nicely on a leash and loves an afternoon nap by the door.';
+            $arDecide->caretaker_notes = 'Vaccinated and neutered. Shy for the first hour, then very sweet.';
+            $arDecide->approval_message = 'Siopao sounds lovely. Let us meet!';
+            $arDecide->sent_at = now()->subDays(9);
+            $arDecide->approved_at = now()->subDays(7);
+            $arDecide->meet_scheduled_at = now()->subDays(5);
+            $arDecide->awaiting_decision_at = $metAt;
+            $arDecide->save();
+
+            $metSlot = new MeetGreetSlot;
+            $metSlot->home_profile_id = $anaHome->id;
+            $metSlot->starts_at = $metAt;
+            $metSlot->place_type = MeetGreetPlaceType::PublicSpot->value;
+            $metSlot->place_details = 'Quezon Memorial Circle';
+            $metSlot->save();
+
+            // Ended when its time came, as the scheduled job leaves it: nobody called it off.
+            $met = new MeetAndGreet;
+            $met->adoption_request_id = $arDecide->id;
+            $met->meet_greet_slot_id = $metSlot->id;
+            $met->status = MeetAndGreetStatus::Ended->value;
+            $met->booked_at = now()->subDays(6);
+            $met->confirmed_at = now()->subDays(5);
+            $met->ended_at = $metAt;
+            $met->save();
+
+            $arHeld = new AdoptionRequest;
+            $arHeld->pet_id = $siopao->id;
+            $arHeld->home_profile_id = $cruzHome->id;
+            $arHeld->status = AdoptionRequestStatus::OnHold->value;
+            $arHeld->cover_letter = 'Hi Marco! I am Siopao. I get along with other dogs and I would love a family that takes morning walks.';
+            $arHeld->sent_at = now()->subDays(8);
+            $arHeld->save();
         }
 
         // Adopted requests & alumni records, newest first. Luna -> Elena Garcia is the LoFi's; the other three give

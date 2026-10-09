@@ -3,7 +3,8 @@ import { PETS } from "@/lib/api/mock/fixtures/pets";
 import type { AdoptionRequest, RequestHome, RequestPet } from "@/types/adoption-request";
 
 // Made-up adoption requests (SEC-PRIV-06). Mochi is In Process with Ana, as in the LoFi, so its request to Paolo is
-// On Hold (RQ-15); Marco declined it a week ago (RQ-17), so the 30-day cooldown with his home is still running.
+// On Hold (RQ-15); Marco declined it a week ago (RQ-17), so the 30-day cooldown with his home is still running. Ana
+// adopted Luna (AL-04), and met Bantay yesterday, so that decision is hers to make (MG-11).
 
 /** The pet as a request names it: the summary, and the age a row of the inbox shows. */
 export function petSummary(petId: number): RequestPet {
@@ -35,6 +36,7 @@ const EMPTY: Omit<AdoptionRequest, "id" | "status" | "pet" | "home_profile" | "c
   approved_at: null,
   meet_scheduled_at: null,
   awaiting_decision_at: null,
+  overdue_flagged_at: null,
   closed_at: null,
 };
 
@@ -100,5 +102,35 @@ export const ADOPTION_REQUESTS: AdoptionRequest[] = [
     decision_message: "Thank you, Mochi. We decided to wait a few months before adopting.",
     sent_at: daysAgo(12),
     closed_at: daysAgo(8),
+  },
+  {
+    ...EMPTY,
+    id: 6,
+    status: "adopted",
+    pet: petSummary(4),
+    home_profile: homeProfileSummary(1),
+    cover_letter: "Hi Ana! I'm quiet, clean and I promise to only knock over small things.",
+    caretaker_notes: "Luna is shy for a day, then very affectionate.",
+    approval_message: "Luna sounds like the cat for us.",
+    sent_at: "2026-09-12T02:00:00.000000Z",
+    approved_at: "2026-09-14T05:30:00.000000Z",
+    meet_scheduled_at: "2026-09-17T08:00:00.000000Z",
+    awaiting_decision_at: "2026-09-26T07:00:00.000000Z",
+    closed_at: "2026-09-27T09:15:00.000000Z",
+  },
+  {
+    ...EMPTY,
+    id: 7,
+    status: "awaiting_decision",
+    pet: petSummary(7),
+    home_profile: homeProfileSummary(1),
+    cover_letter: "I'm a senior gentleman looking for a quiet retirement. I walk slowly, nap a lot and never chase the cat.",
+    caretaker_notes: "Bantay needs joint supplements with his dinner.",
+    approval_message: "We'd be glad to meet Bantay.",
+    // Counted from today, so the meeting was always yesterday.
+    sent_at: daysAgo(10),
+    approved_at: daysAgo(8),
+    meet_scheduled_at: daysAgo(6),
+    awaiting_decision_at: daysAgo(1),
   },
 ];

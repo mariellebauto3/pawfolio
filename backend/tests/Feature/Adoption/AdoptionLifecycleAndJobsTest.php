@@ -126,7 +126,7 @@ class AdoptionLifecycleAndJobsTest extends TestCase
         $this->actingAs($humanUsers[1])->postJson("/api/v1/adoption-requests/{$reqIds[1]}/adopt", [
             'decision_message' => 'Welcome home, Mochi!',
         ])->assertOk()
-            ->assertJsonPath('data.request.status', 'adopted');
+            ->assertJsonPath('data.status', 'adopted');
 
         $this->assertSame(PetStatus::AdoptedHired, $pet->fresh()->getStatus());
         $this->assertSame(

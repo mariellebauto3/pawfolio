@@ -76,7 +76,10 @@ Empty state, Table, Timeline, Meter, Match card, Post card. Add a new shared com
 - Show only actions the current user may take: Adopt/Decline appear only after the meeting time; booking only after approval;
   Apply is replaced by "View my request" when one is open; limit (3 open) and 30-day cooldown dialogs explain blocks (`RQ-05`, `RQ-06`).
 - No status dropdowns anywhere for pets or requests (FR27).
-- Contact details and exact addresses appear only on a confirmed Meet & Greet (`MG-07`).
+- Contact details and exact addresses appear only on a confirmed Meet & Greet (`MG-07`), and stay on the request
+  while the decision after it is open (`MG-11`, `MG-12`) and once it is Adopted (`AL-04`, added 2026-10-09): with no
+  request thread, they are how the two sides arrange the handover. A decline, a cancellation or "It didn't happen"
+  hides them again.
 - **No request thread** (decided 2026-10-09; the LoFi draws one on `RQ-11`, `MG-03`, `MG-07` and `AL-04`): the
   proposal keeps messaging between a pet and a human as future scope (§10). A request page shows its status and
   history, and no screen or notification promises a thread.

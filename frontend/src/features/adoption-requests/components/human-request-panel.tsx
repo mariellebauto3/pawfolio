@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { buttonClasses } from "@/components/ui/button-styles";
-import { REQUEST_EXPIRY_DAYS } from "@/constants/adoption-requests";
+import { OPEN_REQUEST_STATUSES, REQUEST_EXPIRY_DAYS } from "@/constants/adoption-requests";
 import { ROUTES, petPath } from "@/constants/routes";
 import { formatDate } from "@/lib/utils/format-date";
 import type { RequestStatus } from "@/types/statuses";
@@ -18,6 +18,11 @@ type Props = {
    * status in plain words, and `state` names the step so the panel knows when it changed.
    */
   meet?: { content: ReactNode; state: string };
+  /**
+   * What an Adopted request offers (AL-04), from the modules that own it: the caretaker's contact details and the
+   * adoption's details. It takes the place of the plain link to the alumni profile.
+   */
+  adopted?: ReactNode;
 };
 
 /** What each status means to the human the request was sent to: the news, then what comes of it. */
@@ -65,11 +70,12 @@ function words(request: RequestDetail): { lead: ReactNode; more?: ReactNode } {
 // The action panel of a request as the human it was sent to reads it (RQ-11 and every later status in plain
 // words): where it stands, and Approve and Decline while it is new (FR10). The API allows an answer only to a
 // Sent request, whatever this shows (SEC-FE-05). Once it is approved, its Meet & Greet takes the lead here
-// (`meet`); the decision after it joins this panel with its own screens.
-export function HumanRequestPanel({ request, meet }: Props) {
+// (`meet`), up to the decision after it (MG-11). An Adopted request is the record of the adoption (AL-04).
+export function HumanRequestPanel({ request, meet, adopted }: Props) {
   const { lead, more } = words(request);
   const pet = request.pet.name;
-  const message = request.decision_message ?? request.approval_message;
+  // While it is open, what the human wrote with the approval; once it has ended, what they wrote with the ending.
+  const message = OPEN_REQUEST_STATUSES.includes(request.status) ? request.approval_message : request.decision_message;
   const reason =
     (request.decline_reason && DECLINE_REASON_LABELS[request.decline_reason]) ?? (request.withdraw_reason && WITHDRAW_REASON_LABELS[request.withdraw_reason]);
 
@@ -111,11 +117,12 @@ export function HumanRequestPanel({ request, meet }: Props) {
               Manage availability
             </Link>
           )}
-          {request.status === "adopted" && (
-            <Link href={petPath(request.pet.id)} className={buttonClasses({ variant: "primary" })}>
-              View {pet}’s alumni profile
-            </Link>
-          )}
+          {request.status === "adopted" &&
+            (adopted ?? (
+              <Link href={petPath(request.pet.id)} className={buttonClasses({ variant: "primary" })}>
+                View {pet}’s alumni profile
+              </Link>
+            ))}
         </div>
       </Card>
     </RequestPanelFrame>

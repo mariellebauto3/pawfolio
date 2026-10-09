@@ -107,8 +107,11 @@ describe("the availability calls (MG-01, MG-02)", () => {
       [4, "public_spot", null],
     ]);
     expect(slots.data[0].booking).toEqual({ status: "confirmed", adoption_request_id: 1, pet_name: "Mochi" });
-    // No meeting's time has come yet.
-    expect((await getPastMeetings(as("human"))).meta.total).toBe(0);
+    // Two meetings are behind her, latest first: Bantay's yesterday, and the one Luna's adoption followed.
+    expect((await getPastMeetings(as("human"))).data.map((meeting) => [meeting.pet_name, meeting.request_status, meeting.didnt_happen])).toEqual([
+      ["Bantay", "awaiting_decision", false],
+      ["Luna", "adopted", false],
+    ]);
   });
 
   it("keeps slots for humans only", async () => {

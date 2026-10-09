@@ -63,8 +63,10 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
 - **Open to Adopt** is one component (`components/open-to-adopt-toggle.tsx`) on PR-11 and PR-20: on applies right
   away, off asks first (PR-13, `dialogs/turn-off-open-to-adopt-dialog.tsx`), and it stays locked until the quiz is
   finished. The switch always shows what the API last answered.
-- **Not built here:** the Adoption details dialog (AL-06) belongs to the Adoption module; "Adoption details" on an
-  adopted pet links to its alumni profile until then. PR-13 doesn't show how many requests are in progress, and
+- **Adoption details** on each adopted pet of PR-11 open the Adoption module's dialog (AL-06, FE-18). The `/me`
+  page hands the buttons to `MyHomeProfile` (`adoptionDetails`, by adoption id), since a feature doesn't import
+  another's.
+- **Not built here:** PR-13 doesn't show how many requests are in progress, and
   Profile views is a total, not "this month": the Home Profile API sends neither number.
 
 ## Requirements covered

@@ -149,6 +149,10 @@
   --animate-menu-in: pf-menu-in var(--pf-duration-fast) var(--pf-ease-out);
   --animate-toast-in: pf-toast-in var(--pf-duration-base) var(--pf-ease-out);
   --animate-fade-in: pf-fade-in var(--pf-duration-base) var(--pf-ease-out);
+  /* The adoption link (AL-02, AL-03): the line between a pet and its Furparent draws in, then the Hired tag is
+     stamped on it. It answers the Adopt action and plays once; reduced motion skips the movement (global rule below). */
+  --animate-link-in: pf-link-in var(--pf-duration-slow) var(--pf-ease-out) var(--pf-duration-base) both;
+  --animate-stamp-in: pf-stamp-in var(--pf-duration-slow) var(--pf-ease-out) calc(var(--pf-duration-base) + var(--pf-duration-slow)) both;
   /* The landing hero's paw trail (AU-01): an endless walk, like a logo marquee. The track holds the prints twice and
      slides one copy's width, so the loop is seamless. Reduced motion stops it (global rule below). */
   --animate-paw-loop: pf-paw-loop 40s linear infinite;
@@ -184,6 +188,17 @@
   @keyframes pf-fade-in {
     from {
       opacity: 0;
+    }
+  }
+  @keyframes pf-link-in {
+    from {
+      transform: scaleX(0);
+    }
+  }
+  @keyframes pf-stamp-in {
+    from {
+      opacity: 0;
+      transform: scale(1.6) rotate(-8deg);
     }
   }
   @keyframes pf-paw-loop {

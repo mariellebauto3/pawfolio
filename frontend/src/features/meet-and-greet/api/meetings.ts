@@ -1,17 +1,18 @@
 import { type ApiClient, apiPath } from "@/lib/api/core";
 import { isRecord, isText, unexpected } from "@/lib/api/readers";
 import type { ApiResource } from "@/types/api";
-import type { CancelReason, MeetAndGreet, MeetContacts, MeetEndReason, MeetGreetSlot, PlaceType } from "@/types/meet-and-greet";
+import type { CancelReason, DidntHappenReason, MeetAndGreet, MeetContacts, MeetEndReason, MeetGreetSlot, PlaceType } from "@/types/meet-and-greet";
 import type { RequestMeeting } from "../types/meetings";
 
-// The Meet & Greet calls of an approved request (docs/api/adoption-and-meet-greet.md, MG-03…MG-10, FR11, FR26):
-// the pet books a slot, the human confirms or proposes another time, either side reschedules or cancels. They run
-// in the browser. Whose request it is comes from the session and every status is the system's, so neither is ever
+// The Meet & Greet calls of an approved request (docs/api/adoption-and-meet-greet.md, MG-03…MG-14, FR11, FR12,
+// FR26): the pet books a slot, the human confirms or proposes another time, either side reschedules or cancels,
+// and once its time has passed the human declines or reports that it didn't happen. They run in the browser. Whose request it is comes from the session and every status is the system's, so neither is ever
 // sent (SEC-AUTHZ-02, FR27). Every path with an id is built with apiPath (SEC-FE-08). What a call answers is only
 // checked here, never kept: the page is read again from the API, and the contact details a confirmed meeting opens
 // are never put in browser storage or a URL (SEC-FE-04).
 
 const CHANGE_PROBLEM = "We couldn't tell whether that went through. Reload the page to see where the Meet & Greet stands.";
+const DECISION_PROBLEM = "We couldn't tell whether your decision went through. Reload the page to see where the request stands.";
 
 const PLACE_TYPES: readonly unknown[] = ["public_spot", "shelter", "caretaker_location"] satisfies PlaceType[];
 const END_REASONS: readonly unknown[] = [
@@ -84,6 +85,8 @@ export function readRequestMeeting(data: Record<string, unknown>): RequestMeetin
     active: active && active.status !== "ended" && active.slot ? active : null,
     latest: readBooking(data.latest_meet_and_greet),
     slots,
+    // Anything but a plain `true` reads as "not yet", so a decision is never offered that the API would refuse.
+    passed: data.meeting_passed === true,
     contacts: readContacts(data),
   };
 }
@@ -148,4 +151,30 @@ export async function cancelMeeting(client: ApiClient, requestId: number, why: {
   const meeting = readChanged(await client.post<ApiResource<unknown>>(apiPath`/adoption-requests/${requestId}/meet-and-greet/cancel`, why));
   if (meeting.active !== null) throw unexpected(CHANGE_PROBLEM);
   return meeting;
+}
+
+/**
+ * Reports that a Meet & Greet whose time has come didn't take place (MG-13, FR12), with what happened and optional
+ * details. Booking reopens and the contact details close. 409 `meeting_not_yet_passed` before its time, or
+ * `invalid_request_state` when there is nothing left to report.
+ */
+export async function reportDidntHappen(
+  client: ApiClient,
+  requestId: number,
+  what: { reason: DidntHappenReason; details: string | null },
+): Promise<RequestMeeting> {
+  const meeting = readChanged(await client.post<ApiResource<unknown>>(apiPath`/adoption-requests/${requestId}/meet-and-greet/didnt-happen`, what));
+  if (meeting.active !== null || meeting.passed) throw unexpected(CHANGE_PROBLEM);
+  return meeting;
+}
+
+/**
+ * Declines after the Meet & Greet (MG-14, FR12), with an optional message to the pet's caretaker. The request ends
+ * as Not Adopted, the pet goes back to Looking for a Home, and it can't apply to this home again for 30 days. 409
+ * `meeting_not_yet_passed`, or `invalid_request_state` when it was decided or withdrawn in the meantime.
+ */
+export async function declineAfterMeeting(client: ApiClient, requestId: number, message: string | null): Promise<void> {
+  const body = { decision_message: message };
+  const data = (await client.post<ApiResource<unknown>>(apiPath`/adoption-requests/${requestId}/decline-after-meeting`, body))?.data;
+  if (!isRecord(data) || data.status !== "not_adopted") throw unexpected(DECISION_PROBLEM);
 }

@@ -9,7 +9,7 @@ Endpoints for Adoption Requests (`BE-16`), Meet & Greet Scheduling (`BE-17`), Po
 | `POST` | `/api/v1/home-profiles/{home}/adoption-requests` | `pet` (Active) | Send an adoption request (`cover_letter` 50–600 chars, optional `caretaker_notes` up to 600). The rules and their 409 codes are listed under "The pet's side" below |
 | `POST` | `/api/v1/adoption-requests` | `pet` (Active) | The same, with `home_profile_id` in the body |
 | `GET` | `/api/v1/adoption-requests` | `pet`, `human` (Active) | Paginated list of the caller's own requests (`?tab=` or `?status=`), with `meta.status_counts` |
-| `GET` | `/api/v1/adoption-requests/{id}` | `pet`, `human`, `admin` | Request detail (`unlocked_contact` / `contacts` revealed only after Meet & Greet confirmation). 404 for anyone else |
+| `GET` | `/api/v1/adoption-requests/{id}` | `pet`, `human`, `admin` | Request detail (`contacts` revealed only after Meet & Greet confirmation; `meeting_passed` and `adoption` for the decision and its outcome). 404 for anyone else |
 | `POST` | `/api/v1/adoption-requests/{id}/approve` | `human` (Active) | Approve a `sent` request (optional `approval_message`) -> transitions Pet to `in_process` and puts other `sent` requests `on_hold`. 404 for anyone but the human it was sent to |
 | `POST` | `/api/v1/adoption-requests/{id}/decline` | `human` (Active) | Decline a request (optional `decline_reason`, `decision_message`) -> starts 30-day cooldown. 404 for anyone but the human it was sent to |
 | `POST` | `/api/v1/adoption-requests/{id}/withdraw` | `pet` (Active) | Withdraw an open or in-process request (optional `withdraw_reason`); if in-process, releases Pet back to `looking_for_a_home` and restores `on_hold` requests to `sent`. 404 for anyone but the pet that sent it |
@@ -223,7 +223,7 @@ returns, it needs a way to report a message first (`project-rules/security-guide
 - **A notification is not sent** to an account that turned "Adoption requests and invites" off, so "the pet is
   notified" means "unless it asked not to be". The screens' toasts don't claim it.
 
-## Meet & Greet (`BE-17`, `MG-01..MG-11`)
+## Meet & Greet (`BE-17`, `MG-01..MG-10`)
 
 | Method | Path | Role | Description |
 | --- | --- | --- | --- |
@@ -235,7 +235,7 @@ returns, it needs a way to report a message first (`project-rules/security-guide
 | `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/propose-time` | `human` (Active) | Offer another open slot instead (`proposed_slot_id`, optional `message`) -> the booking ends and the pet books again |
 | `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/reschedule` | `pet`, `human` (Active) | A pet moves its booking (`slot_id`, optional `reason`); a human's reschedule is a proposal (as `propose-time`) |
 | `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/cancel` | `pet`, `human` (Active) | Cancel the booking (`reason` required, optional `details`) -> the request returns to `approved` |
-| `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/didnt-happen` | `human` (Active) | Report a past Meet & Greet as not having happened (`MG-13`, FE-18) |
+| `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/didnt-happen` | `human` (Active) | Report a Meet & Greet whose time has passed as not having happened (`reason` required, optional `details`) -> the request returns to `approved` (`MG-13`, "The decision and the adoption" below) |
 
 ### Availability, booking and the meeting (`MG-01`…`MG-10`, FR11, FR26)
 
@@ -312,6 +312,8 @@ and held by no booking that is booked or confirmed.
 | `latest_meet_and_greet` | The newest booking whatever became of it; it says why booking reopened |
 | `available_slots` | The home's open slots, soonest first (at most 50), while the request is Approved or Meet Scheduled |
 | `contact_unlocked`, `contacts` | `true` and the details only while a meeting is confirmed, and once its time has passed or the pet is adopted; otherwise `false` and `null` (SEC-PRIV-02) |
+| `meeting_passed` | `true` once the confirmed meeting's time is behind us and until the request ends: the human's decision is open (`MG-11`, `MG-12`). True while the status still reads `meet_scheduled`, before the scheduled job (every 15 minutes) moves it to `awaiting_decision` |
+| `adoption` | `{ id, adopted_at }` on an Adopted request, for its record (`AL-04`, `AL-06`); `null` for every other request, and once an admin removed the link |
 
 A booking is `{ id, status, booked_at, confirmed_at, ended_at, ended_by, end_reason, end_details, slot,
 proposed_slot }`. `ended_by` is `pet`, `human` or `null` (its time simply came). `end_reason` is a cancel reason,
@@ -413,16 +415,145 @@ Greet had only the one lifecycle test.
   slot and adds another.
 - **An offered slot isn't held for the pet.** Another approved pet can book it first; the pet then picks another.
 - **The booking rules still live in the controller**, not in Actions (backend guidelines §3), as BE-16's do.
-- **`didnt-happen` still answers 403 to a stranger**, and its screens (`MG-13`) come with FE-18.
+- **A meeting can still be cancelled or rescheduled after its time**, in the minutes before the status moves to
+  Awaiting Decision. The screens offer the decision instead (`meeting_passed`), and either way booking reopens.
 - **A notification is not sent** to an account that turned "Meet & Greets" off; the screens' toasts don't claim it.
 
-## Post-Meeting Decisions & Alumni (`BE-18`, `AD-01..AD-05`)
+## Post-Meeting Decisions & Alumni (`BE-18`, `MG-11..MG-14`, `AL-01..AL-06`)
 
 | Method | Path | Role | Description |
 | --- | --- | --- | --- |
-| `POST` | `/api/v1/adoption-requests/{id}/adopt` | `human` (Active) | Record final adoption after meeting time has passed -> sets request `adopted`, Pet `adopted_hired`, Home `furparent_at`, creates `Adoption` row, closes `on_hold` requests, and creates automatic `hired` post |
-| `POST` | `/api/v1/adoption-requests/{id}/decline-after-meeting` | `human` (Active) | Decline after meeting (`decline_reason`, `decision_message`) -> sets `not_adopted`, releases Pet back to `looking_for_a_home`, restores `on_hold` requests to `sent` |
-| `GET` | `/api/v1/adoptions/{adoption}` | `pet`, `human`, `admin` | Fetch Alumni adoption record |
+| `POST` | `/api/v1/adoption-requests/{id}/adopt` | `human` (Active) | Adopt once the Meet & Greet time has passed -> the request `adopted`, the pet `adopted_hired` and linked to its one Furparent, the home a Furparent, the pet's other open requests `closed`, and the pet's own "Hired" post |
+| `POST` | `/api/v1/adoption-requests/{id}/decline-after-meeting` | `human` (Active) | Decline after the meeting (optional `decision_message`, `decline_reason`) -> `not_adopted`, the pet back to `looking_for_a_home`, its requests On Hold `sent` again, 30-day cooldown |
+| `POST` | `/api/v1/adoption-requests/{id}/meet-and-greet/didnt-happen` | `human` (Active) | The meeting didn't take place (`reason`, optional `details`) -> the request `approved` again, booking reopens |
+| `GET` | `/api/v1/adoptions/{id}` | `pet`, `human` (the two sides), `admin` | The adoption record: the link, the request's milestones, where the two met, the days to adoption, the cover letter. 404 for anyone else |
+
+### The decision and the adoption (`MG-11`…`MG-14`, `AL-01`…`AL-06`, FR12, FR13, FR14, FR28)
+
+**Status: built (BE-18), checked and corrected for FE-18 (2026-10-09).** The screens (FE-18) run against it through
+`frontend/src/features/adoption/api/adoptions.ts` (adopt, the record) and
+`frontend/src/features/meet-and-greet/api/meetings.ts` (decline after the meeting, "It didn't happen"). In mock
+mode `frontend/src/lib/api/mock/handlers/adoption.ts` and `handlers/meet-and-greet.ts` answer the same way. A
+change here also changes those files, the types beside the calls, and the tests on both sides in the same PR.
+
+- **Who:** a signed-in **Active** human decides on a request sent to their own home. Signed out: **401**. Not
+  Active: **403** `account_not_active`. Anyone else, the pet that sent it and an admin included, is answered **404**
+  like a request that doesn't exist (`AdoptionRequestPolicy::decide`, SEC-AUTHZ-03, SEC-AUTHZ-04).
+- **When:** only once the confirmed meeting's time has passed (§5.4, FR12, NFR3): the request is Awaiting Decision,
+  or still Meet Scheduled on a slot that is behind us (the job that moves the status runs every 15 minutes, and
+  nobody waits on it). The request says so itself: `meeting_passed`. Before that: **409**.
+
+  | `code` | When |
+  | --- | --- |
+  | `meeting_not_yet_passed` | The meeting is confirmed and still ahead. Until then it is rescheduled or cancelled (`MG-09`, `MG-10`) |
+  | `invalid_request_state` | The request isn't at a decision: not approved yet, booking open, or already decided, withdrawn or closed |
+  | `already_adopted` | Adopt only: the pet already has a Furparent (§5.5) |
+
+- The new status and its dates are the system's: `status`, `closed_at`, `adopted_at` and the rest are ignored when
+  sent (SEC-INPUT-04, FR27). Nobody sets "Adopted" by hand; this one action does all of it.
+- Every write is rate-limited per account (`throttle:writes`, SEC-API-04), and runs in a transaction that locks the
+  request and, for an adoption, the pet's row, so two decisions at once can't both pass (SEC-AUTHZ-08).
+
+#### `POST /api/v1/adoption-requests/{id}/adopt`
+
+| Body | |
+| --- | --- |
+| `decision_message` | Optional, up to 600 characters, trimmed. Empty is no message. The screens send none (`AL-01` has no field for one) |
+
+- **200:** the request, like every other answer, now `adopted`, with `closed_at`, `adoption: { id, adopted_at }`,
+  `pet.status` `adopted_hired`, `home_profile.is_furparent` `true`, and `contacts` still open, so the two sides can
+  arrange the handover. In the same transaction:
+  - the pet becomes Adopted — Hired and an `adoptions` row links it to this home, its one Furparent (§5.5);
+  - the home is a Furparent from now on (`furparent_at`, kept from the first adoption), and **Open to Adopt turns
+    off**: the human turns it on again for another pet's requests. The Adopt dialog says so;
+  - the pet's other open requests, the ones On Hold included, become `closed`, and their humans are notified (FR28);
+  - the pet leaves search and matches (its match scores are removed), and its own "Hired" post goes on the feed;
+  - the pet is notified ("You got Hired!"), and the adoption, the pet's new status and each closed request are
+    written to the activity log (SEC-LOG-01).
+- **422:** `decision_message` "Keep the message to 600 characters or fewer."
+- **409**, **404:** as above.
+
+#### `POST /api/v1/adoption-requests/{id}/decline-after-meeting`
+
+| Body | |
+| --- | --- |
+| `decision_message` | Optional, up to 600 characters, trimmed. Empty is no message. The pet's caretaker reads it on the request (`MG-14`) |
+| `decline_reason` | Optional, one of a decline's reasons (`RQ-13`); anything else is **422**. The dialog doesn't ask for one |
+
+- **200:** the request, now `not_adopted`, with `closed_at`, `cooldown_until` 30 days on, `contact_unlocked`
+  `false` and `contacts` `null`. The pet goes back to Looking for a Home, its requests On Hold are `sent` again
+  with a fresh 14 days, and its match scores are worked out again. The pet is notified, and the decision is written
+  to the activity log with the reason.
+- **422**, **409**, **404:** as above.
+
+#### `POST /api/v1/adoption-requests/{id}/meet-and-greet/didnt-happen`
+
+| Body | |
+| --- | --- |
+| `reason` | Required: `didnt_show_pet_side`, `didnt_show_human_side`, `moved_to_another_day` or `other` (`MG-13`). A cancel reason is not one |
+| `details` | Optional, up to 600 characters, trimmed. The pet's side reads both |
+
+- **200:** the request, `approved` again with a fresh 14 days to book (`expires_at`), `awaiting_decision_at` and
+  `overdue_flagged_at` cleared, `meeting_passed` `false`, `active_meet_and_greet` `null`, and
+  `latest_meet_and_greet` ended by the human with the reason and the details. `contacts` is `null` again. The pet
+  stays In Process and is notified with the reason; the report and the change of status
+  (`adoption_request_booking_reopened`) are written to the activity log.
+- **422:** `reason` "Choose what happened.", `details` "Keep the details to 600 characters or fewer."
+- **409** `meeting_not_yet_passed` or `invalid_request_state`; **404** as above.
+
+#### `GET /api/v1/adoptions/{id}`
+
+- **200:** `{ id, pet, home_profile, adoption_request_id, adopted_at, link_removed_at, days_to_adoption,
+  cover_letter, timeline: { sent_at, approved_at, meet_scheduled_at, meet_starts_at, adopted_at }, meeting }`.
+  `pet` and `home_profile` are the public summaries. `days_to_adoption` counts whole days from the day the request
+  was sent, at least 1. `meeting` is the slot the two met on (`starts_at`, `place_type`, `place_details`), or
+  `null`. It never carries a phone number or an address (SEC-PRIV-02): those are `contacts` on the request.
+- **Who:** the pet, its Furparent and admins (`AdoptionPolicy`). Anyone else, and an id that doesn't exist, is
+  answered **404** (SEC-AUTHZ-03, SEC-AUTHZ-04). Once an admin removes the link (`AL-07`) only admins read it.
+
+#### Found while wiring FE-18
+
+All fixed in the same PR (2026-10-09), with tests in `backend/tests/Feature/Adoption/AdoptionDecisionTest.php`;
+before it the decision had only the one lifecycle test.
+
+- **Any signed-in account could read any adoption record**, cover letter and timeline included: `GET
+  /adoptions/{id}` checked nothing. It answers the two sides and admins only now (`AdoptionPolicy`); see
+  `project-rules/security-guidelines.md` §12.
+- **Deciding on someone else's request answered 403**, which told the caller that the id exists. Adopt, decline
+  after the meeting and "It didn't happen" are 404 now, as every other action on a request became with FE-15 to
+  FE-17.
+- **"It didn't happen" could be reported before the meeting time**, on any Meet Scheduled request. It is 409
+  `meeting_not_yet_passed` until the time has passed, as §5.4 says.
+- **A decision that came too late was refused with the wrong words**: a request already decided or withdrawn
+  answered "available only after the scheduled Meet & Greet time has passed". The two cases have their own codes
+  and messages now.
+- **Adopt answered `{ adoption_id, adopted_at, request }`**, unlike every other action. It answers the request,
+  which carries its `adoption`.
+- **A request didn't say whether a decision is open**, so a screen had to compare clocks, and one opened in the
+  minutes before the job ran had no way to know. `meeting_passed` says it.
+- **A second adoption of the same pet was stopped only by the request's status.** The pet's row is locked and
+  checked too (`already_adopted`, SEC-AUTHZ-08).
+- **Requests closed by an adoption, and Awaiting Decision going back to Approved, left no status-change entry**
+  in the activity log. `adoption_request_closed` and `adoption_request_booking_reopened` record them (SEC-LOG-01).
+- **The decision's notifications ignored "Adoption requests and invites" being off**, and spoke about the pet
+  ("Mochi got Hired!"). They follow the preference and speak to the pet now ("You got Hired!").
+- **A meeting ended by a decision named the human as ending it**, which read as a cancellation. Only a
+  cancellation, a reschedule or "It didn't happen" names a side (`ended_by`).
+- Validation moved into Form Requests (SEC-INPUT-01), with messages the dialogs show, and who may decide into
+  `AdoptionRequestPolicy` (SEC-AUTHZ-01).
+- `DemoSeeder` seeds a request whose meeting time has passed (Siopao with Ana Santos, with a paused request to
+  Marco Cruz), so the decision can be walked on a fresh local database.
+
+**Left as it is, to decide:**
+
+- **The confirmation box of `AL-01` is ticked in the browser and isn't sent**, like the admin's checklist
+  (`security-guidelines.md` §12): Adopt waits for it, and the adoption is logged with the human's name.
+- **The decision rules still live in the controller**, not in Actions (backend guidelines §3), as BE-16's and
+  BE-17's do.
+- **The pet's "Hired" post and its notifications reuse existing types** (`hired`; `request_approved` and
+  `request_declined` for the alerts): the notifications module (NT) names its own when it is built.
+- **A notification is not sent** to an account that turned "Adoption requests and invites" or "Meet & Greets"
+  off; the screens' toasts don't claim it.
 
 ## Admin Monitor & Resolution (`BE-20`, `RQ-18..RQ-19`, `MG-12`, `AD-06..AD-08`)
 

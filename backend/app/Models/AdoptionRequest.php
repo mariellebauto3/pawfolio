@@ -112,6 +112,26 @@ class AdoptionRequest extends Model
         return in_array($this->getStatus()->value, self::CLOSED_STATUSES, true);
     }
 
+    /**
+     * Whether the confirmed Meet & Greet's time is behind us, so the human's decision is open (§5.4, FR12). True
+     * from that moment until the request ends: the scheduled job moves the request to Awaiting Decision within
+     * minutes, and nobody waits on it to decide.
+     */
+    public function meetingHasPassed(): bool
+    {
+        $status = $this->getStatus();
+        if ($status === AdoptionRequestStatus::AwaitingDecision) {
+            return true;
+        }
+        if ($status !== AdoptionRequestStatus::MeetScheduled) {
+            return false;
+        }
+
+        $startsAt = ($this->activeMeetAndGreet ?? $this->latestMeetAndGreet)?->slot?->starts_at;
+
+        return $startsAt !== null && ! $startsAt->isFuture();
+    }
+
     public function scopeOpen($query)
     {
         return $query->whereIn('status', self::OPEN_STATUSES);

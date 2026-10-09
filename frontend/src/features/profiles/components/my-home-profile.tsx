@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { buttonClasses } from "@/components/ui/button-styles";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
-import { ROUTES, homeProfileEditPath, petPath } from "@/constants/routes";
+import { ROUTES, homeProfileEditPath } from "@/constants/routes";
 import { useSession } from "@/providers/session-provider";
 import { useToast } from "@/providers/toast-provider";
 import { EditIntroDialog } from "../dialogs/edit-intro-dialog";
@@ -18,6 +18,8 @@ import { OpenToAdoptToggle } from "./open-to-adopt-toggle";
 
 type Props = {
   home: OwnHomeProfile;
+  /** What each adopted pet's row offers, by adoption id: its adoption details, from their own module (AL-06). */
+  adoptionDetails?: Record<number, ReactNode>;
 };
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -25,7 +27,7 @@ const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : 
 // PR-11 My Home Profile, as the human sees it, with the Edit intro dialog (PR-12) and the Open to Adopt switch
 // (PR-13). The Furparent label and the adopted pets come from the API once an adoption exists (FR13); nothing here
 // sets them.
-export function MyHomeProfile({ home: loaded }: Props) {
+export function MyHomeProfile({ home: loaded, adoptionDetails }: Props) {
   const toast = useToast();
   const { refresh } = useSession();
   const [home, setHome] = useState(loaded);
@@ -105,12 +107,7 @@ export function MyHomeProfile({ home: loaded }: Props) {
             )}
           </>
         }
-        adoptedPetAction={(adoption) => (
-          // The adoption's timeline and facts (AL-06) open from the alumni profile.
-          <Link href={petPath(adoption.pet.id)} className={buttonClasses({ variant: "secondary", size: "sm" })}>
-            Adoption details<span className="sr-only"> for {adoption.pet.name}</span>
-          </Link>
-        )}
+        adoptedPetAction={(adoption) => adoptionDetails?.[adoption.adoption_id]}
         aside={
           <>
             <Card title="Profile checklist" as="section">

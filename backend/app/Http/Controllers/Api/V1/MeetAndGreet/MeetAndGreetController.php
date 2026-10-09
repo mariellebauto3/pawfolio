@@ -13,6 +13,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\MeetAndGreet\CancelMeetAndGreetRequest;
 use App\Http\Requests\MeetAndGreet\ChooseMeetGreetSlotRequest;
 use App\Http\Requests\MeetAndGreet\ProposeMeetingTimeRequest;
+use App\Http\Requests\MeetAndGreet\ReportMeetingDidntHappenRequest;
 use App\Http\Resources\AdoptionRequests\AdoptionRequestResource;
 use App\Http\Resources\ErrorResource;
 use App\Http\Resources\ResponseResource;
@@ -25,13 +26,12 @@ use App\Services\Notifications\NotificationService;
 use App\Support\PhilippineTime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 /**
  * The Meet & Greet of an approved request (BE-17, MG-03…MG-10, FR11, FR26, docs/api/adoption-and-meet-greet.md): the
  * pet books a slot, the human confirms or proposes another time, either side reschedules or cancels. Only the two
- * sides of a request act on it; anyone else is answered 404 (SEC-AUTHZ-04). Reporting a meeting that didn't happen
- * (MG-13) is here too.
+ * sides of a request act on it; anyone else is answered 404 (SEC-AUTHZ-04). Once its time has come, the human can
+ * report that it didn't happen (MG-13, FR12), which reopens booking.
  */
 class MeetAndGreetController extends Controller
 {
@@ -327,62 +327,42 @@ class MeetAndGreetController extends Controller
         });
     }
 
-    public function didntHappen(Request $request, AdoptionRequest $adoptionRequest)
+    /**
+     * MG-13: the human reports that a Meet & Greet whose time has come didn't take place. Booking reopens, as after
+     * a cancellation, and the pet's side reads what happened. Before the meeting time it is a cancellation (MG-10).
+     */
+    public function didntHappen(ReportMeetingDidntHappenRequest $request, int $adoptionRequest)
     {
         $user = $request->user();
-
-        if (! $user->isHuman() || ! $user->homeProfile || $adoptionRequest->home_profile_id !== $user->homeProfile->id) {
-            return ErrorResource::forbidden('Only the Home Profile owner can report that the meeting did not happen.')->toResponse($request);
+        $found = $this->requestFor($user, $adoptionRequest, 'decide');
+        if ($found === null) {
+            return $this->notFound($request);
         }
 
-        $validated = $request->validate([
-            'reason' => ['required', 'string', Rule::in([
-                MeetAndGreetEndReason::DidntShowPetSide->value,
-                MeetAndGreetEndReason::DidntShowHumanSide->value,
-                MeetAndGreetEndReason::MovedToAnotherDay->value,
-                MeetAndGreetEndReason::Other->value,
-            ])],
-            'details' => ['nullable', 'string', 'max:600'],
-        ]);
+        return DB::transaction(function () use ($found, $user, $request) {
+            $ar = $this->locked($found, ['pet.user', 'homeProfile', 'activeMeetAndGreet.slot', 'latestMeetAndGreet.slot']);
 
-        return DB::transaction(function () use ($adoptionRequest, $user, $validated, $request) {
-            /** @var AdoptionRequest $ar */
-            $ar = AdoptionRequest::query()
-                ->with(['pet.user', 'homeProfile', 'activeMeetAndGreet', 'latestMeetAndGreet'])
-                ->whereKey($adoptionRequest->id)
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            if (! in_array($ar->getStatus(), [
-                AdoptionRequestStatus::MeetScheduled,
-                AdoptionRequestStatus::AwaitingDecision,
-            ], true)) {
-                return ErrorResource::conflict('This action is only available for scheduled or post-meeting requests.', 'invalid_request_state')->toResponse($request);
+            if (! $ar->meetingHasPassed()) {
+                return ($ar->getStatus() === AdoptionRequestStatus::MeetScheduled
+                    ? ErrorResource::conflict("The Meet & Greet time hasn't passed yet. Reschedule or cancel it instead.", 'meeting_not_yet_passed')
+                    : ErrorResource::conflict("This request isn't waiting for a decision.", 'invalid_request_state')
+                )->toResponse($request);
             }
 
+            // The meeting that was confirmed: still standing, or already ended when its time came.
             $mg = $ar->activeMeetAndGreet ?? $ar->latestMeetAndGreet;
+            $reason = $request->reason();
             if ($mg) {
-                $mg->status = MeetAndGreetStatus::Ended->value;
-                $mg->ended_at = now();
-                $mg->ended_by_user_id = $user->id;
-                $mg->end_reason = $validated['reason'];
-                $mg->end_details = isset($validated['details']) && trim($validated['details']) !== '' ? trim($validated['details']) : null;
-                $mg->save();
+                $this->end($mg, $user, $reason, $request->details());
             }
-
-            $ar->status = AdoptionRequestStatus::Approved->value;
-            $ar->meet_scheduled_at = null;
-            $ar->awaiting_decision_at = null;
-            $ar->overdue_flagged_at = null;
-            $ar->expires_at = now()->addDays(self::BOOKING_WINDOW_DAYS);
-            $ar->save();
+            $this->reopenBooking($ar, "The human reported that the Meet & Greet didn't happen", $request);
 
             if ($ar->pet?->user) {
                 $this->notifyMeetAndGreet(
                     recipient: $ar->pet->user,
                     type: NotificationType::MeetGreetCancelled->value,
-                    title: 'Meet & Greet booking reopened',
-                    body: "{$ar->homeProfile->full_name} reported that the meeting didn't happen and reopened booking.",
+                    title: "{$ar->homeProfile->full_name} reported that the Meet & Greet didn't happen",
+                    body: "Reason: {$reason->label()}. Booking is open again: pick a new slot on the request.",
                     ar: $ar,
                 );
             }
@@ -392,15 +372,11 @@ class MeetAndGreetController extends Controller
                 action: 'meet_and_greet_didnt_happen',
                 actor: $user,
                 subject: $mg ?? $ar,
-                reason: $validated['reason'],
+                reason: $reason->value,
                 userAgent: $request->userAgent(),
             );
 
-            return ResponseResource::make(
-                (new AdoptionRequestResource($ar->fresh(['pet.photos', 'homeProfile', 'activeMeetAndGreet.slot', 'latestMeetAndGreet.slot'])))
-                    ->withDetails()
-                    ->toArray($request),
-            )->toResponse($request);
+            return $this->answer($ar, $request);
         });
     }
 
@@ -483,8 +459,9 @@ class MeetAndGreetController extends Controller
     }
 
     /**
-     * Booking is open again: the request is Approved, with a fresh 14 days to book (MG-06, MG-09, MG-10). When that
-     * takes it back from Meet Scheduled, the change of status is logged like every other (FR27, SEC-LOG-01).
+     * Booking is open again: the request is Approved, with a fresh 14 days to book (MG-06, MG-09, MG-10, MG-13). When
+     * that takes it back from Meet Scheduled or Awaiting Decision, the change of status is logged like every other
+     * (FR27, SEC-LOG-01).
      */
     private function reopenBooking(AdoptionRequest $ar, string $reason, Request $request): void
     {
@@ -492,6 +469,9 @@ class MeetAndGreetController extends Controller
 
         $ar->status = AdoptionRequestStatus::Approved->value;
         $ar->meet_scheduled_at = null;
+        // Set only once a meeting's time has come; reporting that it didn't happen (MG-13) takes them back.
+        $ar->awaiting_decision_at = null;
+        $ar->overdue_flagged_at = null;
         $ar->expires_at = now()->addDays(self::BOOKING_WINDOW_DAYS);
         $ar->save();
 

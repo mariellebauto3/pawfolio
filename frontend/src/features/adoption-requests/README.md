@@ -103,13 +103,14 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
   [requestId]/page.tsx`) picks the view by role. A step that changes the status in place should sit inside
   `RequestPanelFrame`, so focus follows. Both panels take `meet`: the step another module shows in place of the
   status in plain words, with a `state` that names it, so focus also follows a change the status doesn't show (a
-  booked slot is still Approved). What another module reads from the same answer comes through `getRequestWith`,
-  which takes its reader. The Meet & Greet (FE-17) is built this way: `src/features/meet-and-greet/README.md`.
+  booked slot is still Approved). Both also take `adopted`: what an Adopted request offers in place of the plain
+  link to the alumni profile. What another module reads from the same answer comes through `getRequestWith`,
+  which takes its reader. The Meet & Greet (FE-17) and the decision and adoption after it (FE-18) are built this
+  way: `src/features/meet-and-greet/README.md`, `src/features/adoption/README.md`.
 - API contracts: `docs/api/bookmarks-and-invites.md` and `docs/api/adoption-and-meet-greet.md` ("The pet's
   side"). Tests: `tests/unit/features/adoption-requests/`. Mock mode answers these screens from memory
   (`docs/architecture/frontend-data-layer.md`).
-- **Not built here:** The decision after the meeting (FE-18): a request that is Awaiting Decision says the
-  decision is the human's, with no buttons yet. The request thread the LoFi draws is not part of Pawfolio
+- **Not built here:** The request thread the LoFi draws is not part of Pawfolio
   (decided 2026-10-09: `project-rules/ui-guidelines.md` §6). An admin opening `/requests` is sent
   to the dashboard. An adopted pet or a pet with a Draft resume still sees Apply on a Home Profile; the API
   refuses the request and the form shows its message. A human has no list of the invites they sent.

@@ -74,6 +74,7 @@ function readRequest(value: unknown): AdoptionRequest | null {
     approved_at: textOrNull(value.approved_at),
     meet_scheduled_at: textOrNull(value.meet_scheduled_at),
     awaiting_decision_at: textOrNull(value.awaiting_decision_at),
+    overdue_flagged_at: textOrNull(value.overdue_flagged_at),
     closed_at: textOrNull(value.closed_at),
   };
 }

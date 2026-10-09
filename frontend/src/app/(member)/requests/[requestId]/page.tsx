@@ -3,11 +3,18 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { type ReactNode, Suspense } from "react";
 import { Skeleton, SkeletonGroup } from "@/components/feedback/skeleton";
+import { buttonClasses } from "@/components/ui/button-styles";
 import { Card } from "@/components/ui/card";
 import { OPEN_REQUEST_STATUSES } from "@/constants/adoption-requests";
 import { HOME_TYPE_LABELS, OUTDOOR_SPACE_LABELS, householdSummary, otherPetsSummary } from "@/constants/home-profiles";
 import { ENERGY_LEVEL_LABELS, SPECIES_LABELS, TIME_ALONE_LABELS } from "@/constants/pets";
 import { ROUTES, homeProfilePath, petPath, requestPath } from "@/constants/routes";
+import { readRequestAdoption } from "@/features/adoption/api/adoptions";
+import { AdoptButton } from "@/features/adoption/components/adopt-button";
+import { AdoptionDetailsButton } from "@/features/adoption/components/adoption-details-button";
+import { AdoptionMoment } from "@/features/adoption/components/adoption-moment";
+import { HiredButton } from "@/features/adoption/components/hired-button";
+import type { AdoptionPair, RequestAdoption } from "@/features/adoption/types/adoptions";
 import { getRequestWith } from "@/features/adoption-requests/api/requests";
 import { HumanRequestPanel } from "@/features/adoption-requests/components/human-request-panel";
 import { MatchChip } from "@/features/adoption-requests/components/match-chip";
@@ -19,6 +26,7 @@ import type { RequestDetail } from "@/features/adoption-requests/types/requests"
 import { getHomeProfileDetail, getPetProfile } from "@/features/discovery/api/discovery";
 import { MatchBreakdownButton } from "@/features/matching/components/match-breakdown-button";
 import { readRequestMeeting } from "@/features/meet-and-greet/api/meetings";
+import { HandoverContact } from "@/features/meet-and-greet/components/handover-contact";
 import { MeetSection } from "@/features/meet-and-greet/components/meet-section";
 import { type MeetReader, meetStage } from "@/features/meet-and-greet/schemas/meetings";
 import type { RequestMeeting } from "@/features/meet-and-greet/types/meetings";
@@ -139,27 +147,42 @@ async function AboutPet({ request }: { request: RequestDetail }) {
 }
 
 /**
- * The Meet & Greet step of the request for the action panel (MG-03…MG-08), when it is at one: booking, waiting
- * for the human to confirm, or scheduled. `state` names the step and the slot, so the panel knows when either
- * changed.
+ * The Meet & Greet step of the request for the action panel (MG-03…MG-12), when it is at one: booking, waiting
+ * for the human to confirm, scheduled, or past and waiting for the decision. `state` names the step and the slot,
+ * so the panel knows when either changed. `adopt` is the human's Adopt button for that last step (AL-01).
  */
-function meetFor(reader: MeetReader, request: RequestDetail, meeting: RequestMeeting) {
+function meetFor(reader: MeetReader, request: RequestDetail, meeting: RequestMeeting, adopt?: ReactNode) {
   const stage = meetStage(request.status, meeting);
   if (stage === null) return undefined;
   return {
-    content: <MeetSection reader={reader} stage={stage} request={request} meeting={meeting} />,
+    content: <MeetSection reader={reader} stage={stage} request={request} meeting={meeting} adopt={adopt} />,
     state: `${stage}:${meeting.active?.slot?.id ?? ""}`,
   };
 }
 
-type ViewProps = { request: RequestDetail; meeting: RequestMeeting };
+/** The two sides of the request as the adoption's dialogs name and picture them. */
+function pairOf(request: RequestDetail): AdoptionPair {
+  return {
+    pet: { id: request.pet.id, name: request.pet.name, photoUrl: request.pet.photo_url },
+    home: { name: request.home_profile.full_name, photoUrl: request.home_profile.profile_photo_url },
+  };
+}
+
+type ViewProps = { request: RequestDetail; meeting: RequestMeeting; adoption: RequestAdoption | null };
 
 /**
  * RQ-14 Sent, RQ-15 On Hold, RQ-17 Declined and every other status, as the pet that sent the request reads it;
- * once approved, booking a slot and the meeting itself (MG-03, MG-04, MG-08).
+ * once approved, booking a slot and the meeting itself (MG-03, MG-04, MG-08), then waiting for the decision
+ * (MG-12). Once it is Adopted: "You got Hired" (AL-03), and the Furparent's contact details for the move.
  */
 function PetView({ request, meeting }: ViewProps) {
   const home = request.home_profile;
+  const adopted = request.status === "adopted" && (
+    <>
+      <HandoverContact reader="pet" contacts={meeting.contacts} petName={request.pet.name} />
+      <HiredButton {...pairOf(request)} />
+    </>
+  );
 
   return (
     <RequestDetailLayout
@@ -170,7 +193,7 @@ function PetView({ request, meeting }: ViewProps) {
           facts={[home.city, home.home_type && HOME_TYPE_LABELS[home.home_type]].filter(Boolean).join(" · ")}
         />
       }
-      panel={<PetRequestPanel request={request} meet={meetFor("pet", request, meeting)} />}
+      panel={<PetRequestPanel request={request} meet={meetFor("pet", request, meeting)} adopted={adopted || undefined} />}
       aside={
         <>
           <RequestHistory request={request} reader="pet" />
@@ -188,10 +211,21 @@ function PetView({ request, meeting }: ViewProps) {
 
 /**
  * RQ-11 New request, and every later status, as the human it was sent to reads it; once approved, confirming the
- * pet's booking and the meeting itself (MG-05, MG-07).
+ * pet's booking and the meeting itself (MG-05, MG-07), then the decision after it: Adopt, Decline or "It didn't
+ * happen" (MG-11, AL-01). Once it is Adopted the page is the record of the adoption (AL-04).
  */
-function HumanView({ request, meeting }: ViewProps) {
+function HumanView({ request, meeting, adoption }: ViewProps) {
   const { pet } = request;
+  const pair = pairOf(request);
+  const adopted = request.status === "adopted" && (
+    <>
+      <HandoverContact reader="human" contacts={meeting.contacts} petName={pet.name} />
+      <Link href={petPath(pet.id)} className={buttonClasses({ variant: "primary" })}>
+        View {pet.name}’s alumni profile
+      </Link>
+      {adoption && <AdoptionDetailsButton adoptionId={adoption.id} petName={pet.name} onRecord />}
+    </>
+  );
   const age = pet.approximate_age_months === null ? "" : formatAgeMonths(pet.approximate_age_months);
   // Once it has ended, nobody is asking any more.
   const title = OPEN_REQUEST_STATUSES.includes(request.status) ? `${pet.name} wants to join your home` : `${pet.name}’s request to join your home`;
@@ -199,7 +233,16 @@ function HumanView({ request, meeting }: ViewProps) {
   return (
     <RequestDetailLayout
       header={<RequestHeader request={request} title={title} facts={[pet.breed, age, pet.city].filter(Boolean).join(" · ")} />}
-      panel={<HumanRequestPanel request={request} meet={meetFor("human", request, meeting)} />}
+      panel={
+        // "You're a Furparent" (AL-02) opens from here once Adopt goes through, over the page as it then stands.
+        <AdoptionMoment {...pair}>
+          <HumanRequestPanel
+            request={request}
+            meet={meetFor("human", request, meeting, <AdoptButton requestId={request.id} {...pair} />)}
+            adopted={adopted || undefined}
+          />
+        </AdoptionMoment>
+      }
       aside={
         <>
           <RequestHistory request={request} reader="human" />
@@ -227,7 +270,9 @@ function HumanView({ request, meeting }: ViewProps) {
 // human it was sent to (RQ-11, with Approve and Decline, RQ-12, RQ-13), on the same layout (FR10, FR24, FR25).
 // The API answers only for the two sides of a request; anyone else's is a page that doesn't exist (SEC-AUTHZ-03,
 // SEC-AUTHZ-04). The Meet & Greet of an approved request is read from the same answer and shown in the action
-// panel (MG-03…MG-10, FR11, FR26); the contact details it opens are rendered here and kept nowhere (SEC-FE-04).
+// panel (MG-03…MG-10, FR11, FR26), and so are the decision after it and the adoption it can end in (MG-11…MG-14,
+// AL-01…AL-04, FR12, FR13, FR28). The contact details a meeting opens are rendered here and kept nowhere
+// (SEC-FE-04).
 export default async function RequestPage({ params }: Props) {
   const { requestId } = await params;
   // Only a plain id goes to the API (SEC-FE-08); anything else is a page that doesn't exist.
@@ -238,10 +283,12 @@ export default async function RequestPage({ params }: Props) {
   // An admin reads requests on the monitor (RQ-19).
   if (account.role === "admin") redirect(homePathFor(account));
 
-  const { request, more: meeting } = await getRequestWith(await getServerApi(), id, readRequestMeeting).catch((error: unknown) => {
+  // One call answers the request, its Meet & Greet and its adoption; each module reads its own part.
+  const readMore = (data: Record<string, unknown>) => ({ meeting: readRequestMeeting(data), adoption: readRequestAdoption(data) });
+  const { request, more } = await getRequestWith(await getServerApi(), id, readMore).catch((error: unknown) => {
     if (isApiError(error) && error.kind === "not_found") notFound();
     throw error;
   });
 
-  return account.role === "pet" ? <PetView request={request} meeting={meeting} /> : <HumanView request={request} meeting={meeting} />;
+  return account.role === "pet" ? <PetView request={request} {...more} /> : <HumanView request={request} {...more} />;
 }
