@@ -24,6 +24,9 @@ Every screen, dialog and state has an ID (e.g. `MG-11`); use it in branches, PRs
   - *Member:* the top bar keeps the logo mark, search and the Me avatar; Home, Matches, Browse, Requests and Alerts move
     to a tab bar fixed to the bottom of the screen, with their counts. No hamburger: these are the screens members
     return to all day, so they stay one tap away.
+  - *Alerts* (decided 2026-10-09; the mobile LoFi's `NT-01` hangs the dropdown from the old top tabs): the
+    dropdown opens from the desktop top bar only. In the phone tab bar, Alerts opens the Notifications page, which
+    is the same list at that width.
   - *Admin:* a top bar with the current section and a menu button that opens the sidebar's links, counts and Log out
     in a drawer.
 - The pet's and human's shells are the same; content changes by role. Pets see "Homes for You", humans "Pets for You".

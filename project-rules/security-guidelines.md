@@ -7,7 +7,7 @@
 | --- | --- |
 | **Owner** | The whole team; changes need review like any other rule |
 | **Applies to** | `frontend/`, `backend/`, database, deployment, and any new module or feature |
-| **Version** | 1.6 · 2026-10-09 — see the changelog at the end |
+| **Version** | 1.7 · 2026-10-09 — see the changelog at the end |
 
 ## 0. Baseline and cross-references
 
@@ -79,7 +79,7 @@ Review this table whenever a module is added or changed. New threats get the nex
 | T13 | Vulnerable dependencies | Known CVE in an npm or Composer package | SEC-DEP-01…05 |
 | T14 | Leaked secrets | `.env` or API keys committed to git | SEC-SECRET-01…05 |
 | T15 | Insecure deployment | Debug mode on in production; database open to the internet | SEC-DEPLOY-01…08 |
-| T16 | Open redirect | A phishing link `/sign-in?next=https://evil.example` sends a user to a fake site right after they sign in | SEC-FE-07 |
+| T16 | Open redirect | A phishing link `/sign-in?next=https://evil.example` sends a user to a fake site right after they sign in; a notification whose stored link leaves the site | SEC-FE-07 |
 | T17 | Client-side path traversal | A link to `/requests/..%2F..%2Fadmin%2Faccounts%2F5%2Fsuspend` makes the page send a signed-in write, CSRF token included, to another endpoint | SEC-FE-08 |
 | T18 | Active content in a served file | A file stored as an "ID" is really HTML or SVG; shown from a `blob:` address or in a new tab, its script runs as the admin's own page | SEC-FE-09, SEC-FILE-01 |
 
@@ -133,7 +133,7 @@ Review this table whenever a module is added or changed. New threats get the nex
 - **SEC-FE-04 (MUST)** Don't store personal data (contact numbers, addresses, documents) in `localStorage`, `sessionStorage` or URLs.
 - **SEC-FE-05 (MUST)** Hiding a button is not security. Every action hidden in the UI is also blocked by the API.
 - **SEC-FE-06 (SHOULD)** `proxy.ts` may redirect unauthenticated users early, but is never the only authorization check.
-- **SEC-FE-07 (MUST)** Redirect targets taken from the URL (e.g. `?next=` after sign-in) must be same-site paths; check them with `safeNextPath()` (`src/lib/auth/redirects.ts`) and fall back to the home page.
+- **SEC-FE-07 (MUST)** Redirect targets taken from the URL (e.g. `?next=` after sign-in) must be same-site paths; check them with `safeNextPath()` (`src/lib/auth/redirects.ts`) and fall back to the home page. A link stored as data is checked the same way before it is rendered: a notification's `action_url` goes through `notificationHref()` (`src/lib/utils/notification-href.ts`), and one it refuses is shown without a link.
 - **SEC-FE-08 (MUST)** Build API paths that contain values with `apiPath` (`src/lib/api/core.ts`), which encodes each value; never splice route params or user input into a path string. The client refuses paths that `..`, `.`, `\`, `?` or `#` would change.
 - **SEC-FE-09 (MUST)** Read files the API serves (verification documents) with `api.getFile` and an `accept` list of the types the screen can show: JPG, PNG and PDF. The client refuses anything else. Show the file from memory (`blob:`), release it when the screen closes, and never give a document a URL of its own.
 
@@ -298,6 +298,7 @@ Update this table as risks are found, accepted or fixed.
 | 2026-10-09 | The LoFi's request thread (`RQ-11`, `MG-03`, `MG-07`, `AL-04`) would be a private channel admins can't read and nobody can report (T11, SEC-ABUSE-02) | Not built: messaging is future scope in the proposal (§10), and its API and table are removed. The rules that name threads (T02, T11, SEC-AUTHZ-03) apply if it returns, and it then needs a way to report a message and a rule change here |
 | 2026-10-09 | `GET /api/v1/adoptions/{id}` answered any signed-in Active account with the adoption's cover letter and timeline (T02; High by §10.4). Found while wiring FE-18, before any release | Fixed with FE-18: `AdoptionPolicy` lets only the pet, its Furparent and admins read it, and anyone else is answered 404 (SEC-AUTHZ-02…04), with a test for each reader. Looked for the same flaw in the other reads of a private record (requests, notifications, bookmarks, vet records): each checks whose it is |
 | 2026-10-09 | Contact details after the Meet & Greet (`MG-11`, `MG-12`, `AL-04`): with no request thread, the two sides have no other way to arrange the handover | The API keeps sending `contacts` to the two sides of the request while the decision is open and once it is Adopted, and the request page renders them as text, as on `MG-07`. A decline after the meeting, a cancellation or "It didn't happen" hides them again. The adoption record (`AL-06`) carries none (SEC-PRIV-02, SEC-FE-04) |
+| 2026-10-09 | Notifications (`NT-01`…`NT-03`): `action_url` is stored data, and `POST /api/v1/notifications` lets an account write its own with any URL (T16). `body` can carry another account's words (an invite's note, a comment) (T07) | The screens follow a link only when `notificationHref()` accepts it: a path on this site, among the member pages; anything else is a row without a link. Title and body are rendered as text (SEC-FE-01). The top bar's background count never redirects and stops after a 401 or a 403 `account_not_active` |
 
 ## Changelog
 
@@ -310,3 +311,4 @@ Update this table as risks are found, accepted or fixed.
 | 1.4 | 2026-10-08 | FE-17: decision in §12 on how contact details are shared and shown on a confirmed Meet & Greet |
 | 1.5 | 2026-10-09 | FE-30: decision in §12 that the request thread is not built |
 | 1.6 | 2026-10-09 | FE-18: §12 records the adoption record's access fix, and that contact details stay on a request while its decision is open and once it is Adopted |
+| 1.7 | 2026-10-09 | FE-19: SEC-FE-07 covers links stored as data (a notification's `action_url`), T16 names them, and §12 records how notifications are read and linked |
