@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PetResume } from "@/components/data-display/pet-resume";
+import { buttonClasses } from "@/components/ui/button-styles";
 import { ROUTES, petPath } from "@/constants/routes";
+import { AdoptionDetailsButton } from "@/features/adoption/components/adoption-details-button";
 import { InviteToApplyButton } from "@/features/adoption-requests/components/invite-to-apply-button";
 import { BookmarkButton } from "@/features/bookmarks/components/bookmark-button";
 import { getPetProfile, getSimilarPets } from "@/features/discovery/api/discovery";
@@ -21,7 +24,8 @@ type Props = {
 // DS-05 Pet resume as a human reads it, with the photo viewer (DS-06) on its photos, and DS-08 the alumni profile
 // once the pet is Hired: the Hired badge and the "Hired by …" banner, and nothing to invite or bookmark. A human
 // gets Invite to Apply (RQ-01) while the pet is Looking for a Home, and Bookmark (BM-03) until it is adopted; the
-// API checks both again (SEC-FE-05). The API decides who may see a resume: a Draft and a pet whose account isn't
+// API checks both again (SEC-FE-05). The pet's own Furparent reads it as AL-05, with the adoption's details (AL-06)
+// and the way to an adoption story (FD-04); the API answers those details to the two sides and admins only. The API decides who may see a resume: a Draft and a pet whose account isn't
 // Active answer 404, the same page as a broken link (SEC-AUTHZ-04). Contact details are not part of what it sends
 // here (NFR4).
 export default async function PetPage({ params }: Props) {
@@ -42,6 +46,8 @@ export default async function PetPage({ params }: Props) {
 
   const hired = pet.status === "adopted_hired";
   const adopter = account.role === "human" && !hired;
+  // The human this pet is linked to (FR13). The API says who that is; the session says who is reading.
+  const adoption = account.role === "human" && pet.hired_by?.home_profile_id === account.profile_id ? pet.hired_by : null;
   // An extra: the resume shows even when the side list can't be loaded.
   const similar = await getSimilarPets(api, pet).catch(() => []);
 
@@ -49,14 +55,23 @@ export default async function PetPage({ params }: Props) {
     <PetResume
       pet={pet}
       actions={
-        adopter && (
+        adoption ? (
           <>
-            {/* Only a pet that is Looking for a Home can be invited; one that is In Process can still be saved. */}
-            {pet.status === "looking_for_a_home" && (
-              <InviteToApplyButton pet={pet} score={pet.match?.passed_dealbreakers ? pet.match.score : undefined} invited={pet.invited_at !== null} />
-            )}
-            <BookmarkButton target={{ kind: "pet", id: pet.id }} name={pet.name} saved={pet.is_bookmarked === true} />
+            <AdoptionDetailsButton adoptionId={adoption.adoption_id} petName={pet.name} variant="primary" />
+            <Link href={ROUTES.memberHome} className={buttonClasses()}>
+              Write an adoption story
+            </Link>
           </>
+        ) : (
+          adopter && (
+            <>
+              {/* Only a pet that is Looking for a Home can be invited; one that is In Process can still be saved. */}
+              {pet.status === "looking_for_a_home" && (
+                <InviteToApplyButton pet={pet} score={pet.match?.passed_dealbreakers ? pet.match.score : undefined} invited={pet.invited_at !== null} />
+              )}
+              <BookmarkButton target={{ kind: "pet", id: pet.id }} name={pet.name} saved={pet.is_bookmarked === true} />
+            </>
+          )
         )
       }
       aside={

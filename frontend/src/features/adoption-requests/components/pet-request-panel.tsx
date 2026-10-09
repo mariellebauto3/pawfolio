@@ -18,6 +18,11 @@ type Props = {
    * the status in plain words, and `state` names the step so the panel knows when it changed.
    */
   meet?: { content: ReactNode; state: string };
+  /**
+   * What an Adopted request offers (AL-03), from the modules that own it: the Furparent's contact details and "See
+   * what changed". It takes the place of the plain link to the alumni profile.
+   */
+  adopted?: ReactNode;
 };
 
 /** What each status means to the pet that sent the request: the news, then what comes of it. */
@@ -74,8 +79,8 @@ function words(request: RequestDetail): { lead: ReactNode; more?: ReactNode } {
 // every other status in plain words): where it stands, what comes next, and the one thing the pet can do itself
 // before the final decision, which is to withdraw (FR25). The API allows a withdrawal for every open status and
 // refuses it for the rest, whatever this shows (SEC-FE-05). Once the request is approved, its Meet & Greet takes
-// the lead here (`meet`).
-export function PetRequestPanel({ request, meet }: Props) {
+// the lead here (`meet`), up to waiting for the human's decision (MG-12).
+export function PetRequestPanel({ request, meet, adopted }: Props) {
   const { lead, more } = words(request);
   const home = request.home_profile.full_name;
   const open = OPEN_REQUEST_STATUSES.includes(request.status);
@@ -118,11 +123,12 @@ export function PetRequestPanel({ request, meet }: Props) {
           )}
 
           {open && <WithdrawRequestButton request={{ id: request.id, status: request.status, home_profile: request.home_profile }} />}
-          {request.status === "adopted" && (
-            <Link href={ROUTES.me} className={buttonClasses({ variant: "primary" })}>
-              View my alumni profile
-            </Link>
-          )}
+          {request.status === "adopted" &&
+            (adopted ?? (
+              <Link href={ROUTES.me} className={buttonClasses({ variant: "primary" })}>
+                View my alumni profile
+              </Link>
+            ))}
           {!open && request.status !== "adopted" && (
             <Link href={ROUTES.matches} className={buttonClasses({ className: "self-start" })}>
               Find other homes
