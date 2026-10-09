@@ -7,7 +7,7 @@
 | --- | --- |
 | **Owner** | The whole team; changes need review like any other rule |
 | **Applies to** | `frontend/`, `backend/`, database, deployment, and any new module or feature |
-| **Version** | 1.5 · 2026-10-09 — see the changelog at the end |
+| **Version** | 1.6 · 2026-10-09 — see the changelog at the end |
 
 ## 0. Baseline and cross-references
 
@@ -296,6 +296,8 @@ Update this table as risks are found, accepted or fixed.
 | 2026-10-04 | The document viewer (`AU-23`, `AU-24`) shows files from `blob:` addresses | When the Content-Security-Policy is written (SEC-DEPLOY-02), allow `blob:` in `img-src` and `frame-src` only |
 | 2026-10-08 | Contact details on a confirmed Meet & Greet (`MG-07`, `MG-08`): the LoFi's `MG-05` shares them in one click | Confirm asks first and says what is shared. The API sends `contacts` only while a meeting is confirmed (and after its time, for the decision); a reschedule, a proposal or a cancellation hides them again. The screen renders them as text from the page's own answer: no browser storage, no URL, no `tel:` link (SEC-FE-04, SEC-PRIV-02) |
 | 2026-10-09 | The LoFi's request thread (`RQ-11`, `MG-03`, `MG-07`, `AL-04`) would be a private channel admins can't read and nobody can report (T11, SEC-ABUSE-02) | Not built: messaging is future scope in the proposal (§10), and its API and table are removed. The rules that name threads (T02, T11, SEC-AUTHZ-03) apply if it returns, and it then needs a way to report a message and a rule change here |
+| 2026-10-09 | `GET /api/v1/adoptions/{id}` answered any signed-in Active account with the adoption's cover letter and timeline (T02; High by §10.4). Found while wiring FE-18, before any release | Fixed with FE-18: `AdoptionPolicy` lets only the pet, its Furparent and admins read it, and anyone else is answered 404 (SEC-AUTHZ-02…04), with a test for each reader. Looked for the same flaw in the other reads of a private record (requests, notifications, bookmarks, vet records): each checks whose it is |
+| 2026-10-09 | Contact details after the Meet & Greet (`MG-11`, `MG-12`, `AL-04`): with no request thread, the two sides have no other way to arrange the handover | The API keeps sending `contacts` to the two sides of the request while the decision is open and once it is Adopted, and the request page renders them as text, as on `MG-07`. A decline after the meeting, a cancellation or "It didn't happen" hides them again. The adoption record (`AL-06`) carries none (SEC-PRIV-02, SEC-FE-04) |
 
 ## Changelog
 
@@ -307,3 +309,4 @@ Update this table as risks are found, accepted or fixed.
 | 1.3 | 2026-10-04 | FE-09: threat T18 (active content in a served file), rule SEC-FE-09 and its checklist line; decisions in §12 on the admin checklist and on `blob:` in the CSP |
 | 1.4 | 2026-10-08 | FE-17: decision in §12 on how contact details are shared and shown on a confirmed Meet & Greet |
 | 1.5 | 2026-10-09 | FE-30: decision in §12 that the request thread is not built |
+| 1.6 | 2026-10-09 | FE-18: §12 records the adoption record's access fix, and that contact details stay on a request while its decision is open and once it is Adopted |
