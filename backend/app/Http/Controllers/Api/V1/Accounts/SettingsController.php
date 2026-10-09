@@ -4,21 +4,20 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Accounts;
 
-use App\Enums\AccountAction as AccountActionEnum;
-use App\Enums\AccountStatus;
+use App\Actions\Accounts\DeactivateAccount;
 use App\Enums\ActivityLogType;
-use App\Enums\AdoptionRequestStatus;
 use App\Enums\DetailChangeRequestStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\SignUpHumanRequest;
+use App\Http\Resources\ErrorResource;
 use App\Http\Resources\ResponseResource;
-use App\Models\AccountAction;
-use App\Models\AdoptionRequest;
 use App\Models\DetailChangeRequest;
 use App\Services\ActivityLogs\ActivityLogger;
 use App\Services\Uploads\FileUploadService;
 use App\Support\PasswordRules;
 use App\Support\Provinces;
 use Carbon\CarbonInterface;
+use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
@@ -38,6 +37,7 @@ class SettingsController extends Controller
 
     public function __construct(
         private readonly FileUploadService $uploads,
+        private readonly DeactivateAccount $deactivateAccount,
     ) {}
 
     public function show(Request $request)
@@ -103,6 +103,8 @@ class SettingsController extends Controller
                     'new_value' => $cr->new_value,
                     'reason' => $cr->reason,
                     'status' => $cr->status,
+                    // Whether a supporting document came with it. The file itself is for admins (SEC-PRIV-01).
+                    'has_document' => $cr->document_path !== null,
                     'reviewed_at' => $cr->reviewed_at?->toISOString(),
                     'created_at' => $cr->created_at?->toISOString(),
                 ])
@@ -131,16 +133,12 @@ class SettingsController extends Controller
             'announcements' => ['sometimes', 'boolean'],
         ]);
 
-        if (isset($validated['caretaker_contact_number']) && ! Provinces::isValidContactNumber($validated['caretaker_contact_number'])) {
-            throw ValidationException::withMessages([
-                'caretaker_contact_number' => ['Enter a valid Philippine mobile number, like 0917 123 4567.'],
-            ]);
-        }
-
-        if (isset($validated['contact_number']) && ! Provinces::isValidContactNumber($validated['contact_number'])) {
-            throw ValidationException::withMessages([
-                'contact_number' => ['Enter a valid Philippine mobile number, like 0917 123 4567.'],
-            ]);
+        foreach (['caretaker_contact_number', 'contact_number'] as $numberField) {
+            if (isset($validated[$numberField]) && Provinces::normalizeContactNumber($validated[$numberField]) === null) {
+                throw ValidationException::withMessages([
+                    $numberField => ['Enter a mobile number like 0917 123 4567.'],
+                ]);
+            }
         }
 
         DB::transaction(function () use ($user, $validated, $request): void {
@@ -191,19 +189,25 @@ class SettingsController extends Controller
         $user = $request->user();
 
         $request->validate(
-            array_merge(
-                ['current_password' => ['required', 'string']],
-                PasswordRules::rules('password'),
-            ),
+            [
+                'current_password' => ['required', 'string'],
+                'password' => PasswordRules::rules(),
+            ],
             array_merge(
                 ['current_password.required' => 'Enter your current password.'],
-                PasswordRules::messages('password'),
+                PasswordRules::messages('password', 'Enter a new password.'),
             ),
         );
 
         if (! Hash::check($request->string('current_password')->toString(), $user->password)) {
             throw ValidationException::withMessages([
                 'current_password' => ['Your current password is incorrect.'],
+            ]);
+        }
+
+        if (Hash::check($request->string('password')->toString(), $user->password)) {
+            throw ValidationException::withMessages([
+                'password' => ['Choose a password that is different from your current one.'],
             ]);
         }
 
@@ -247,66 +251,23 @@ class SettingsController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($user, $validated, $request): void {
-            $beforeStatus = $user->getStatus()->value;
-            $reason = isset($validated['reason']) && trim($validated['reason']) !== ''
-                ? trim($validated['reason'])
-                : 'Closed by account owner';
+        $reason = isset($validated['reason']) && trim($validated['reason']) !== ''
+            ? trim($validated['reason'])
+            : 'Closed by account owner';
 
-            $user->status = AccountStatus::Deactivated;
-            $user->save();
-
-            $action = new AccountAction;
-            $action->user_id = $user->id;
-            $action->performed_by_user_id = $user->id;
-            $action->action = AccountActionEnum::Deactivate->value;
-            $action->reason = $reason;
-            $action->save();
-
-            if ($user->pet) {
-                AdoptionRequest::query()
-                    ->where('pet_id', $user->pet->id)
-                    ->open()
-                    ->update([
-                        'status' => AdoptionRequestStatus::Closed->value,
-                        'closed_at' => now(),
-                        'expires_at' => null,
-                    ]);
-            }
-
-            if ($user->homeProfile) {
-                $user->homeProfile->is_open_to_adopt = false;
-                $user->homeProfile->save();
-
-                AdoptionRequest::query()
-                    ->where('home_profile_id', $user->homeProfile->id)
-                    ->open()
-                    ->update([
-                        'status' => AdoptionRequestStatus::Closed->value,
-                        'closed_at' => now(),
-                        'expires_at' => null,
-                    ]);
-            }
-
-            ActivityLogger::log(
-                type: ActivityLogType::Account,
-                action: 'account_deactivated_by_owner',
-                actor: $user,
-                subject: $user,
-                before: $beforeStatus,
-                after: AccountStatus::Deactivated->value,
-                reason: $reason,
-                userAgent: $request->userAgent(),
-            );
-        });
+        DB::transaction(fn () => $this->deactivateAccount->handle(
+            $user->load(['pet', 'homeProfile']),
+            $user,
+            $reason,
+            'account_deactivated_by_owner',
+            $request->userAgent(),
+        ));
 
         Auth::guard('web')->logout();
         if ($request->hasSession()) {
             $request->session()->invalidate();
             $request->session()->regenerateToken();
         }
-        DB::table(config('session.table', 'sessions'))->where('user_id', $user->id)->delete();
-        $user->tokens()->delete();
 
         return ResponseResource::make(['deactivated' => true]);
     }
@@ -321,7 +282,39 @@ class SettingsController extends Controller
             'new_value' => ['required', 'string', 'max:255'],
             'reason' => ['required', 'string', 'max:1000'],
             'document' => ['nullable', 'file'],
+        ], [
+            'field.required' => 'Choose the detail to change.',
+            'field.in' => 'Choose the detail to change.',
+            'new_value.required' => 'Enter the new value.',
+            'reason.required' => 'Say why it should change, so an admin can check it.',
         ]);
+
+        $field = $validated['field'];
+        $newValue = trim($validated['new_value']);
+
+        // The new value is held to the same rule as the sign-up field it would replace, so an approval can never
+        // write something the profile couldn't hold (SEC-INPUT-01, SEC-INPUT-05).
+        $request->merge(['new_value' => $newValue]);
+        $request->validate(['new_value' => self::newValueRules($field)], self::NEW_VALUE_MESSAGES);
+
+        if ($newValue === $this->currentValue($user, $field)) {
+            throw ValidationException::withMessages([
+                'new_value' => ['That is already what your account says.'],
+            ]);
+        }
+
+        // One request per detail at a time: a second one waits for the admin's answer to the first.
+        $alreadyWaiting = DetailChangeRequest::query()
+            ->pending()
+            ->where('user_id', $user->id)
+            ->where('field', $field)
+            ->exists();
+        if ($alreadyWaiting) {
+            return ErrorResource::conflict(
+                'You already asked to change this detail. An admin is reviewing that request.',
+                'change_request_pending',
+            )->toResponse($request);
+        }
 
         $documentPath = null;
         if ($request->hasFile('document') && $request->file('document') instanceof UploadedFile) {
@@ -331,8 +324,8 @@ class SettingsController extends Controller
 
         $cr = new DetailChangeRequest;
         $cr->user_id = $user->id;
-        $cr->field = $validated['field'];
-        $cr->new_value = trim($validated['new_value']);
+        $cr->field = $field;
+        $cr->new_value = $newValue;
         $cr->reason = trim($validated['reason']);
         $cr->document_path = $documentPath;
         $cr->status = DetailChangeRequestStatus::Pending->value;
@@ -354,7 +347,54 @@ class SettingsController extends Controller
             'new_value' => $cr->new_value,
             'reason' => $cr->reason,
             'status' => $cr->status,
+            'has_document' => $cr->document_path !== null,
+            'reviewed_at' => null,
             'created_at' => $cr->created_at?->toISOString(),
         ]);
+    }
+
+    private const NEW_VALUE_MESSAGES = [
+        'new_value.in' => 'Choose one of the listed values.',
+        'new_value.integer' => 'Enter the age in months, as a whole number.',
+        'new_value.min' => 'Enter an age of 1 month or more.',
+        'new_value.max' => 'That is longer than this detail allows.',
+    ];
+
+    /**
+     * The sign-up rule of each locked field (SignUpPetRequest, SignUpHumanRequest).
+     *
+     * @return list<mixed>
+     */
+    private static function newValueRules(string $field): array
+    {
+        return match ($field) {
+            'name' => ['string', 'max:50'],
+            'species' => ['string', Rule::in(['dog', 'cat', 'other'])],
+            'breed' => ['string', 'max:80'],
+            'approximate_age_months' => ['integer', 'min:1', 'max:360'],
+            'full_name' => ['string', 'max:120'],
+            'birthdate' => [
+                'string',
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    SignUpHumanRequest::validateBirthdate((string) $value, $fail);
+                },
+            ],
+            'city' => ['string', 'max:80'],
+            'province' => ['string', Rule::in(Provinces::LIST)],
+            default => ['prohibited'],
+        };
+    }
+
+    /** What the account says today for a locked field, as the request would write it. */
+    private function currentValue(mixed $user, string $field): ?string
+    {
+        $profile = $user->isPet() ? $user->pet : $user->homeProfile;
+        $value = $profile?->{$field};
+
+        if ($value instanceof CarbonInterface) {
+            return $value->format('Y-m-d');
+        }
+
+        return $value === null ? null : (string) $value;
     }
 }

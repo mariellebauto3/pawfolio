@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Reports;
 
-use App\Enums\AccountAction as AccountActionEnum;
-use App\Enums\AccountStatus;
+use App\Actions\Accounts\SuspendAccount;
 use App\Enums\ActivityLogType;
 use App\Enums\NotificationType;
 use App\Enums\ReportAction as ReportActionEnum;
@@ -16,7 +15,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ErrorResource;
 use App\Http\Resources\PaginatedResource;
 use App\Http\Resources\ResponseResource;
-use App\Models\AccountAction;
 use App\Models\Comment;
 use App\Models\HomeProfile;
 use App\Models\Pet;
@@ -259,28 +257,14 @@ class ReportController extends Controller
             // 2. Suspend reported account if requested.
             $reportedUser = $report->reportedUser;
             if ($reportedUser && in_array($actionEnum, [ReportActionEnum::SuspendAccount, ReportActionEnum::RemoveContentAndSuspend], true)) {
-                $beforeUserStatus = $reportedUser->getStatus()->value;
-                $reportedUser->status = AccountStatus::Suspended;
-                $reportedUser->save();
-
-                $acctAction = new AccountAction;
-                $acctAction->user_id = $reportedUser->id;
-                $acctAction->performed_by_user_id = $admin->id;
-                $acctAction->action = AccountActionEnum::Suspend->value;
-                $acctAction->reason = $reason;
-                $acctAction->save();
-
-                DB::table(config('session.table', 'sessions'))->where('user_id', $reportedUser->id)->delete();
-                $reportedUser->tokens()->delete();
-
-                ActivityLogger::log(
-                    type: ActivityLogType::Account,
-                    action: 'account_suspended_from_report',
-                    actor: $admin,
-                    subject: $reportedUser,
-                    before: $beforeUserStatus,
-                    after: AccountStatus::Suspended->value,
-                    reason: $reason,
+                // The same suspension as the account page's (AC-08): sessions end and open requests close. The
+                // owner's notification is this report's own, written below.
+                app(SuspendAccount::class)->handle(
+                    $reportedUser,
+                    $admin,
+                    $reason,
+                    'account_suspended_from_report',
+                    notify: false,
                     userAgent: $request->userAgent(),
                 );
             }
