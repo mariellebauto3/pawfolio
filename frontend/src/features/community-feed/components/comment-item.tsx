@@ -22,6 +22,8 @@ type Props = {
   onReply?: () => void;
   /** Shown to the comment's author, and to the author of the post it is on. */
   onDelete?: () => void;
+  /** Opens the report dialog for this comment (RP-01). Left out on the viewer's own. */
+  onReport?: () => void;
   /** The replies and the reply box, indented under the comment. */
   children?: ReactNode;
 };
@@ -29,10 +31,9 @@ type Props = {
 // 44 px tall on a phone, tighter from md up, like the small buttons.
 const ACTION = "inline-flex min-h-11 items-center gap-1.5 rounded-control px-2 text-sm font-bold text-ink-muted transition-colors duration-200 ease-out hover:text-primary md:min-h-8";
 
-// One comment or reply on a post's page (FD-05): who said it and when, the words, then Like, Reply and Delete. The
-// words and the name come from people and are rendered as text only (SEC-FE-01). Report joins these actions with the
-// Reports module (RP-01).
-export function CommentItem({ comment, when, onLike, onReply, onDelete, children }: Props) {
+// One comment or reply on a post's page (FD-05): who said it and when, the words, then Like, Reply, Delete and
+// Report (RP-01). The words and the name come from people and are rendered as text only (SEC-FE-01).
+export function CommentItem({ comment, when, onLike, onReply, onDelete, onReport, children }: Props) {
   const { author } = comment;
   const profilePath = authorProfilePath(author);
   const like = useLike(comment, () => toggleCommentReaction(api, comment.id), onLike);
@@ -75,6 +76,12 @@ export function CommentItem({ comment, when, onLike, onReply, onDelete, children
           {onDelete && (
             <button type="button" onClick={onDelete} className={ACTION}>
               Delete
+              <span className="sr-only"> {author.display_name}’s comment</span>
+            </button>
+          )}
+          {onReport && (
+            <button type="button" onClick={onReport} className={ACTION}>
+              Report
               <span className="sr-only"> {author.display_name}’s comment</span>
             </button>
           )}

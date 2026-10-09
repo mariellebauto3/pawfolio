@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { formatTimeAgo } from "@/lib/utils/format-date";
+import { useReport } from "@/providers/report-provider";
 import { useToast } from "@/providers/toast-provider";
 import type { Post, PostComment, PostReply } from "@/types/post";
 import { DeleteCommentDialog } from "../dialogs/delete-comment-dialog";
@@ -32,6 +33,7 @@ const COMMENTS_ID = "comments";
 export function PostThread({ detail, viewer, renderedAt }: Props) {
   const router = useRouter();
   const toast = useToast();
+  const reporting = useReport();
   const [post, setPost] = useState<Post>(detail);
   const [comments, setComments] = useState<PostComment[]>(detail.comments);
   const [open, setOpen] = useState<Open>(null);
@@ -94,6 +96,11 @@ export function PostThread({ detail, viewer, renderedAt }: Props) {
   }
 
   const canDelete = (comment: PostReply) => ownsPost || comment.author.id === viewer.id;
+  // Report on everyone else's comments (RP-01); nobody reports their own.
+  const reportOf = (comment: PostReply) =>
+    reporting && comment.author.id !== viewer.id && comment.author.role !== "admin"
+      ? () => reporting.report({ kind: "comment", commentId: comment.id, ownerName: comment.author.display_name })
+      : undefined;
 
   return (
     <>
@@ -126,6 +133,7 @@ export function PostThread({ detail, viewer, renderedAt }: Props) {
                     onLike={(next) => handleLiked(comment.id, next)}
                     onReply={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
                     onDelete={canDelete(comment) ? () => setOpen({ kind: "delete-comment", comment, replies: comment.replies.length }) : undefined}
+                    onReport={reportOf(comment)}
                   >
                     {(comment.replies.length > 0 || replyingTo === comment.id) && (
                       <div className="mt-1 flex flex-col gap-3">
@@ -138,6 +146,7 @@ export function PostThread({ detail, viewer, renderedAt }: Props) {
                                   when={when(reply.created_at)}
                                   onLike={(next) => handleLiked(reply.id, next)}
                                   onDelete={canDelete(reply) ? () => setOpen({ kind: "delete-comment", comment: reply, replies: 0 }) : undefined}
+                                  onReport={reportOf(reply)}
                                 />
                               </li>
                             ))}
