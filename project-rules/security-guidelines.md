@@ -7,7 +7,7 @@
 | --- | --- |
 | **Owner** | The whole team; changes need review like any other rule |
 | **Applies to** | `frontend/`, `backend/`, database, deployment, and any new module or feature |
-| **Version** | 1.7 · 2026-10-09 — see the changelog at the end |
+| **Version** | 1.8 · 2026-10-09 — see the changelog at the end |
 
 ## 0. Baseline and cross-references
 
@@ -299,6 +299,8 @@ Update this table as risks are found, accepted or fixed.
 | 2026-10-09 | `GET /api/v1/adoptions/{id}` answered any signed-in Active account with the adoption's cover letter and timeline (T02; High by §10.4). Found while wiring FE-18, before any release | Fixed with FE-18: `AdoptionPolicy` lets only the pet, its Furparent and admins read it, and anyone else is answered 404 (SEC-AUTHZ-02…04), with a test for each reader. Looked for the same flaw in the other reads of a private record (requests, notifications, bookmarks, vet records): each checks whose it is |
 | 2026-10-09 | Contact details after the Meet & Greet (`MG-11`, `MG-12`, `AL-04`): with no request thread, the two sides have no other way to arrange the handover | The API keeps sending `contacts` to the two sides of the request while the decision is open and once it is Adopted, and the request page renders them as text, as on `MG-07`. A decline after the meeting, a cancellation or "It didn't happen" hides them again. The adoption record (`AL-06`) carries none (SEC-PRIV-02, SEC-FE-04) |
 | 2026-10-09 | Notifications (`NT-01`…`NT-03`): `action_url` is stored data, and `POST /api/v1/notifications` lets an account write its own with any URL (T16). `body` can carry another account's words (an invite's note, a comment) (T07) | The screens follow a link only when `notificationHref()` accepts it: a path on this site, among the member pages; anything else is a row without a link. Title and body are rendered as text (SEC-FE-01). The top bar's background count never redirects and stops after a 401 or a 403 `account_not_active` |
+| 2026-10-09 | The community feed (`FD-01`…`FD-07`): any Active account's words and photos are shown to every other one (T07), a post can carry an address that leads off the site (T10, T11), and a post names its author | Titles, posts and comments are rendered as text and nothing in them is made into a link, so a pasted address can't be followed with a click (SEC-FE-01, SEC-FE-02). Photos are shown only from the API's storage path, through `next/image`. A post's type and its author are never sent: the API takes them from the session (SEC-AUTHZ-02, SEC-INPUT-04). The author block carries the public line only (breed, city, the Furparent label), and a name links to a profile only when the API says this viewer may open it (`is_profile_viewable`, the profile's own policy; SEC-PRIV-03, SEC-AUTHZ-04) |
+| 2026-10-09 | Posts and comments can't be reported from the feed yet: Report (`FD-06`, `FD-05`) is built with Reports & Moderation (`RP-01`, FE-21), after the feed (SEC-ABUSE-02) | Open until FE-21. Until then the API files a report by itself for a post that mentions a price or a payment (SEC-ABUSE-03), and admins can remove content from that queue. Don't release the feed without FE-21 |
 
 ## Changelog
 
@@ -312,3 +314,4 @@ Update this table as risks are found, accepted or fixed.
 | 1.5 | 2026-10-09 | FE-30: decision in §12 that the request thread is not built |
 | 1.6 | 2026-10-09 | FE-18: §12 records the adoption record's access fix, and that contact details stay on a request while its decision is open and once it is Adopted |
 | 1.7 | 2026-10-09 | FE-19: SEC-FE-07 covers links stored as data (a notification's `action_url`), T16 names them, and §12 records how notifications are read and linked |
+| 1.8 | 2026-10-09 | FE-20: §12 records how the community feed shows other people's words, photos and names, and that reporting from the feed waits for FE-21 |
