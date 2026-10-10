@@ -78,7 +78,8 @@ whose API doesn't answer shows its error state with "Try again" instead of a loa
   `api.getFile(path, { accept: [...] })`, which resolves to a `Blob`. `accept` is required: the media types the
   screen can show safely. Any other answer is refused, because a file shown from a `blob:` address runs with this
   site's origin (SEC-FE-09). Show it with `URL.createObjectURL()` and release it with `URL.revokeObjectURL()` when
-  the screen closes (`features/auth/hooks/use-document-file.ts`); never build a URL to the file itself.
+  the screen closes (`useDocumentFile` in `src/hooks/use-document-file.ts`, shown by `DocumentViewer`); never build a
+  URL to the file itself.
 
 ## Session
 
@@ -183,6 +184,12 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
   three times, a comment, a profile) and one resolved; none of them is on the mock feed. Taking an action works in
   the browser, but the page that follows is rendered on the server, which still has the fixtures: the toast shows
   and the report stays Open. Use `live` to see an action through.
+- **Settings and accounts:** `/settings` (FE-22) reads and saves the `pet` and `human` personas' own details in
+  memory; the current password is `password`. As `admin`, `/admin/accounts` lists the personas that are pets and
+  humans (Luna is the alumni, Biscuit the suspended one). Suspending, reactivating and reviewing a change request
+  work in the browser, but the page that follows is rendered on the server, which still has the fixtures. A change
+  request's document can't be opened, and deactivating your own account answers as the API does but signs nobody
+  out: use `live` for both.
 - **No mock for the pet resume:** `/me` and `/resume/edit` (FE-10) were built on the real `/me/pet` endpoints. In mock
   mode they show the error state; use `live` for them.
 - **Adding mocks:** add a file in `src/lib/api/mock/handlers/` and register it in `handlers/index.ts`. Follow the

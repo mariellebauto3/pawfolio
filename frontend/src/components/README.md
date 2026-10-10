@@ -87,6 +87,8 @@ the same message for missing pages and for hidden, suspended or deactivated prof
 | `RadioCards` | `radio-cards.tsx` | One choice where each option needs a line of explanation |
 | `Toggle` | `toggle.tsx` | On/off settings that apply right away (Open to Adopt). `labelPosition="start"` for settings rows |
 | `Checkbox` | `checkbox.tsx` | Agreements and multi-select lists; whole row is the hit area |
+| `PasswordInput` | `password-input.tsx` | A password `Input` with Show / Hide (sign-in, sign-up, reset, Change password) |
+| `NewPasswordGuide` | `new-password-guide.tsx` | Under a new-password field: the strength meter and the three rules ticking off (AU-06, AC-04) |
 | `LockedField` | `locked-field.tsx` | Admin-verified details, read-only, with "Request a change" (`onRequestChange` or `requestChangeHref`), AC-03 |
 | `FileUpload` | `file-upload.tsx` | JPG/PNG/PDF, 5 MB, checked by extension **and** file signature; previews, remove, drag and drop, `multiple` + `maxFiles`. The API still re-validates (SEC-FILE-01…05) |
 | `Stepper` | `stepper.tsx` | Progress bars with step labels (labels hidden on phones, always read by screen readers) |
@@ -101,6 +103,7 @@ the same message for missing pages and for hidden, suspended or deactivated prof
 | `Drawer` | `drawer.tsx` | Side panel from the right (460 px, full screen on phones), e.g. Browse filters. Same props as Modal |
 | `DropdownMenu` | `dropdown-menu.tsx` | Menu button (GN-01 Me menu, FD-06 post options). `items` with `onSelect` or `href`, `destructive`, `separator`s, and `group`s (a small heading over its items, named for screen readers); optional `header`; `icon` for a ••• trigger or `children` for a text trigger; `align="end"` near the right edge; `triggerClassName` replaces the trigger's look for menus inside a nav bar |
 | `ToastViewport` | `toast.tsx` | The toast stack. Don't render it yourself — `ToastProvider` does |
+| `DocumentViewer` | `document-viewer.tsx` | A file the API serves to admins only (verification documents, a change request's), full size from memory, with "Open in a new tab". Fed by `useDocumentFile` (`src/hooks/use-document-file.ts`), which reads it with `api.getFile` and releases it on close (SEC-PRIV-01, SEC-FE-09) |
 | `PhotoViewer` | `photo-viewer.tsx` | Full-size photos on a dark surface (DS-06). Controlled: `open`, `onClose`, `photos`, `index` + `onIndexChange`, and a `title` such as "Mochi’s photos". ← → move and wrap around, Home / End jump, Escape closes, a sideways swipe moves on touch screens, focus returns to the photo that opened it. Usually reached through `PhotoGallery` |
 
 **Alerts:** `useAlerts()` (`src/providers/alerts-provider.tsx`) is what the shell knows about the account's

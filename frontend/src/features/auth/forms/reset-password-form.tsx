@@ -14,8 +14,8 @@ import { type FieldErrors, isApiError } from "@/lib/api/errors";
 import { useToast } from "@/providers/toast-provider";
 import { resetPassword } from "../api/auth";
 import { AuthCard } from "../components/auth-card";
-import { NewPasswordGuide } from "../components/new-password-guide";
-import { PasswordInput } from "../components/password-input";
+import { NewPasswordGuide } from "@/components/forms/new-password-guide";
+import { PasswordInput } from "@/components/forms/password-input";
 import { type ResetLink, parseResetLink, validateNewPassword } from "../schemas/auth-schemas";
 
 type LinkState = { status: "reading" } | { status: "missing" } | { status: "ready"; link: ResetLink };

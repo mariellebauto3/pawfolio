@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Skeleton } from "@/components/feedback/skeleton";
+import { DocumentViewer } from "@/components/overlays/document-viewer";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { DOCUMENT_FORMAT_LABELS } from "@/constants/verification";
+import { type DocumentFile, useDocumentFile } from "@/hooks/use-document-file";
+import { api } from "@/lib/api/client";
 import { documentLabels, formatFileSize } from "@/lib/auth/verification-review";
 import { formatDate } from "@/lib/utils/format-date";
 import type { ReviewDocument } from "@/types/verification-review";
-import { DocumentViewer } from "../dialogs/document-viewer";
-import { type DocumentFile, useDocumentFile } from "../hooks/use-document-file";
+import { getVerificationDocument } from "../api/verification-review";
 
 type Props = {
   accountId: number;
@@ -48,7 +50,8 @@ type TileProps = {
 function DocumentTile({ accountId, ownerName, document, label }: TileProps) {
   const [open, setOpen] = useState(false);
   const isPdf = document.mime_type === "application/pdf";
-  const file = useDocumentFile(accountId, document.id, !isPdf || open);
+  const load = useCallback((signal: AbortSignal) => getVerificationDocument(api, accountId, document.id, signal), [accountId, document.id]);
+  const file = useDocumentFile(load, `${accountId}/${document.id}`, !isPdf || open);
   const format = DOCUMENT_FORMAT_LABELS[document.mime_type];
   const meta = [format, formatFileSize(document.size_bytes)].filter(Boolean).join(", ");
 

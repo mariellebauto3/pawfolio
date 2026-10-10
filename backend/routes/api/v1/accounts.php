@@ -42,6 +42,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
 
         Route::get('change-requests', [AdminAccountController::class, 'changeRequestsIndex'])
             ->name('admin.change-requests.index');
+        Route::get('change-requests/{changeRequest}/document', [AdminAccountController::class, 'changeRequestDocument'])
+            ->whereNumber('changeRequest')
+            ->name('admin.change-requests.document');
         Route::post('change-requests/{changeRequest}/review', [AdminAccountController::class, 'reviewChangeRequest'])
             ->whereNumber('changeRequest')
             ->middleware('throttle:writes')

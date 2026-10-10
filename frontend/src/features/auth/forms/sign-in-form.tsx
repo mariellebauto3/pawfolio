@@ -16,7 +16,7 @@ import { afterSignInPath } from "@/lib/auth/redirects";
 import { useSession } from "@/providers/session-provider";
 import { signIn } from "../api/auth";
 import { AuthCard } from "../components/auth-card";
-import { PasswordInput } from "../components/password-input";
+import { PasswordInput } from "@/components/forms/password-input";
 import { validateSignIn } from "../schemas/auth-schemas";
 
 const CLOSED_MESSAGE = "This account was closed.";

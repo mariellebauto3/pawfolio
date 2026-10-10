@@ -233,14 +233,56 @@ in the shape of the detail without `sibling_reports`.
 | `PATCH` | `/api/v1/settings` | Active member | Update contact fields (`caretaker_name`, `caretaker_contact_number` / `contact_number`, `street_address`) and `notification_preferences` |
 | `POST` | `/api/v1/settings/password` | Active member | Change password (`current_password`, `password`, `password_confirmation`) |
 | `POST` | `/api/v1/settings/change-requests` | Active member | Request a change to a locked field (`field`, `new_value`, `reason`, optional `document`) |
-| `POST` | `/api/v1/settings/deactivate` | Active member | Self-deactivate account (`current_password`, optional `reason`), closing open requests and ending sessions |
-| `GET` | `/api/v1/admin/accounts` | `admin` | Paginated accounts list (`?role=`, `?status=`, `?q=`) |
-| `GET` | `/api/v1/admin/accounts/{account}` | `admin` | Admin account detail with verification, actions, reports, and change requests |
-| `POST` | `/api/v1/admin/accounts/{account}/suspend` | `admin` | Suspend account (`reason`) and invalidate sessions |
-| `POST` | `/api/v1/admin/accounts/{account}/reactivate` | `admin` | Reactivate suspended/deactivated account (`reason`) |
-| `POST` | `/api/v1/admin/accounts/{account}/deactivate` | `admin` | Admin-deactivate account (`reason`) |
+| `POST` | `/api/v1/settings/deactivate` | Active member | Self-deactivate account (`password`, optional `reason`), closing open requests and ending sessions |
+| `GET` | `/api/v1/admin/accounts` | `admin` | Paginated accounts list (`?tab=`, `?role=`, `?status=`, `?q=`) |
+| `GET` | `/api/v1/admin/accounts/{account}` | `admin` | Admin account detail with verification, actions, requests, reports, and change requests |
+| `POST` | `/api/v1/admin/accounts/{account}/suspend` | `admin` | Suspend an Active account (`reason`): sessions end, open requests close |
+| `POST` | `/api/v1/admin/accounts/{account}/reactivate` | `admin` | Reactivate a suspended account (`reason`) |
+| `POST` | `/api/v1/admin/accounts/{account}/deactivate` | `admin` | Admin-deactivate account (`reason`): sessions end, open requests close |
 | `GET` | `/api/v1/admin/change-requests` | `admin` | Paginated locked-detail change requests |
-| `POST` | `/api/v1/admin/change-requests/{changeRequest}/review` | `admin` | Approve or deny a locked-detail change request (`decision`, `reason`) |
+| `GET` | `/api/v1/admin/change-requests/{changeRequest}/document` | `admin` | The supporting document itself (JPG, PNG or PDF), never a link to it |
+| `POST` | `/api/v1/admin/change-requests/{changeRequest}/review` | `admin` | Approve or deny a locked-detail change request (`decision`, `reason`; required to deny) |
+
+### Settings and accounts as the screens use them (FE-22, checked 2026-10-10)
+
+Whose settings they are comes from the session; an account's role and status are never taken from a request, and
+an admin's action is its own endpoint, never a status that is set (SEC-AUTHZ-02, SEC-INPUT-04, FR27). Writes are
+rate-limited (`throttle:writes`).
+
+#### Owner (`AC-01`…`AC-05`)
+
+| Call | Takes | Answers |
+| --- | --- | --- |
+| `GET /settings` | — | `{ account: { id, role, status, email, display_name }, locked_details, contact_details, notification_preferences: { requests_and_invites, meet_and_greets, post_activity, announcements }, change_requests }`. A pet's `locked_details` are `name`, `species`, `breed`, `approximate_age_months`; a human's `full_name`, `birthdate` (YYYY-MM-DD), `city`, `province`. A pet's `contact_details` are the caretaker's name and number, a human's their number and street address (owner only, SEC-PRIV-02) |
+| `PATCH /settings` | Any of the role's contact fields, `notification_preferences: { key: bool }` | The settings as above. **422** for a number that isn't a Philippine mobile number ("Enter a mobile number like 0917 123 4567.") |
+| `POST /settings/password` | `current_password`, `password`, `password_confirmation` | `{ password_changed: true }`. Every other session ends; this one stays. **422** `current_password` when wrong, `password` when it breaks the sign-up rules, is known from a leak, doesn't match its confirmation or is the current one |
+| `POST /settings/change-requests` | `field`, `new_value`, `reason`, optional `document` (multipart) | **201** `{ id, field, new_value, reason, status: "pending", has_document, reviewed_at, created_at }`. `new_value` is held to the sign-up rule of `field` (species and province from their lists, an age of 1 to 360 months, a birthdate of someone 18 or older) and must differ from the current value: **422** `new_value`. **409** `change_request_pending` while one for that field waits |
+| `POST /settings/deactivate` | `password`, optional `reason` (500) | `{ deactivated: true }`; the session is over. **422** `password` when wrong |
+
+#### Admin (`AC-06`…`AC-10`)
+
+`GET /admin/accounts`: `?tab=all|pet|human|alumni`, `?status=` (an account status), `?q=` (name or email, 100),
+`?page=`, `?per_page=` (20, at most 50); an unknown value answers **422** (SEC-INPUT-03). Pets and humans only,
+newest first. Each row: `{ id, role, status, email, display_name, avatar_url, profile_id, pet, home_profile,
+caretaker_name, adoption: { id, furparent_name, adopted_at } | null, created_at }`. No contact number or address.
+
+`GET /admin/accounts/{account}`, beside the row: `account_actions` (newest first: `{ id, action, reason,
+performed_by, by_owner, created_at }`), `verification` (`{ status, submitted_at, reviewed_at, reviewed_by,
+documents: [{ id, type }] }` or `null`), `requests` (the latest ten: `{ id, pet_name, home_name, status,
+created_at }`), `reports_against` (`{ total, open, latest: [{ id, target_type, reason, status, created_at }] }`),
+`detail_change_requests` (`{ id, field, current_value, new_value, reason, status, has_document, reviewed_by,
+reviewed_at, created_at }`) and `recent_activity` (the latest ten log entries). An admin's own id answers **404**.
+
+| Action | When it is refused |
+| --- | --- |
+| `suspend` | **422** without a reason. **409** `already_suspended`, or `cannot_suspend` when the account isn't Active (Pending and Denied are decided in Verification) |
+| `reactivate` | **422** without a reason. **409** `not_suspended`: only a suspended account comes back (proposal §5.1) |
+| `deactivate` | **422** without a reason. **409** `already_deactivated` |
+| `change-requests/{id}/review` | **422** `reason` when denying without one. **409** `already_reviewed` |
+
+Suspending (also from a report) and deactivating, by the owner or an admin, close the account's open requests
+(proposal §5.3): a booked Meet & Greet ends, the other side is notified, and a pet that was In Process with the
+account is Looking for a Home again, its requests On Hold back to Sent. All of it is in the activity log.
 
 ## Announcements (`BE-24`), Analytics (`BE-25`) & Activity Logs (`BE-26`)
 
