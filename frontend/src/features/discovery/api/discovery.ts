@@ -1,6 +1,7 @@
 import { type ApiClient, apiPath } from "@/lib/api/core";
 import { isHome, isPet, isRecord, isText, readPage, unexpected } from "@/lib/api/readers";
 import type { ApiResource, Paginated } from "@/types/api";
+import type { ViewSource } from "@/types/profile-view";
 import { DEALBREAKERS, type Dealbreaker } from "@/types/match";
 import type { Pet } from "@/types/pet";
 import { type BrowseFilters, browseApiQuery } from "../schemas/browse-filters";
@@ -45,9 +46,12 @@ export async function browseHomes(client: ApiClient, filters: BrowseFilters): Pr
   return readPage<HomeListing>(response, isHome, "We couldn't load the homes. Please try again.");
 }
 
-/** A pet's resume as someone else reads it (DS-05, DS-08). 404 for a Draft or a pet whose account isn't Active. */
-export async function getPetProfile(client: ApiClient, petId: number): Promise<PetProfile> {
-  const data = (await client.get<ApiResource<unknown>>(apiPath`/pets/${petId}`))?.data;
+/**
+ * A pet's resume as someone else reads it (DS-05, DS-08). 404 for a Draft or a pet whose account isn't Active.
+ * `source` is the page the visitor came from, for the pet's own stats (AN-01); left out, the API counts a direct visit.
+ */
+export async function getPetProfile(client: ApiClient, petId: number, source?: ViewSource): Promise<PetProfile> {
+  const data = (await client.get<ApiResource<unknown>>(apiPath`/pets/${petId}`, { query: { source } }))?.data;
   if (!isPet(data)) throw unexpected("We couldn't load this resume. Please try again.");
   const extras: Record<string, unknown> = data;
   // Anything but a date reads as "not invited", so the page never claims an invite that isn't there.

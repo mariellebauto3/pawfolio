@@ -151,6 +151,7 @@ Dialogs with typed input don't close on a backdrop click. Nothing closes while a
 | `PhotoGallery` | `photo-gallery.tsx` | A grid of a pet's photos with captions; each opens `PhotoViewer` on that photo. Client component |
 | `PostCard` | `post-card.tsx` | One post on the feed and on its own page (FD-01, FD-02, FD-05): the author with their public line and "2h ago" (written by the caller), the type badge (yellow only for Hired and Adoption story), the title, the words, the photos, then what the post is about (a resume that went live, an adopted pet), the counts and the slots: `menu` (the ••• menu, FD-06), `actions` (Like, Comment, Share) and `children` (the comments). `variant="feed"` stops a long post after six lines with a link to its page; `"detail"` shows it whole. The author's name is a link only when the API says the viewer may open the profile. All of it is text from people, rendered as text, with no links made from it (SEC-FE-01, SEC-FE-02). Server-safe |
 | `PostPhotos` | `post-photos.tsx` | A post's photos, up to 4, edge to edge in a frame whose shape depends only on how many there are, so nothing jumps as they load. Each opens `PhotoViewer`. Client component |
+| `StatTile`, `StatTiles` | `stat-tile.tsx` | One number with its name (LoFi UI kit, AN-01…AN-03): a quiet `label`, the `value` large in the display face, and a `note` for what the number doesn't say on its own ("+32 this week", or a link to where it leads). `StatTiles` lays them out two across on phones and four from `lg`, as one list of terms and values. Server-safe |
 | `NotificationRow` | `notification-row.tsx` | One notification in a list (NT-01…NT-03): an icon by category (blue when someone must act, read out as "Important"), title, message, `when` ("2h ago", written by the caller) and an unread dot on a tinted row (read out as "Unread"). The whole row is one link, and only to a path `notificationHref` accepts (SEC-FE-07); a row that leads nowhere is a button while unread. `density="compact"` in the dropdown. Client component |
 
 ### `navigation/`
@@ -170,7 +171,7 @@ Dialogs with typed input don't close on a backdrop click. Nothing closes while a
   the drawn part shows focus with the shared `focus-ring` utility (`peer-focus-visible:focus-ring`).
 - **Client boundary.** Components with hooks or handlers are `"use client"`; `Badge`, `StatusBadge`, `Tag`, `Card`,
   `Avatar`, `Photo`, `Icon`, `Meter`, `Stepper`, `Alert`, `Banner`, `EmptyState`, `ErrorState`, `Skeleton`, `Table`,
-  `Timeline`, `Pagination`, `MatchCard`, `PetCard`, `HomeCard` and `PostCard` stay server-safe. (`Banner` `onDismiss` and `ErrorState` `onRetry` need a client parent.)
+  `Timeline`, `StatTile`, `Pagination`, `MatchCard`, `PetCard`, `HomeCard` and `PostCard` stay server-safe. (`Banner` `onDismiss` and `ErrorState` `onRetry` need a client parent.)
 - **Avatars next to a written name** get `alt=""`, so screen readers don't read the name twice.
 - **Photos from the API** go through `next/image`; add the storage host to `images.remotePatterns` in `next.config.ts`
   when the API serves them.
