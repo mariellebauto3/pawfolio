@@ -26,8 +26,8 @@ In-app notifications for requests, Meet & Greets, verification and announcements
 | NT-01 | Alerts dropdown | Dropdown | Human, Pet | every member page (desktop top bar) | Built (FE-19) |
 | NT-02 | Notifications (human) | Screen | Human | `/notifications` | Built (FE-19) |
 | NT-03 | Notifications (pet) | Screen | Pet | `/notifications` | Built (FE-19) |
-| NT-04 | Admin · Announcements | Screen | Admin | `/admin/announcements` | Not built |
-| NT-05 | Publish announcement dialog | Dialog | Admin | `/admin/announcements` | Not built |
+| NT-04 | Admin · Announcements | Screen | Admin | `/admin/announcements` | Built (FE-24) |
+| NT-05 | Publish announcement dialog | Dialog | Admin | `/admin/announcements` | Built (FE-24) |
 
 Dialogs, menus, toasts and states render on top of (or inside) the route shown; they are not separate pages.
 
@@ -55,6 +55,37 @@ feature fills. The API type is `src/types/notification.ts`.
   (`project-rules/ui-guidelines.md` §1).
 - **Not here:** notification preferences are on Settings (`AC-01`, `AC-02`). The API can also dismiss a
   notification and mark one unread; the LoFi has no control for either.
+
+## Built (FE-24)
+
+| What | Where |
+| --- | --- |
+| The calls: the list with its audience counts, and publish or schedule. A row that doesn't match the contract is left out | `api/announcements.ts` |
+| The form's limits and rules (the API's own, with the same messages), a day and a time read as Philippine time, and how an audience, a time and a result are put into words | `schemas/announcements.ts` |
+| `AnnouncementForm`: title, message, audience, now or later (`NT-04`) | `forms/announcement-form.tsx` |
+| `PublishAnnouncementDialog`: the preview and the last word before it goes out (`NT-05`) | `dialogs/publish-announcement-dialog.tsx` |
+| `AnnouncementList`: what was published and what is scheduled, a page at a time | `components/announcement-list.tsx` |
+| The page (a Server Component) | `src/app/admin/announcements/page.tsx` |
+
+API: `docs/api/community-reports-and-admin.md`, "Announcements as the screens use them". Types:
+`types/announcements.ts`. Tests: `tests/unit/features/notifications/announcements.test.ts`. Mock mode:
+`src/lib/api/mock/handlers/announcements.ts`.
+
+- **Nothing is sent before the dialog's button.** "Preview announcement" checks the form and opens `NT-05` with
+  the announcement exactly as it will be sent. What was typed stays in the form if the dialog is closed or the
+  API refuses a field, and is cleared once the announcement is stored.
+- **The preview is the real thing.** The dialog draws the alert with `NotificationRow`, the component the Alerts
+  dropdown and the Notifications page use, so an admin sees the row each account will read. In the preview it
+  leads nowhere.
+- **Now or later.** With "Schedule for later" the day and the time are Philippine time, like every time on the
+  screens, and have to be still ahead: the form says so, and so does the API. The scheduler publishes it when
+  its time comes.
+- **Who gets it.** The audience shows how many Active accounts it is right now (the API counts them). An account
+  that turned announcements off gets no alert and still reads it beside the feed (`FD-01`).
+- **It can't be undone.** There is no edit, no delete and no cancel for a scheduled one, so the dialog says so
+  before the button. Nothing in the list can be pressed; one that hasn't gone out yet is marked Scheduled.
+- **An admin's words are text.** The title and the message are rendered as text wherever they show: the list,
+  the preview, Alerts and the feed (SEC-FE-01).
 
 ## Requirements covered
 
