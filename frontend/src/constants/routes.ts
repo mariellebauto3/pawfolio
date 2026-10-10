@@ -13,6 +13,8 @@ export const ROUTES = {
   accountEdit: "/account/edit",
   memberHome: "/feed",
   adminHome: "/admin",
+  /** Legacy URL; redirects to the signed-in account's home. */
+  adminsOnly: "/admins-only",
 
   // Member (pet and human)
   search: "/search",
@@ -153,5 +155,5 @@ export const ACCOUNT_STATUS_ROUTE_PREFIXES = [ROUTES.accountStatus, ROUTES.accou
 
 export const ADMIN_ROUTE_PREFIX = "/admin";
 
-/** Where the sign-in page sends the user back to after signing in. */
+/** Legacy requested-path parameter; successful sign-in always opens the account dashboard. */
 export const NEXT_PATH_PARAM = "next";

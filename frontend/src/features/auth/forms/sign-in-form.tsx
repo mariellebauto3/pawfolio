@@ -1,20 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/feedback/alert";
 import { Checkbox } from "@/components/forms/checkbox";
 import { Field } from "@/components/forms/field";
 import { Input } from "@/components/forms/input";
+import { SignOutButton } from "@/components/navigation/sign-out-button";
 import { Button } from "@/components/ui/button";
+import { buttonClasses } from "@/components/ui/button-styles";
 import { HELP_CENTER_PATH, ROUTES } from "@/constants/routes";
-import { api } from "@/lib/api/client";
 import type { FieldErrors } from "@/lib/api/errors";
 import { isApiError } from "@/lib/api/errors";
-import { afterSignInPath } from "@/lib/auth/redirects";
+import { homePathFor } from "@/lib/auth/redirects";
+import { ALREADY_SIGNED_IN_CODE } from "@/lib/auth/session-sync";
 import { useSession } from "@/providers/session-provider";
-import { signIn } from "../api/auth";
+import type { Account } from "@/types/account";
+import { useSignIn } from "../hooks/use-sign-in";
 import { AuthCard } from "../components/auth-card";
 import { PasswordInput } from "@/components/forms/password-input";
 import { validateSignIn } from "../schemas/auth-schemas";
@@ -22,20 +24,21 @@ import { validateSignIn } from "../schemas/auth-schemas";
 const CLOSED_MESSAGE = "This account was closed.";
 
 type Problem =
+  | { kind: "signed-in"; account: Account | null }
   | { kind: "mismatch" }
   | { kind: "closed" }
   | { kind: "locked"; until: number }
   | { kind: "other"; message: string };
 
 type Props = {
-  /** The page to return to after signing in (`?next=`); checked with safeNextPath before use (SEC-FE-07). */
+  /** Legacy requested path; successful sign-in always opens the account dashboard. */
   next: string | null;
 };
 
 // AU-02 Sign in and AU-03 its errors. One page for pets, humans and admins; the server decides where each lands
 // (FR2, FR19). A wrong password keeps the typed email and clears the password; a lockout counts down (SEC-AUTH-04).
 export function SignInForm({ next }: Props) {
-  const router = useRouter();
+  const submitSignIn = useSignIn(next);
   const session = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -67,14 +70,15 @@ export function SignInForm({ next }: Props) {
     setPending(true);
     setProblem(null);
     try {
-      const account = await signIn(api, { email, password, remember });
-      await session.refresh();
-      router.replace(afterSignInPath(account, next));
-      // Stays "pending" while the next page loads.
+      await submitSignIn({ email, password, remember });
     } catch (error) {
       setPending(false);
       setPassword("");
       if (!isApiError(error)) return setProblem({ kind: "other", message: "Something went wrong. Please try again." });
+      // Another tab signed in since this page was opened. The session stays that account's; say whose it is.
+      if (error.kind === "conflict" && error.code === ALREADY_SIGNED_IN_CODE) {
+        return setProblem({ kind: "signed-in", account: await session.refresh() });
+      }
       if (error.kind === "rate_limited") {
         const seconds = error.retryAfterSeconds ?? 15 * 60;
         setNow(Date.now());
@@ -141,6 +145,29 @@ export function SignInForm({ next }: Props) {
 }
 
 function SignInProblem({ problem, lockedFor }: { problem: Problem; lockedFor: number }) {
+  if (problem.kind === "signed-in") {
+    const { account } = problem;
+    return (
+      <Alert
+        tone="warning"
+        announce
+        title="This browser is already signed in"
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            {account && (
+              <Link href={homePathFor(account)} className={buttonClasses({ variant: "primary", size: "sm" })}>
+                Continue as {account.display_name}
+              </Link>
+            )}
+            <SignOutButton />
+          </div>
+        }
+      >
+        {account ? <>You’re signed in as {account.display_name}. </> : null}
+        Only one account can be signed in at a time. Log out first to sign in to another one.
+      </Alert>
+    );
+  }
   if (problem.kind === "mismatch") {
     return (
       <Alert tone="error" announce title="That email and password don't match.">

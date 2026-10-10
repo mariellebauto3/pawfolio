@@ -1,3 +1,4 @@
+import { redirectSignedInAccount } from "@/lib/auth/guest-only";
 import { Suspense } from "react";
 import { GuestShell } from "@/components/layout/guest-shell";
 import { HowItWorks } from "@/features/auth/components/landing/how-it-works";
@@ -11,7 +12,8 @@ import {
 import { VerificationPromise } from "@/features/auth/components/landing/verification-promise";
 
 // AU-01 Landing page. Section ids match LANDING_SECTIONS, which the guest top bar and footer link to.
-export default function Home() {
+export default async function Home() {
+  await redirectSignedInAccount();
   return (
     <GuestShell>
       <LandingHero />

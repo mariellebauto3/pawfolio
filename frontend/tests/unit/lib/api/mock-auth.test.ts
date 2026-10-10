@@ -27,6 +27,18 @@ describe("mock auth handlers follow docs/api/auth.md", () => {
     expect(account).toMatchObject({ role: "human", status: "active" });
   });
 
+  it("refuses to sign in on a browser that is already signed in, before looking at the password", async () => {
+    const api = client();
+    await signIn(api, { email: "ana.santos@example.com", password: "password", remember: false });
+    for (const password of ["password", "wrong"]) {
+      await expect(signIn(api, { email: "mochi@example.com", password, remember: false })).rejects.toMatchObject({
+        kind: "conflict",
+        status: 409,
+        code: "already_signed_in",
+      });
+    }
+  });
+
   it("answers one generic message, and 'closed' only after the right password", async () => {
     const attempt = (email: string, password: string) => signIn(client(), { email, password, remember: false });
     await expect(attempt("nobody@example.com", "x")).rejects.toMatchObject({ kind: "validation", fieldErrors: { email: MISMATCH } });

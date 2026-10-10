@@ -3,6 +3,7 @@ import { MOCK_PASSWORD, findMockPersonaByEmail, resolveMockAccount } from "@/lib
 import { type MockRoute, fail, ok, route, validationFailed } from "@/lib/api/mock/router";
 import { AUTH_ENDPOINTS } from "@/lib/auth/endpoints";
 import { firstPasswordProblem } from "@/lib/auth/password-rules";
+import { ALREADY_SIGNED_IN_CODE } from "@/lib/auth/session-sync";
 
 // Mirrors docs/api/auth.md and backend/tests/Feature/Auth/. Try it in mock mode:
 //   sign in with any persona's email and MOCK_PASSWORD ("password"); jun.reyes@example.com is a closed account;
@@ -17,6 +18,7 @@ const LOCKOUT_SECONDS = 15 * 60;
 const MISMATCH = "That email and password don't match. Try again.";
 const SENT = "If an account exists for that email, we've sent a link to reset the password. It expires in 30 minutes.";
 const BAD_LINK = "This reset link is invalid or has expired. Ask for a new one.";
+const ALREADY_SIGNED_IN = "This browser is already signed in to an account. Log out of it before signing in to another one.";
 
 /** The token the mock accepts on /reset-password (one at a time, like the real single-use token). */
 export const MOCK_RESET_TOKEN = "mock-reset-token";
@@ -38,7 +40,10 @@ export const authRoutes: MockRoute[] = [
   route(
     "POST",
     AUTH_ENDPOINTS.signIn,
-    ({ body, decisions }) => {
+    ({ body, decisions, account: current }) => {
+      // One account per browser session, refused before the email and password are looked at, like the API.
+      if (current) return fail(409, ALREADY_SIGNED_IN, { code: ALREADY_SIGNED_IN_CODE });
+
       const { email, password } = (body ?? {}) as SignInBody;
       const errors: Record<string, string> = {};
       if (typeof email !== "string" || !email.trim()) errors.email = "Enter your email.";

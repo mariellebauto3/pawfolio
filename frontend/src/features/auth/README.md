@@ -23,6 +23,13 @@ Sign-up, sign-in and the admin verification gate. Every new Pet and Human accoun
 Built: AU-01 to AU-06 (FE-06), AU-07 to AU-17 (FE-07), AU-18 to AU-21 (FE-08) and AU-22 to AU-26 (FE-09).
 Endpoints: `docs/api/auth.md`.
 
+**Sign-in transition.** `hooks/use-sign-in.ts` uses the verified account returned after Laravel initializes the
+session, then replaces the document with the account's dashboard. It does not refresh or publish the account to
+the guest page. Automatic session checks stay paused through navigation, including checks already in flight;
+the destination loads its session through the existing server lookup. The form stays pending until replacement.
+Failures resume checks and retain the existing form errors without redirecting. Other tabs are notified only
+after successful authentication, and there is no additional browser `/auth/me` request or artificial delay.
+
 **Sign-up wizards (FE-07).** `forms/pet-sign-up-wizard.tsx` and `forms/human-sign-up-wizard.tsx` share
 `hooks/use-sign-up-wizard.ts`: typed values stay in React state only (no browser storage, no URL: SEC-FE-04), so a
 reload starts over and the browser warns first. Each step is checked on Next by `schemas/sign-up-schemas.ts`; a `422`
