@@ -36,6 +36,9 @@ class AdoptionRequest extends Model
         AdoptionRequestStatus::Expired->value,
     ];
 
+    /** Days a human has to decide after the meeting before an admin follows up (§5.4). */
+    public const OVERDUE_AFTER_DAYS = 7;
+
     protected $table = 'adoption_requests';
 
     protected $fillable = [
@@ -130,6 +133,25 @@ class AdoptionRequest extends Model
         $startsAt = ($this->activeMeetAndGreet ?? $this->latestMeetAndGreet)?->slot?->starts_at;
 
         return $startsAt !== null && ! $startsAt->isFuture();
+    }
+
+    /**
+     * Overdue for a decision (§5.4, MG-16, FR36): still Awaiting Decision 7 days after the meeting time passed,
+     * whether or not the scheduled job has flagged it yet.
+     */
+    public function isOverdue(): bool
+    {
+        return $this->getStatus() === AdoptionRequestStatus::AwaitingDecision
+            && ($this->overdue_flagged_at !== null || ($this->awaiting_decision_at !== null && $this->awaiting_decision_at->lte(now()->subDays(self::OVERDUE_AFTER_DAYS))));
+    }
+
+    public function scopeOverdue($query)
+    {
+        return $query->where('status', AdoptionRequestStatus::AwaitingDecision->value)
+            ->where(function ($sub): void {
+                $sub->whereNotNull('overdue_flagged_at')
+                    ->orWhere('awaiting_decision_at', '<=', now()->subDays(self::OVERDUE_AFTER_DAYS));
+            });
     }
 
     public function scopeOpen($query)
