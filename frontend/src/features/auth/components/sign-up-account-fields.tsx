@@ -5,8 +5,8 @@ import { Input } from "@/components/forms/input";
 import type { FieldErrors } from "@/lib/api/errors";
 import { SIGN_UP_TEXT_LIMITS } from "@/lib/auth/sign-up-rules";
 import type { TextFieldProps } from "../hooks/use-form-fields";
-import { NewPasswordGuide } from "./new-password-guide";
-import { PasswordInput } from "./password-input";
+import { NewPasswordGuide } from "@/components/forms/new-password-guide";
+import { PasswordInput } from "@/components/forms/password-input";
 
 type Props = {
   email: TextFieldProps;

@@ -2,10 +2,10 @@
 
 import { Alert } from "@/components/feedback/alert";
 import { Skeleton, SkeletonGroup } from "@/components/feedback/skeleton";
-import { Modal } from "@/components/overlays/modal";
 import { Button } from "@/components/ui/button";
 import { buttonClasses } from "@/components/ui/button-styles";
-import type { DocumentFile } from "../hooks/use-document-file";
+import type { DocumentFile } from "@/hooks/use-document-file";
+import { Modal } from "./modal";
 
 type Props = {
   open: boolean;
@@ -19,8 +19,8 @@ type Props = {
   file: DocumentFile;
 };
 
-// "Open full size" on a submitted document (AU-23, AU-24). The file comes from the admin endpoint as a JPG, PNG or
-// PDF and nothing else (SEC-FE-09), and is shown from memory. "Open in a new tab" hands the same in-memory file to
+// "Open full size" on a document an admin reads: a submitted one (AU-23, AU-24) or a change request's (AC-07). The
+// file comes from an admin endpoint as a JPG, PNG or PDF and nothing else (SEC-FE-09), and is shown from memory. "Open in a new tab" hands the same in-memory file to
 // the browser's own viewer, for zooming into an ID or paging through a PDF.
 export function DocumentViewer({ open, onClose, title, subtitle, alt, file }: Props) {
   return (

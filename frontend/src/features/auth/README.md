@@ -48,7 +48,8 @@ so the screens run against the mock.
 `/admin/verification/[accountId]` (`AU-23`, `AU-24`) renders `components/verification-review-screen.tsx`: the
 submitted details, the documents and the decision, with the earlier denial on a resubmission and the place in the
 queue with Next. `components/review-documents.tsx` loads each file through the admin endpoint with
-`hooks/use-document-file.ts` and shows it from memory; `dialogs/document-viewer.tsx` opens it full size. No URL to a
+`useDocumentFile` (`src/hooks/`) and shows it from memory; `DocumentViewer` (`src/components/overlays/`) opens it full
+size. No URL to a
 document exists, and only a JPG, PNG or PDF is ever shown (SEC-PRIV-01, SEC-FE-09). `components/review-decision.tsx`
 holds the checklist (a working aid: every check must be ticked before Approve, nothing is sent), Approve (`AU-26`
 toast) and `dialogs/deny-account-dialog.tsx` (`AU-25`: a reason is required, and a message when the reason is

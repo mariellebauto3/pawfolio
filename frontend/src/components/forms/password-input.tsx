@@ -1,7 +1,7 @@
 "use client";
 
 import { type ComponentProps, useState } from "react";
-import { Input } from "@/components/forms/input";
+import { Input } from "./input";
 import { cn } from "@/lib/utils/cn";
 
 type Props = Omit<ComponentProps<typeof Input>, "type">;
