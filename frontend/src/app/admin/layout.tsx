@@ -1,22 +1,21 @@
 import type { ReactNode } from "react";
 import { AdminShell } from "@/components/layout/admin-shell";
-import { getOverdueRequestCount } from "@/features/adoption-requests/api/admin-requests";
-import { getVerificationQueueSize } from "@/features/auth/api/verification-review";
-import { getOpenReportCount } from "@/features/reports/api/reports";
+import { getAdminSidebarCounts } from "@/features/accounts/api/admin-sidebar";
+import { AdminSectionSeen } from "@/features/accounts/components/admin-section-seen";
 import { getServerApi } from "@/lib/api/server";
 
-// Admin pages. proxy.ts sends non-admins away first, as a convenience only: every /api/v1/admin endpoint checks the
-// admin role itself (SEC-AUTHZ-07, SEC-FE-06).
+// Laravel checks the admin role independently on every admin API.
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const api = await getServerApi();
-  // The sidebar's "Verification" (AU-22), "Reports" (RP-03) and "Requests & Meets" counts, the last one being the
-  // requests overdue for a decision (MG-16). A layout isn't rendered again on navigation, so a screen that changes
-  // a queue calls router.refresh(). If the API can't say, the sidebar shows no count rather than breaking every page.
-  const [verification, reports, requests] = await Promise.all([
-    getVerificationQueueSize(api).catch(() => undefined),
-    getOpenReportCount(api).catch(() => undefined),
-    getOverdueRequestCount(api).catch(() => undefined),
-  ]);
+  // The sidebar's counts for Verification (AU-22), Reports (RP-03) and Requests & Meets (MG-16): what arrived in
+  // each since this admin last opened it. A layout isn't rendered again on navigation, so `AdminSectionSeen` loads
+  // it again once a section was opened, and a screen that changes a queue calls router.refresh(). If the API can't
+  // say, the sidebar shows no counts rather than breaking every page.
+  const counts = await getAdminSidebarCounts(await getServerApi()).catch(() => ({}));
 
-  return <AdminShell counts={{ verification, reports, requests }}>{children}</AdminShell>;
+  return (
+    <AdminShell counts={counts}>
+      {children}
+      <AdminSectionSeen />
+    </AdminShell>
+  );
 }

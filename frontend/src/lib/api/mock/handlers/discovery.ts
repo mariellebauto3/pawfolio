@@ -100,11 +100,19 @@ const POSTS = [
   { id: 2, type: "adoption_story", title: "Luna's first week at home", body: "She found the sunniest windowsill in Quezon City on day one.", author_name: "Ana Santos", created_at: "2026-10-02T10:00:00.000000Z" },
 ];
 
+/** `search_in=name`: rows whose name holds the words, the ones that start with them first, as the API orders them. */
+function namesHolding<T>(rows: T[], typed: unknown, nameOf: (row: T) => string): T[] {
+  const words = String(typed ?? "").trim().toLowerCase();
+  const holding = rows.filter((row) => nameOf(row).toLowerCase().includes(words));
+  return [...holding.filter((row) => nameOf(row).toLowerCase().startsWith(words)), ...holding.filter((row) => !nameOf(row).toLowerCase().startsWith(words))];
+}
+
 export const discoveryRoutes: MockRoute[] = [
   // Landing page strip (AU-01, docs/api/discovery.md): newest first, at most 8, public.
   route("GET", "/public/recently-hired", () => ok(RECENTLY_HIRED.slice(0, 8)), "public"),
 
   route("GET", "/pets", ({ query, account }) => {
+    if (query.search_in === "name") return { status: 200, body: paginate(namesHolding(petsMatching({ ...query, q: undefined }), query.q, (pet) => pet.name), query, "/api/v1/pets") };
     const rows = petsMatching(query).map((pet) => ({ ...pet, match_score: scoreFor(account, { petId: pet.id }), is_bookmarked: isBookmarked(account, { petId: pet.id }) }));
     return { status: 200, body: paginate(byScore(rows, query, (row) => row.match_score), query, "/api/v1/pets") };
   }),
@@ -121,6 +129,7 @@ export const discoveryRoutes: MockRoute[] = [
   }),
 
   route("GET", "/home-profiles", ({ query, account }) => {
+    if (query.search_in === "name") return { status: 200, body: paginate(namesHolding(homesMatching({ ...query, q: undefined }), query.q, (home) => home.full_name), query, "/api/v1/home-profiles") };
     const rows = homesMatching(query).map((home) => ({ ...home, match_score: scoreFor(account, { homeId: home.id }), is_bookmarked: isBookmarked(account, { homeProfileId: home.id }) }));
     return { status: 200, body: paginate(byScore(rows, query, (row) => row.match_score), query, "/api/v1/home-profiles") };
   }),

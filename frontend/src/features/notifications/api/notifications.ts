@@ -41,13 +41,18 @@ function toNotification(row: unknown): Notification | null {
 type ListOptions = {
   /** The tab's category; leave out for All. */
   category?: NotificationCategory;
+  /** `recent`: the last 7 days. `earlier`: everything before them, however old. Leave out for both. */
+  period?: "recent" | "earlier";
   page?: number;
   perPage?: number;
 };
 
-/** The account's notifications, newest first (NT-02, NT-03). Dismissed ones are left out by the API. */
-export async function getNotifications(client: ApiClient, { category, page = 1, perPage = NOTIFICATIONS_PAGE_SIZE }: ListOptions = {}): Promise<Paginated<Notification>> {
-  const query = { category, page: page > 1 ? page : undefined, per_page: perPage };
+/**
+ * The account's notifications, newest first (NT-02, NT-03). Every one the account ever got is listed, however old;
+ * only dismissed ones are left out by the API.
+ */
+export async function getNotifications(client: ApiClient, { category, period, page = 1, perPage = NOTIFICATIONS_PAGE_SIZE }: ListOptions = {}): Promise<Paginated<Notification>> {
+  const query = { category, period, page: page > 1 ? page : undefined, per_page: perPage };
   const answered = readPage(await client.get<unknown>("/notifications", { query }), isRecord, LIST_PROBLEM);
   return { ...answered, data: answered.data.flatMap((row) => toNotification(row) ?? []) };
 }

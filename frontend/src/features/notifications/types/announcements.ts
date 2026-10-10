@@ -26,6 +26,18 @@ export type AdminAnnouncement = {
   created_at: IsoDateTime;
 };
 
+/**
+ * An announcement as a member reads it: `GET /announcements` (docs/api/notifications.md). Only what was published
+ * for the account's own role is sent, without the admin's name or the audience.
+ */
+export type PublishedAnnouncement = {
+  id: number;
+  /** The admin's words, rendered as text (SEC-FE-01). */
+  title: string;
+  message: string;
+  published_at: IsoDateTime | null;
+};
+
 /** How many Active accounts each audience is right now. An audience the API didn't count is left out. */
 export type AudienceCounts = Partial<Record<AnnouncementAudience, number>>;
 

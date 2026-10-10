@@ -50,6 +50,32 @@ class AnnouncementController extends Controller
         return new ResponseResource($page->data, [...$page->meta, 'audience_counts' => $this->audienceCounts()], $page->links);
     }
 
+    /**
+     * What a member reads on the Announcements tab of Notifications (NT-02, NT-03): the announcements published for
+     * their role, newest first. It doesn't depend on an alert having been delivered, so an account approved after
+     * an announcement went out, or one that turned announcement alerts off, still reads it. The admin's name and
+     * anything scheduled stay out (SEC-API-01).
+     */
+    public function published(Request $request)
+    {
+        $filters = $request->validate([
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        $paginator = Announcement::query()
+            ->visibleTo($request->user())
+            ->orderByDesc('published_at')
+            ->orderByDesc('id')
+            ->paginate((int) ($filters['per_page'] ?? 20));
+
+        return PaginatedResource::fromPaginator($paginator, fn (Announcement $a) => [
+            'id' => $a->id,
+            'title' => $a->title,
+            'message' => $a->message,
+            'published_at' => $a->published_at?->toISOString(),
+        ]);
+    }
+
     public function store(StoreAnnouncementRequest $request)
     {
         $admin = $request->user();

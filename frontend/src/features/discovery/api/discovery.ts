@@ -4,7 +4,7 @@ import type { ApiResource, Paginated } from "@/types/api";
 import type { ViewSource } from "@/types/profile-view";
 import { DEALBREAKERS, type Dealbreaker } from "@/types/match";
 import type { Pet } from "@/types/pet";
-import { type BrowseFilters, browseApiQuery } from "../schemas/browse-filters";
+import { type BrowseFilters, browseApiQuery, suggestionApiQuery } from "../schemas/browse-filters";
 import { SEARCH_PAGE_SIZE, SEARCH_PREVIEW, type SearchKind, type SearchTotals } from "../schemas/search";
 import {
   type HomeListing,
@@ -44,6 +44,22 @@ export async function browsePets(client: ApiClient, filters: BrowseFilters): Pro
 export async function browseHomes(client: ApiClient, filters: BrowseFilters): Promise<Paginated<HomeListing>> {
   const response = await client.get<unknown>("/home-profiles", { query: browseApiQuery("homes", filters) });
   return readPage<HomeListing>(response, isHome, "We couldn't load the homes. Please try again.");
+}
+
+/**
+ * The first few pets whose name holds what is typed in Browse's search box, names that start with it first, with
+ * how many there are in all (DS-01). The applied filters narrow them like the cards. Run in the browser as the box
+ * is typed in; `signal` drops an answer a newer key has overtaken.
+ */
+export async function suggestPets(client: ApiClient, filters: BrowseFilters, signal?: AbortSignal): Promise<Paginated<PetListing>> {
+  const response = await client.get<unknown>("/pets", { query: suggestionApiQuery("pets", filters), signal });
+  return readPage<PetListing>(response, isPet, "We couldn't load the suggestions.");
+}
+
+/** The same for homes, by the human's name (DS-02). */
+export async function suggestHomes(client: ApiClient, filters: BrowseFilters, signal?: AbortSignal): Promise<Paginated<HomeListing>> {
+  const response = await client.get<unknown>("/home-profiles", { query: suggestionApiQuery("homes", filters), signal });
+  return readPage<HomeListing>(response, isHome, "We couldn't load the suggestions.");
 }
 
 /**

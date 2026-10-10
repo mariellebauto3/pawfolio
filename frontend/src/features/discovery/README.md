@@ -39,7 +39,13 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
   `components/browse-results.tsx`). The search, the filters, the sort and the page live in the URL
   (`?species=dog,cat&age=adult&sort=newest&page=2`); the page reads them on the server, so every view can be linked
   and the back button undoes a filter. The filter panel is a drawer below `lg` (`dialogs/filter-drawer.tsx`). The
-  rules for reading and writing that URL are pure functions in `schemas/browse-filters.ts`.
+  rules for reading and writing that URL are pure functions in `schemas/browse-filters.ts`. The search box shows
+  results as it is typed in (2026-10-10): it asks 300 ms after the last key (`BROWSE_SEARCH_DELAY_MS`), replacing
+  the address instead of adding to the history, and `searchBoxAfter` keeps a late answer from undoing a key typed
+  since. Enter still asks at once. From the first letter, the names that hold what is typed drop down under the box
+  (`forms/browse-search-box.tsx`, a combobox; `hooks/use-browse-suggestions.ts`; `GET /pets?search_in=name`), the
+  ones that start with it first: "ki" offers Kimchi. Only pets looking for a home and homes that are Open to Adopt
+  can be offered, as in every list (proposal §5), and the list says so when no name matches.
 - **DS-03, DS-04:** `/search?q=…&type=pets&page=2` (`components/search-results.tsx`), fed by the top-bar search.
   "All" shows the first five of each kind with "See all"; a kind's own tab lists all of them a page at a time. The
   tab counts are the API's totals. Only the open tab's results are loaded.

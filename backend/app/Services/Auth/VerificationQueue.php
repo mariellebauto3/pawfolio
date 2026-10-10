@@ -10,10 +10,11 @@ use App\Enums\VerificationSubmissionStatus;
 use App\Exceptions\VerificationAlreadyReviewed;
 use App\Models\User;
 use App\Models\VerificationSubmission;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * The admin's verification queue (BE-08, AU-22..AU-24): each waiting account's latest submission, oldest first.
+ * The admin's verification queue (BE-08, AU-22..AU-24): each waiting account's latest submission, newest first.
  *
  * An owner who edits their details adds a new submission row, so an account can have several; only the latest one
  * counts, and the queue has one row per account (docs/api/auth.md).
@@ -39,7 +40,7 @@ class VerificationQueue
     }
 
     /**
-     * The queue as AU-22 lists it: oldest first, narrowed by account type and by part of a name.
+     * The queue as AU-22 lists it: newest first, narrowed by account type and by part of a name.
      *
      * @return Builder<VerificationSubmission>
      */
@@ -70,8 +71,19 @@ class VerificationQueue
         return $query
             ->select('verification_submissions.*')
             ->selectSub($earlier, 'earlier_submissions_count')
-            ->orderBy('submitted_at')
-            ->orderBy('id');
+            ->orderByDesc('submitted_at')
+            ->orderByDesc('id');
+    }
+
+    /**
+     * How many waiting accounts arrived since the admin last opened the queue: the sidebar's count
+     * (`AdminSidebarCounts`). All of them for an admin who never opened it.
+     */
+    public function newSince(?CarbonInterface $seenAt): int
+    {
+        return $this->waiting()
+            ->when($seenAt !== null, fn (Builder $q) => $q->where('submitted_at', '>', $seenAt))
+            ->count();
     }
 
     /**
@@ -96,21 +108,22 @@ class VerificationQueue
     {
         $isWaiting = $this->waiting()->whereKey($submission->id)->exists();
 
-        $before = fn (Builder $q) => $q
-            ->where('submitted_at', '<', $submission->submitted_at)
-            ->orWhere(fn (Builder $same) => $same->where('submitted_at', $submission->submitted_at)->where('id', '<', $submission->id));
-        $after = fn (Builder $q) => $q
+        // The queue runs newest first, so the rows above this one were submitted after it.
+        $above = fn (Builder $q) => $q
             ->where('submitted_at', '>', $submission->submitted_at)
             ->orWhere(fn (Builder $same) => $same->where('submitted_at', $submission->submitted_at)->where('id', '>', $submission->id));
+        $below = fn (Builder $q) => $q
+            ->where('submitted_at', '<', $submission->submitted_at)
+            ->orWhere(fn (Builder $same) => $same->where('submitted_at', $submission->submitted_at)->where('id', '<', $submission->id));
 
-        $others = fn (): Builder => $this->waiting()->whereKeyNot($submission->id)->orderBy('submitted_at')->orderBy('id');
+        $others = fn (): Builder => $this->waiting()->whereKeyNot($submission->id)->orderByDesc('submitted_at')->orderByDesc('id');
 
-        // The account submitted next after this one, or the oldest when this is the newest. A decided account sits
-        // where its time puts it.
-        $next = $others()->where($after)->first() ?? $others()->first();
+        // The account listed under this one, or the newest when this is the oldest. A decided account sits where
+        // its time puts it.
+        $next = $others()->where($below)->first() ?? $others()->first();
 
         return [
-            'position' => $isWaiting ? $this->waiting()->where($before)->count() + 1 : null,
+            'position' => $isWaiting ? $this->waiting()->where($above)->count() + 1 : null,
             'total' => $this->waiting()->count(),
             'next_account_id' => $next?->user_id,
         ];

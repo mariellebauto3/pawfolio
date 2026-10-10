@@ -15,7 +15,13 @@ Every screen, dialog and state has an ID (e.g. `MG-11`); use it in branches, PRs
   - *Account-status shell* — minimal bar with Help center and Log out only. Pending, Denied, Suspended accounts see nothing else (`AU-18`–`AU-21`).
   - *Member shell* — top bar: logo, search, Home, Pets for You / Homes for You, Browse, Requests, Alerts, Me. Max content width 1128 px.
   - *Admin shell* — left sidebar (Dashboard, Verification, Reports, Requests & Meets, Resolve Issues, Accounts & Alumni,
-    Announcements, Activity Logs) with counts.
+    Announcements, Activity Logs) with counts. The signed-in admin and Log out are the sidebar's foot: Log out is
+    a row shaped like the links (same width, same 44 px height, an icon and the words), on the same left edge as
+    the admin's name. Next.js's own development badge is moved to the bottom right (`next.config.ts`), since it
+    was drawn over that corner. A count is news: what arrived in the section since the admin last opened it. It
+    clears the moment the section is opened, for all three counted sections (Verification, Reports, Requests &
+    Meets), and comes back only for something new; a queue's size is on the dashboard and on its own page
+    (2026-10-10).
 - **Phone adaptations** (as in the mobile PDF, except the navigation, below): feed side rails are hidden; request detail
   shows the action panel first; dialogs become full width; multi-column grids become one column.
 - **Navigation below `lg`** (changed 2026-10-02 from the mobile LoFi's crowded top tabs and wrapped admin strip):
@@ -27,8 +33,8 @@ Every screen, dialog and state has an ID (e.g. `MG-11`); use it in branches, PRs
   - *Alerts* (decided 2026-10-09; the mobile LoFi's `NT-01` hangs the dropdown from the old top tabs): the
     dropdown opens from the desktop top bar only. In the phone tab bar, Alerts opens the Notifications page, which
     is the same list at that width.
-  - *Admin:* a top bar with the current section and a menu button that opens the sidebar's links, counts and Log out
-    in a drawer.
+  - *Admin:* a top bar with the current section and a menu button that opens the sidebar's links and counts, then
+    the signed-in admin and Log out, in a drawer.
 - The pet's and human's shells are the same; content changes by role. Pets see "Homes for You", humans "Pets for You".
 
 ## 2. Visual language
@@ -43,7 +49,9 @@ Every screen, dialog and state has an ID (e.g. `MG-11`); use it in branches, PRs
 - **Status badges:** outlined (dashed) for in-progress statuses; solid for final or highlighted ones (Hired, Adopted, Furparent,
   Decision needed). Use the exact status names from the proposal. Tones: `badge-progress`, `badge-celebrate`,
   `badge-attention`, `badge-closed` (which status gets which: `docs/design/hifi/README.md`).
-- Image placeholders keep their aspect ratios: covers wide, avatars round, pet photos 4:3.
+- Image placeholders keep their aspect ratios: covers wide, avatars round, pet photos 4:3. A photo that can't be
+  loaded is tried once more and then replaced by its placeholder in the same frame (`ApiImage`); no screen shows a
+  broken-image icon or an empty hole.
 
 ## 3. Components (reuse before creating)
 
@@ -58,6 +66,12 @@ Empty state, Table, Timeline, Meter, Match card, Post card. Add a new shared com
 - Verified fields (name, species, breed, age; human name, birthdate) render as **Locked** with a "Request a change" path (`AC-03`).
 - Required reasons (deny, suspend, cancel meeting, resolve issue) block the confirm button until filled.
 - Never lose user input on validation errors; keep "Save draft" where the LoFi shows it.
+- **A search box over a list shows results as it is typed in** (Browse, 2026-10-10): it asks about 300 ms after the
+  last key, Enter still works at once, results that arrive late never undo a key typed since, and the address is
+  replaced rather than added to, so Back doesn't step through every letter. From the first letter, the names that
+  hold what is typed drop down under the box, the ones that start with it first, with the typed part in bold;
+  ↓ ↑ move, Enter or a click opens that profile, Escape closes the list and keeps the words. When no name matches,
+  the list says so and why (adopted pets are in no list, proposal §5).
 
 ## 5. Dialogs, menus and feedback
 
@@ -69,6 +83,15 @@ Empty state, Table, Timeline, Meter, Match card, Post card. Add a new shared com
   this Meet & Greet?", which says that each side's contact details are shared, because what is seen can't be unseen.
 - Dialog anatomy: title, optional subtitle, close button, body, footer with actions — cancel on the left, primary on the right.
 - Permanent actions say so in the dialog ("This is permanent") and list what will happen.
+- **Menus highlight one item at most** (2026-10-10): the highlighted item is the one Enter would choose. Pointing at
+  an item highlights it and it stays so while pressed; a menu opened with the mouse shows no highlight until an item
+  is pointed at, and moving off the items clears it. Never style a menu item's `hover` apart from its `focus`.
+- **Notifications are a history** (2026-10-10): the Notifications page lists every notification the account ever
+  got, in sections by age (Today, Yesterday, This week, Earlier this month, then month by month), with how many
+  there are, and "All / Last 7 days / Earlier" above the list to go straight to the older ones.
+- **An announcement is read where its notification is** (2026-10-10): its row shows a preview, and opening it shows
+  the whole message in a dialog, from the Alerts dropdown and from the Notifications page, whose Announcements tab
+  lists everything published for the account's role.
 - **Toasts** confirm a completed action in one short sentence (bottom-left on desktop, full width at the bottom on phones) and
   auto-dismiss after ~5 s.
 - **Empty states** explain why it's empty and offer the next step (e.g. "Take the lifestyle quiz").

@@ -42,7 +42,9 @@ never gets their documents back, only what was sent and when (SEC-PRIV-01). The 
 so the screens run against the mock.
 
 **Admin verification (FE-09).** Both pages are Server Components that read from the admin endpoints
-(`api/verification-review.ts`); the admin layout reads the queue size for the sidebar. `/admin/verification`
+(`api/verification-review.ts`). The queue is newest first. The sidebar's count is the accounts that arrived since
+this admin last opened Verification; it is read and cleared by the Accounts module (`features/accounts`,
+`api/admin-sidebar.ts`), for every counted section alike. `/admin/verification`
 (`AU-22`) renders `components/verification-queue.tsx`: the tabs All / Pet / Human, the search by name
 (`components/verification-search.tsx`) and the pages all live in the URL (`?tab=pet&q=carla&page=2`).
 `/admin/verification/[accountId]` (`AU-23`, `AU-24`) renders `components/verification-review-screen.tsx`: the

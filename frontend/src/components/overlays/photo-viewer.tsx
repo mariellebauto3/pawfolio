@@ -1,6 +1,7 @@
 "use client";
 
-import Image from "next/image";
+import { ApiImage } from "@/components/ui/api-image";
+import { Icon } from "@/components/ui/icon";
 import { type KeyboardEvent, type PointerEvent, type SyntheticEvent, useEffect, useId, useRef } from "react";
 import { IconButton } from "@/components/ui/icon-button";
 import { cn } from "@/lib/utils/cn";
@@ -142,7 +143,7 @@ export function PhotoViewer({ open, onClose, title, photos, index, onIndexChange
               swipeStart.current = null;
             }}
           >
-            <Image
+            <ApiImage
               key={photo.id}
               src={photo.src}
               alt={photo.alt}
@@ -151,6 +152,11 @@ export function PhotoViewer({ open, onClose, title, photos, index, onIndexChange
               preload
               draggable={false}
               className="object-contain select-none"
+              fallback={
+                <p role="img" aria-label={photo.alt} className="grid size-full place-items-center px-6 text-center text-ink-inverse">
+                  This photo couldn’t be loaded. Close the viewer and open it again to retry.
+                </p>
+              }
             />
           </div>
           {several && (
@@ -177,7 +183,18 @@ export function PhotoViewer({ open, onClose, title, photos, index, onIndexChange
                     i === current ? "border-ink-inverse" : "border-transparent opacity-60 hover:opacity-100",
                   )}
                 >
-                  <Image src={item.src} alt="" fill sizes="76px" className="object-cover" />
+                  <ApiImage
+                    src={item.src}
+                    alt=""
+                    fill
+                    sizes="76px"
+                    className="object-cover"
+                    fallback={
+                      <span aria-hidden="true" className="grid size-full place-items-center bg-surface-sunken">
+                        <Icon name="paw" className="size-5 text-ink-subtle" />
+                      </span>
+                    }
+                  />
                 </button>
               </li>
             ))}

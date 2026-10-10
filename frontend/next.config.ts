@@ -7,6 +7,10 @@ const apiUrl = new URL(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000
 const isLocalApi = ["localhost", "127.0.0.1", "[::1]"].includes(apiUrl.hostname);
 
 const nextConfig: NextConfig = {
+  // Development only: Next.js draws its own badge over a corner of every page. The default corner, bottom left,
+  // is where the admin sidebar ends (the signed-in admin and Log out) and where the phone tab bar starts, so the
+  // badge covered them. Bottom right has nothing under it.
+  devIndicators: { position: "bottom-right" },
   images: {
     remotePatterns: [new URL("/storage/**", apiUrl)],
     // The image optimizer refuses to fetch from an address on this machine unless told to. That is only ever the

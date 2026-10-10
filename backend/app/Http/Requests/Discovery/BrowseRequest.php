@@ -124,6 +124,17 @@ abstract class BrowseRequest extends FormRequest
         return is_array($values) ? array_values($values) : [];
     }
 
+    /**
+     * Where `q` is looked for: `all` (the default) is every searched field, `name` is the name alone. The second
+     * is for the names that drop down under the search box as it is typed in (DS-01, DS-02).
+     */
+    public const SEARCH_IN = ['all', 'name'];
+
+    public function searchesNamesOnly(): bool
+    {
+        return $this->chosen('search_in') === 'name';
+    }
+
     /** The value of a one-value filter or a text one; null when it isn't set. */
     public function chosen(string $name): ?string
     {

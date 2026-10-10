@@ -9,7 +9,7 @@ type Props = {
   counts?: AdminNavCounts;
 };
 
-// Admin pages: sidebar on desktop, wrapped tab strip on phones, content filling the rest so tables get the room.
+// Admin pages: sidebar on desktop, a top bar with a menu drawer below `lg`, content filling the rest so tables get the room.
 export function AdminShell({ children, counts }: Props) {
   return (
     <>

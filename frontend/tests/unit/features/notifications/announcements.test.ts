@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getAnnouncements, publishAnnouncement, toAnnouncement } from "@/features/notifications/api/announcements";
+import { getAnnouncements, getPublishedAnnouncements, publishAnnouncement, toAnnouncement } from "@/features/notifications/api/announcements";
 import {
   type AnnouncementDraft,
   EMPTY_DRAFT,
@@ -145,6 +145,30 @@ describe("what is sent", () => {
     await getAnnouncements(client);
     expect(calls[0]).toMatchObject({ method: "GET", path: "/admin/announcements", query: { page: 2, per_page: 10 } });
     expect(calls[1].query).toMatchObject({ page: undefined });
+  });
+});
+
+describe("the announcements a member reads on Notifications", () => {
+  it("lists what was published for the account's own role, newest first, without the admin's name", async () => {
+    const forPets = await getPublishedAnnouncements(as("pet"));
+    expect(forPets.data.map((row) => row.title)).toEqual(["Pawfolio Adoption Week starts Oct 10!", "Reminder: keep vet records up to date"]);
+    expect(Object.keys(forPets.data[0]).sort()).toEqual(["id", "message", "published_at", "title"]);
+
+    const forHumans = await getPublishedAnnouncements(as("human"));
+    expect(forHumans.data.map((row) => row.title)).toEqual(["Pawfolio Adoption Week starts Oct 10!", "Meet & Greet availability is live"]);
+  });
+
+  it("is for signed-in Active accounts", async () => {
+    expect((await failure(() => getPublishedAnnouncements(as("signed-out")))).kind).toBe("unauthenticated");
+    expect((await failure(() => getPublishedAnnouncements(as("pet-pending")))).kind).toBe("account_not_active");
+  });
+
+  it("asks for a page, and leaves out a row that doesn't match the contract", async () => {
+    const meta = { total: 2, current_page: 2, last_page: 2 };
+    const { client, calls } = answering({ data: [{ id: 4, title: "Kept", message: "Hello", published_at: "not a date" }, { id: "5", title: "Dropped" }], meta });
+    const page = await getPublishedAnnouncements(client, 2);
+    expect(calls[0]).toMatchObject({ method: "GET", path: "/announcements", query: { page: 2, per_page: 20 } });
+    expect(page.data).toEqual([{ id: 4, title: "Kept", message: "Hello", published_at: null }]);
   });
 });
 

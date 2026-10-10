@@ -53,14 +53,16 @@ class DiscoveryController extends Controller
             ->where('pets.status', $request->status())
             ->whereHas('user', fn ($u) => $u->where('status', AccountStatus::Active->value));
 
-        if (($term = $request->chosen('q')) !== null) {
-            $like = '%'.addcslashes($term, '%_\\').'%';
+        if (($term = $request->chosen('q')) !== null && $request->searchesNamesOnly()) {
+            $this->whereNameHolds($query, 'pets.name', $term);
+        } elseif ($term !== null) {
+            $like = $this->likeAnyCase($term);
             $query->where(function ($sub) use ($like): void {
-                $sub->where('pets.name', 'like', $like)
-                    ->orWhere('pets.breed', 'like', $like)
-                    ->orWhere('pets.city', 'like', $like)
-                    ->orWhere('pets.bio', 'like', $like)
-                    ->orWhereHas('temperamentTags', fn ($t) => $t->where('tag', 'like', $like));
+                $sub->whereRaw('LOWER(pets.name) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(pets.breed) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(pets.city) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(pets.bio) LIKE ?', [$like])
+                    ->orWhereHas('temperamentTags', fn ($t) => $t->whereRaw('LOWER(tag) LIKE ?', [$like]));
             });
         }
 
@@ -276,13 +278,15 @@ class DiscoveryController extends Controller
             ->whereNotNull('home_profiles.quiz_completed_at')
             ->whereHas('user', fn ($u) => $u->where('status', AccountStatus::Active->value));
 
-        if (($term = $request->chosen('q')) !== null) {
-            $like = '%'.addcslashes($term, '%_\\').'%';
+        if (($term = $request->chosen('q')) !== null && $request->searchesNamesOnly()) {
+            $this->whereNameHolds($query, 'home_profiles.full_name', $term);
+        } elseif ($term !== null) {
+            $like = $this->likeAnyCase($term);
             $query->where(function ($sub) use ($like): void {
-                $sub->where('home_profiles.full_name', 'like', $like)
-                    ->orWhere('home_profiles.headline', 'like', $like)
-                    ->orWhere('home_profiles.city', 'like', $like)
-                    ->orWhere('home_profiles.about_home', 'like', $like);
+                $sub->whereRaw('LOWER(home_profiles.full_name) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(home_profiles.headline) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(home_profiles.city) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(home_profiles.about_home) LIKE ?', [$like]);
             });
         }
 
@@ -417,7 +421,7 @@ class DiscoveryController extends Controller
     public function search(SearchRequest $request)
     {
         $q = $request->words();
-        $like = '%'.addcslashes($q, '%_\\').'%';
+        $like = $this->likeAnyCase($q);
         $activeAccount = fn ($u) => $u->where('status', AccountStatus::Active->value);
 
         // The same three lists whether they are counted, previewed or paged through. Each has a fixed order, so a
@@ -427,10 +431,10 @@ class DiscoveryController extends Controller
             ->where('status', PetStatus::LookingForAHome->value)
             ->whereHas('user', $activeAccount)
             ->where(function ($sub) use ($like): void {
-                $sub->where('name', 'like', $like)
-                    ->orWhere('breed', 'like', $like)
-                    ->orWhere('city', 'like', $like)
-                    ->orWhere('bio', 'like', $like);
+                $sub->whereRaw('LOWER(name) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(breed) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(city) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(bio) LIKE ?', [$like]);
             })
             ->orderByDesc('published_at')
             ->orderByDesc('id');
@@ -441,10 +445,10 @@ class DiscoveryController extends Controller
             ->whereNotNull('quiz_completed_at')
             ->whereHas('user', $activeAccount)
             ->where(function ($sub) use ($like): void {
-                $sub->where('full_name', 'like', $like)
-                    ->orWhere('headline', 'like', $like)
-                    ->orWhere('city', 'like', $like)
-                    ->orWhere('about_home', 'like', $like);
+                $sub->whereRaw('LOWER(full_name) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(headline) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(city) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(about_home) LIKE ?', [$like]);
             })
             ->orderByDesc('quiz_completed_at')
             ->orderByDesc('id');
@@ -454,8 +458,8 @@ class DiscoveryController extends Controller
             ->with(['author.pet.photos', 'author.homeProfile', 'photos'])
             ->whereHas('author', $activeAccount)
             ->where(function ($sub) use ($like): void {
-                $sub->where('title', 'like', $like)
-                    ->orWhere('body', 'like', $like);
+                $sub->whereRaw('LOWER(title) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(body) LIKE ?', [$like]);
             })
             ->orderByDesc('created_at')
             ->orderByDesc('id');
@@ -585,7 +589,11 @@ class DiscoveryController extends Controller
             ->values();
 
         $items = $pets->map(function (Pet $pet): array {
-            $firstPhoto = $pet->photos->sortBy('sort_order')->first();
+            // The first photo whose file is really there: a row left behind by a file that is gone would send the
+            // landing page an address that answers 404, and the panel would lose its picture.
+            $firstPhoto = $pet->photos
+                ->sortBy('sort_order')
+                ->first(fn ($photo) => Storage::disk('public')->exists($photo->file_path));
 
             return [
                 'name' => $pet->name,
@@ -595,6 +603,30 @@ class DiscoveryController extends Controller
         })->values()->all();
 
         return ResponseResource::collection($items);
+    }
+
+    /**
+     * The pattern for "contains these words, whatever the case". The columns it is compared with are lowered too
+     * (`LOWER(name) LIKE ?`): `LIKE` alone ignores case on SQLite and not on PostgreSQL, where typing "ki" would
+     * otherwise miss "Kimchi". The words are always a bound parameter (SEC-INPUT-02).
+     */
+    private function likeAnyCase(string $words): string
+    {
+        return '%'.addcslashes(mb_strtolower($words), '%_\\').'%';
+    }
+
+    /**
+     * Names that hold the words, the ones that start with them first: what drops down under the search box while
+     * it is typed in, so "ki" offers Kimchi before a name that only has "ki" in the middle. It goes before the
+     * list's own order, which still decides between two names that rank the same. `$column` is one of two
+     * constants written in this file, never input; the words are bound (SEC-INPUT-02).
+     */
+    private function whereNameHolds($query, string $column, string $words): void
+    {
+        $like = $this->likeAnyCase($words);
+
+        $query->whereRaw("LOWER({$column}) LIKE ?", [$like])
+            ->orderByRaw("CASE WHEN LOWER({$column}) LIKE ? THEN 0 ELSE 1 END", [substr($like, 1)]);
     }
 
     private function recordPetView(int $viewerUserId, int $petId, ProfileViewSource $source): void

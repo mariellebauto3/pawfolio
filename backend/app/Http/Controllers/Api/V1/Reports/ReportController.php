@@ -35,15 +35,6 @@ use Illuminate\Validation\Rule;
  */
 class ReportController extends Controller
 {
-    /**
-     * Another report (`r2`) on the item a report is about, in the same status: the same account, the same kind of
-     * target and the same post or comment. Constants only, so it is safe inside raw SQL (SEC-INPUT-02).
-     */
-    private const SAME_ITEM = 'r2.reported_user_id = reports.reported_user_id AND r2.target_type = reports.target_type'
-        .' AND COALESCE(r2.post_id, 0) = COALESCE(reports.post_id, 0)'
-        .' AND COALESCE(r2.comment_id, 0) = COALESCE(reports.comment_id, 0)'
-        .' AND r2.status = reports.status';
-
     /** What an action did, in the words the owner of the reported item reads in their notification (RP-05). */
     private const ACTION_OUTCOMES = [
         'remove_content' => 'removed what you posted',
@@ -192,8 +183,8 @@ class ReportController extends Controller
 
         // RP-03: one row per reported item, its latest report standing for the others, most reported first, then
         // newest. The SQL is made of constants only (SEC-INPUT-02).
-        $query->whereRaw('reports.id = (SELECT MAX(r2.id) FROM reports r2 WHERE '.self::SAME_ITEM.')')
-            ->orderByRaw('(SELECT COUNT(*) FROM reports r2 WHERE '.self::SAME_ITEM.') DESC')
+        $query->whereRaw('reports.id = (SELECT MAX(r2.id) FROM reports r2 WHERE '.Report::SAME_ITEM.')')
+            ->orderByRaw('(SELECT COUNT(*) FROM reports r2 WHERE '.Report::SAME_ITEM.') DESC')
             ->orderByDesc('created_at')
             ->orderByDesc('id');
 

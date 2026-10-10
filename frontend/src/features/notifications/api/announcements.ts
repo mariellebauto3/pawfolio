@@ -1,7 +1,17 @@
 import type { ApiClient } from "@/lib/api/core";
 import { isRecord, isText, readPage, unexpected } from "@/lib/api/readers";
 import type { ApiResource } from "@/types/api";
-import { ANNOUNCEMENT_AUDIENCES, type AdminAnnouncement, type AnnouncementAudience, type AnnouncementPage, type AudienceCounts, type NewAnnouncement, type StoredAnnouncement } from "../types/announcements";
+import type { Paginated } from "@/types/api";
+import {
+  ANNOUNCEMENT_AUDIENCES,
+  type AdminAnnouncement,
+  type AnnouncementAudience,
+  type AnnouncementPage,
+  type AudienceCounts,
+  type NewAnnouncement,
+  type PublishedAnnouncement,
+  type StoredAnnouncement,
+} from "../types/announcements";
 
 // The admin's announcement calls (docs/api/community-reports-and-admin.md, "Announcements"; NT-04, NT-05, FR39).
 // The list is read from a Server Component with `getServerApi()`; publishing runs in the browser, where the CSRF
@@ -54,6 +64,24 @@ export async function getAnnouncements(client: ApiClient, page = 1, perPage?: nu
   if (!isRecord(response) || !Array.isArray(response.data)) throw unexpected(LIST_PROBLEM);
   const rows = readPage({ ...response, data: response.data.map(toAnnouncement) }, (row): row is AdminAnnouncement => row !== null, LIST_PROBLEM);
   return { ...rows, audienceCounts: readCounts((rows.meta as { audience_counts?: unknown }).audience_counts) };
+}
+
+/** Rows on one page of the Announcements tab: the API's own default. */
+export const PUBLISHED_ANNOUNCEMENTS_PAGE_SIZE = 20;
+
+/**
+ * The announcements published for the caller's role, newest first, for the Announcements tab of Notifications
+ * (NT-02, NT-03). A read, so it works from a Server Component. A row that doesn't match the contract isn't listed.
+ */
+export async function getPublishedAnnouncements(client: ApiClient, page = 1): Promise<Paginated<PublishedAnnouncement>> {
+  const query = { page: page > 1 ? page : undefined, per_page: PUBLISHED_ANNOUNCEMENTS_PAGE_SIZE };
+  const answered = readPage(await client.get<unknown>("/announcements", { query }), isRecord, LIST_PROBLEM);
+  const rows = answered.data.flatMap((row): PublishedAnnouncement[] =>
+    typeof row.id === "number" && isText(row.title) && isText(row.message)
+      ? [{ id: row.id, title: row.title, message: row.message, published_at: dateOrNull(row.published_at) }]
+      : [],
+  );
+  return { ...answered, data: rows };
 }
 
 /**
