@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PetResume } from "@/components/data-display/pet-resume";
@@ -15,6 +16,7 @@ import { ReportButton } from "@/features/reports/components/report-button";
 import { isApiError } from "@/lib/api/errors";
 import { getServerApi } from "@/lib/api/server";
 import { requireAccount } from "@/lib/auth/require-account";
+import { viewSourceFromReferer } from "@/lib/utils/view-source";
 
 export const metadata: Metadata = { title: "Pet resume" };
 
@@ -40,7 +42,10 @@ export default async function PetPage({ params }: Props) {
   if (account.role === "pet" && account.profile_id === id) redirect(ROUTES.me);
 
   const api = await getServerApi();
-  const pet = await getPetProfile(api, id).catch((error: unknown) => {
+  // Which page the visitor was on, for the pet's own stats (AN-01). Only a name such as "matches" is sent on.
+  const requestHeaders = await headers();
+  const source = viewSourceFromReferer(requestHeaders.get("referer"), requestHeaders.get("host"));
+  const pet = await getPetProfile(api, id, source).catch((error: unknown) => {
     if (isApiError(error) && error.kind === "not_found") notFound();
     throw error;
   });

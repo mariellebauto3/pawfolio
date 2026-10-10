@@ -115,6 +115,25 @@ yet, so it skips size-adjusting the fallback font. That's harmless, apart from a
 | Motion | `--pf-duration-fast` 120 ms · `base` 200 ms · `slow` 320 ms; `ease-out`. Reduced-motion turns transitions off globally |
 | Entrances | `animate-dialog-in` (fade + lift), `animate-sheet-in` (phone dialogs, from the bottom), `animate-drawer-in` (from the right), `animate-menu-in`, `animate-toast-in`, `animate-fade-in` (backdrops). Motion only answers an action; exits are instant. `animate-link-in` then `animate-stamp-in` play once on the two adoption celebrations (`AL-02`, `AL-03`): the yellow line between a pet and its Furparent draws in, and the Hired tag is stamped on it. Exception: the landing hero (`AU-01`). Its paw trail walks without end (`animate-paw-loop`, a marquee that pauses on hover), and a story loop tells the adoption story every 7 s while the hero is on screen (`landing-motion.ts`, `use-story-cycle.ts`): the offer chip (after React Bits "Call Chip") runs its timer and rolls to a yellow check, then the "loved" heart (after "Pulse Heart") beats to solid yellow. Clicking the heart stops the loop. On the first run only, the lanyard card turns over to show "Furever home". Reduced motion shows the end states and never loops |
 
+## Charts
+
+Used on the stats pages and the admin dashboard (`AN-01`…`AN-03`, `frontend/src/features/analytics/components/`).
+No chart library: bars are HTML, the line chart is one SVG.
+
+- **Blue counts, yellow celebrates, gray is over or not yet.** A plain count is `bg-primary`. What the product
+  calls good news is the yellow fill with its edge, as on a badge: Hired, Adopted, a match score. Draft, Declined,
+  Withdrawn and Expired are gray (`bg-ink-subtle`). The same thing has the same colour on every chart.
+- **Lines:** `blue-300` dashed (Sent), `blue-600` (Approved), `yellow-600` (Adopted), 2 px. The three were checked
+  for colour-blind separation and contrast on white; `blue-300` is below 3:1, which is why it is the dashed one and
+  why the chart carries a table. Three series at most; a fourth is another chart.
+- **A value is always written.** Bars and columns show their number, the stacked bar has a list with every count,
+  and the line chart has a readout (pointer, or ← → from the keyboard) and a table for screen readers. Numbers and
+  labels are ink, never the series colour.
+- **One baseline, one scale.** Bars start at zero; a chart never has two y-axes. The scale ends on a round number
+  that halves cleanly (`niceMax`), so the middle line is a whole number.
+- **Marks are thin and quiet:** 12 px bars on a sunken track, 4 px rounded ends, a 2 px gap between the parts of a
+  stacked bar, grid lines in `line`, the baseline in `line-strong`. Nothing animates on load.
+
 ## Accessibility
 
 - **Contrast (WCAG AA), checked for every pair in use:** body text 17:1 on surface, 15.6:1 on canvas. Muted text is

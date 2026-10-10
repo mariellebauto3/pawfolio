@@ -470,3 +470,102 @@ announcements off in its settings is counted: it gets no alert, but reads the an
 - **An announcement stays beside the feed until three newer ones push it out.** There is no end date.
 - **Publishing twice sends twice.** Nothing tells two identical announcements apart; the dialog's button is ignored
   while a publish is on its way, so one press sends one.
+
+### Analytics as the screens use them (FE-25, checked 2026-10-10)
+
+**Status: built (BE-25), checked and corrected for FE-25 (2026-10-10).** The screens (`AN-01`, `AN-02`, `AN-03`)
+run against it through `frontend/src/features/analytics/api/stats.ts`. In mock mode
+`frontend/src/lib/api/mock/handlers/analytics.ts` answers the same way. A change here also changes those files, the
+types beside the calls, and the tests on both sides in the same PR.
+
+Both endpoints only read. Every number is counted by the API; the screens group and name them and count nothing
+again. A day and a month are a day and a month **in the Philippines**, as the screens write dates.
+
+#### `GET /api/v1/stats`
+
+The signed-in account's own numbers. Whose they are is the session's to say: there is no id to send
+(SEC-AUTHZ-02). Signed out: **401**. Not Active: **403** `account_not_active`. An admin: **403** (the page sends an
+admin to the dashboard instead).
+
+**A pet (`AN-01`)**
+
+| Field | |
+| --- | --- |
+| `role` | `pet` |
+| `pet_status` | The pet's status; a Draft is told why there is nothing to count yet |
+| `tiles.views` | `{ total, this_week }`: views of the resume, and those of the last 7 days. A view is one visitor on one day, never the pet itself or an admin |
+| `tiles.bookmarks` | `{ total, this_week }`: humans who have the pet in their Bookmarks |
+| `tiles.requests` | `{ total, open }`: requests sent, and those still open (Sent, On Hold, Approved, Meet Scheduled, Awaiting Decision) |
+| `tiles.invites` | `{ total, live }`: Invites to Apply received, and those still on the Invites page |
+| `views_over_time` | 30 rows `{ date: "2026-10-10", count }`, oldest first, today last |
+| `views_by_source` | `{ matches, browse, search, bookmarks, feed, direct }`: where the views came from, all of them |
+| `request_history` | The latest 10 requests, newest first (below) |
+
+**A human (`AN-02`)**
+
+| Field | |
+| --- | --- |
+| `role` | `human` |
+| `has_completed_quiz` | Matches come from the quiz; without it the screen offers "Take the lifestyle quiz" |
+| `tiles.matches` | `{ total, strong }`: the pets Pets for You lists (Looking for a Home, an Active account, every dealbreaker passed), and those at 80% or more |
+| `tiles.bookmarks` | `{ total }`: pets in the human's Bookmarks |
+| `tiles.requests` | `{ total, need_action }`: requests received, and those where the human has the next step (Sent; Approved with a booking to confirm; Awaiting Decision) |
+| `tiles.adopted` | `{ total, names }`: adoptions that still stand, with the 3 latest pets' names |
+| `match_score_distribution` | 5 rows `{ from, to, count }`, best band first: 90–100, 80–89, 70–79, 60–69, 0–59, over the same pets as `tiles.matches` |
+| `request_outcomes` | A count for every request status (`sent` … `expired`). The screen groups them: Open, Adopted, Declined (with Not Adopted), Withdrawn, Expired or closed |
+| `request_history` | The latest 10 requests, newest first (below) |
+
+**`request_history` rows** are a request as a list names it (`adoption-and-meet-greet.md`): `id`, `status`, `pet`,
+`home_profile`, the milestone dates, and `updated_at`. No Meet & Greet and **no `contacts`**, whatever the request's
+status (SEC-PRIV-02); the request's own page carries those for its two sides.
+
+#### `GET /api/v1/admin/dashboard`
+
+The platform as it stands. A signed-in **Active** admin; signed out **401**, anyone else **403** (SEC-AUTHZ-06,
+SEC-AUTHZ-07). Counts, dates and names only: no email, document, phone number or address (SEC-PRIV-01,
+SEC-PRIV-02).
+
+| Field | |
+| --- | --- |
+| `tiles.accounts` | Pet and Human accounts: `total`, one count per status (`active`, `pending_verification`, `denied`, `suspended`, `deactivated`), `pets`, `humans`, and `active_pets`, `active_humans` |
+| `tiles.verification_queue_count`, `tiles.oldest_verification_at` | Accounts Pending Verification, and when the one at the front was sent in (`null` when nobody waits) |
+| `tiles.open_reports_count` | Open reports |
+| `tiles.pets_by_status` | `{ draft, looking_for_a_home, in_process, adopted_hired }` |
+| `tiles.requests` | `total`, `open`, `in_process`, `adopted`, `overdue` (no decision 7 days after the meeting, `MG-16`), `expiring_soon` (Sent, within 3 days of its 14) |
+| `tiles.meet_and_greets` | `total`, `booked`, `confirmed`, `ended`, and `upcoming_week`: booked or confirmed for the 7 days ahead |
+| `tiles.adoptions_count`, `tiles.adoptions_this_month`, `tiles.adoptions_last_month` | Adoptions that still stand: all, and by the month of `adopted_at` |
+| `tiles.average_days_to_adoption` | From request sent to Adopted, one decimal; `0` when there are none |
+| `trends` | 6 rows `{ month: "2026-10", sent, approved, adopted }`, oldest first, this month last: requests sent, requests approved, and adoptions in each month |
+| `needs_attention.pending_verifications` | The 5 longest-waiting accounts: `id`, `role`, `display_name`, `submitted_at` |
+| `needs_attention.open_reports` | The 5 newest open reports: `id`, `target_type`, `reason`, `reported_user_name`, `created_at`. Never who reported |
+| `needs_attention.overdue_requests` | The 5 longest-overdue requests, as `request_history` rows |
+
+**What FE-25 changed in BE-25:**
+
+- **The tiles had no second number.** The LoFi's "+32 this week", "2 open", "1 new", "80%+ match: 5" and "2 need
+  action" had nothing behind them. Each tile is now an object with its total and that number, and the admin's tiles
+  gained `active_pets`, `active_humans`, `oldest_verification_at`, `expiring_soon`, `upcoming_week`,
+  `adoptions_this_month` and `adoptions_last_month`.
+- **The views chart covered 14 days of UTC days** (the LoFi: last 30 days). It is 30 days now, each a day in the
+  Philippines, so a view at 1 AM is counted on the day the reader calls today. One query instead of one per day.
+- **"Pets matched" counted every stored score**, also for pets since adopted and for suspended accounts, so it
+  disagreed with Pets for You. It counts the pets that page lists.
+- **"Where views come from" was always Direct**: no screen sent `?source=`. The resume page sends it
+  (`discovery.md`).
+- **The admin's charts had no data**: the LoFi's "Adoptions per month" and "Requests sent vs approved vs adopted"
+  needed months. `trends` carries six.
+- **A stats row had no "Last update"**: `updated_at` is added to `request_history` rows.
+- The counting moved out of the controller into `App\Services\Analytics\MemberStats` and `PlatformDashboard`,
+  with a Feature test for each number (`tests/Feature/Analytics/`).
+
+**Left as it is, to decide:**
+
+- **No date range.** The LoFi has a "Last 30 days / All time" select on the stats pages and "Last 30 days / This
+  year" on the dashboard. Totals count from the first day and the charts cover fixed windows (30 days, 6 months);
+  the screens say so. A range would be a query parameter on both endpoints.
+- **No dashboard Export.** The LoFi shows an Export button with nothing said about what it exports. The activity
+  log has a CSV export (`BE-26`); the dashboard's numbers have none.
+- **`needs_attention.open_reports` and `overdue_requests` aren't listed on the dashboard**: its rows give a count
+  and lead to the queue, where the items are. They stay in the answer for a later screen.
+- **A view opened from a request's page is a Direct one.** The request page reads the pet's resume to show it, and
+  that read is counted like any other.

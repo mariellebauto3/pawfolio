@@ -87,7 +87,10 @@ Browse pets (`DS-01`, FR6).
   | `caretaker_name`, `caretaker_contact_number` | Only for the owner, an admin and the human of a **confirmed** Meet & Greet (SEC-PRIV-02). The discovery screens don't show them; `MG-07` does |
 
 - A read by someone other than the owner or an admin is counted as a profile view, once a day per viewer.
-  `?source=` says where it came from.
+  `?source=` says where it came from: `matches`, `browse`, `search`, `bookmarks`, `feed` or `direct` (also what
+  anything else, or nothing, is counted as). The resume page sends the page of this site the visitor was on, read
+  from the request's Referer (`frontend/src/lib/utils/view-source.ts`); the pet reads the totals on My stats
+  (`AN-01`, `community-reports-and-admin.md`).
 - **404** for a Draft, and for a pet whose account isn't Active, unless the viewer is the owner or an admin
   (SEC-AUTHZ-04).
 
