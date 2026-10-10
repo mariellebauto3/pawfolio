@@ -190,6 +190,12 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
   work in the browser, but the page that follows is rendered on the server, which still has the fixtures. A change
   request's document can't be opened, and deactivating your own account answers as the API does but signs nobody
   out: use `live` for both.
+- **The admin's monitor and Resolve:** as `admin`, `/admin/requests` (FE-23) lists the mock requests and one more
+  that only the monitor has, Tofu's, which is overdue for a decision, so the Overdue tab and the sidebar count
+  show 1. `/admin/resolve?pet=4` offers "Cancel adoption" for Luna, and `?pet=1` the other three for Mochi; the
+  handler follows the API's rules for which action applies to what. A reminder and a resolution work in the
+  browser, but the page that follows is rendered on the server, which still has the fixtures: the toast shows
+  and the page stays as it was. Use `live` to see either through.
 - **No mock for the pet resume:** `/me` and `/resume/edit` (FE-10) were built on the real `/me/pet` endpoints. In mock
   mode they show the error state; use `live` for them.
 - **Adding mocks:** add a file in `src/lib/api/mock/handlers/` and register it in `handlers/index.ts`. Follow the

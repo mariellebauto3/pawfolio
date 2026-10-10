@@ -107,12 +107,32 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
   link to the alumni profile. What another module reads from the same answer comes through `getRequestWith`,
   which takes its reader. The Meet & Greet (FE-17) and the decision and adoption after it (FE-18) are built this
   way: `src/features/meet-and-greet/README.md`, `src/features/adoption/README.md`.
+- **RQ-18, with MG-15 and MG-16 as its tabs (FE-23):** `/admin/requests`, the admin's monitor
+  (`components/requests-monitor.tsx`, `components/monitor-filters.tsx`): every request on the platform, newest
+  first, as "Mochi to Ana Santos" with its status, the day it was sent and the day it last changed. All
+  requests, Meet & Greets (with when and where the latest meeting is and what became of the booking) and
+  Overdue live in `?tab=`, beside a search by the pet's or the human's name (`?q=`) and a status filter
+  (`?status=`), which lists and never sets (FR27). An overdue request carries an "Overdue" badge in the
+  "someone must act" tone with how long it has waited, and its row also leads to Resolve. The count of overdue
+  requests is on the tab and on the sidebar's "Requests & Meets" (`app/admin/layout.tsx`).
+- **RQ-19:** `/admin/requests/[requestId]`, one request's record (`components/admin-request-screen.tsx`): the
+  header and its path as both sides see them, then "Follow up" (who the request waits on, Send reminder, Resolve
+  issue), the timeline told by name (`adminRequestTimeline`: the milestones, the booking, the overdue flag and
+  what admins changed by hand with their reason), the cover letter, the two accounts with links to their pages,
+  and the Meet & Greet. On a phone "Follow up" comes first. The page is read-only and shows no phone number or
+  address: the API sends none to it (SEC-PRIV-02).
+- **Send reminder** (`components/send-reminder-button.tsx`): one notification to the side that has the next
+  step. Only the request's id is sent; who is reminded and in which words is the API's to say. The button names
+  who it goes to, and is offered only when the API says one can go out: once a day per request, and not at all
+  when nobody has a step to take (the card then says why).
+- **A Meet & Greet on these two screens** is read with the Meet & Greet module's reader, handed in by the page
+  (`readBooking`), as the member's request page does.
 - API contracts: `docs/api/bookmarks-and-invites.md` and `docs/api/adoption-and-meet-greet.md` ("The pet's
-  side"). Tests: `tests/unit/features/adoption-requests/`. Mock mode answers these screens from memory
+  side", "The human's side", "The admin's monitor"). Tests: `tests/unit/features/adoption-requests/`. Mock mode answers these screens from memory
   (`docs/architecture/frontend-data-layer.md`).
 - **Not built here:** The request thread the LoFi draws is not part of Pawfolio
-  (decided 2026-10-09: `project-rules/ui-guidelines.md` §6). An admin opening `/requests` is sent
-  to the dashboard. An adopted pet or a pet with a Draft resume still sees Apply on a Home Profile; the API
+  (decided 2026-10-09: `project-rules/ui-guidelines.md` §6), so RQ-19 has no line about thread messages. An
+  admin opening `/requests` is sent to the dashboard; the monitor is theirs. An adopted pet or a pet with a Draft resume still sees Apply on a Home Profile; the API
   refuses the request and the form shows its message. A human has no list of the invites they sent.
 
 ## Requirements covered

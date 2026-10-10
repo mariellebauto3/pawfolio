@@ -7,7 +7,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { buttonClasses } from "@/components/ui/button-styles";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PET_STATUS_NAMES } from "@/constants/pets";
-import { ROUTES, adminAccountPath } from "@/constants/routes";
+import { ROUTES, adminAccountPath, adminResolvePath } from "@/constants/routes";
 import { ACCOUNT_STATUS_LABELS } from "@/constants/statuses";
 import { formatDate } from "@/lib/utils/format-date";
 import type { Paginated } from "@/types/api";
@@ -66,6 +66,26 @@ function label(account: AccountSummary) {
 
 const COLUMNS: TableColumn<AccountSummary>[] = [name, type, status, { key: "label", header: "Label", cell: label }, city, view];
 
+// An adopted pet that was returned is the issue Resolve exists for (AL-09 → AL-07), so its row leads there as well.
+const viewOrResolve: TableColumn<AccountSummary> = {
+  key: "actions",
+  header: "Actions",
+  headerHidden: true,
+  align: "end",
+  cell: (account) => (
+    <span className="flex items-center justify-end gap-2">
+      <Link href={adminAccountPath(account.id)} className={buttonClasses({ size: "sm" })}>
+        View<span className="sr-only"> {account.display_name}</span>
+      </Link>
+      {account.pet && (
+        <Link href={adminResolvePath(account.pet.id)} className={buttonClasses({ size: "sm", variant: "tertiary" })}>
+          Resolve issue<span className="sr-only"> for {account.display_name}</span>
+        </Link>
+      )}
+    </span>
+  ),
+};
+
 // The Alumni tab lists adopted pets, so the label gives way to who adopted them and when.
 const ALUMNI_COLUMNS: TableColumn<AccountSummary>[] = [
   name,
@@ -89,7 +109,7 @@ const ALUMNI_COLUMNS: TableColumn<AccountSummary>[] = [
       ),
   },
   city,
-  view,
+  viewOrResolve,
 ];
 
 function summary(total: number, { tab, search, status: statusFilter }: AccountFilters): string {

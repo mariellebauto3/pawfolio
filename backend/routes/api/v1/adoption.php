@@ -21,7 +21,11 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         ->whereNumber('adoption')
         ->name('adoptions.show');
 
+    // Resolve adoption issue and alumni (BE-20, AL-07..AL-09). A resolution needs a reason and is logged (FR37).
     Route::middleware('role:admin')->prefix('admin')->group(function (): void {
+        Route::get('adoptions/{pet}/resolve', [AdminAdoptionController::class, 'resolveOptions'])
+            ->whereNumber('pet')
+            ->name('admin.adoptions.resolve.options');
         Route::post('adoptions/{pet}/resolve/preview', [AdminAdoptionController::class, 'resolvePreview'])
             ->whereNumber('pet')
             ->name('admin.adoptions.resolve.preview');
@@ -29,6 +33,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
             ->whereNumber('pet')
             ->middleware('throttle:writes')
             ->name('admin.adoptions.resolve');
+        Route::get('adoption-resolutions', [AdminAdoptionController::class, 'resolutionsIndex'])
+            ->name('admin.adoption-resolutions.index');
         Route::get('alumni', [AdminAdoptionController::class, 'alumniIndex'])
             ->name('admin.alumni.index');
     });

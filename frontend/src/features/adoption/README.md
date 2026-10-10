@@ -78,7 +78,29 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
   (adoption 1, request 6; sign in as `pet-hired` for Luna's side), and Bantay's request 7 waits for her decision.
   A page rendered on the server doesn't see what the browser changed, so the decision itself is walked against the
   API, not in mock mode.
-- **Not built here:** AL-07…AL-09, the admin's screens.
+- **AL-07 (FE-23):** `/admin/resolve`, Resolve adoption issue: the only way a pet's or a request's status changes
+  outside the normal flow (FR27, FR37). Opened from an overdue request, a request's record or the Alumni tab,
+  the pet and the request are in the address (`?pet=3&request=12`); opened from the sidebar it first asks which
+  pet (`components/pet-finder.tsx`, a search answered by the page). `components/resolve-pet-card.tsx` shows
+  where the pet stands, and `forms/resolve-issue-form.tsx` asks for the related request, one of four actions
+  and the reason. **Which action applies to what is the API's answer** (`GET …/resolve`): an action that
+  doesn't apply stays on the list, greyed, with the API's reason or the request it applies to instead
+  (`actionChoices` in `schemas/resolutions.ts`). The form never sends a status.
+- **AL-08:** `dialogs/confirm-resolution-dialog.tsx`, opened by "Review change" with what the API says the
+  action would change (`POST …/resolve/preview`): the pet's and the request's status as the two badges they
+  are everywhere, before and after, what else moves with it (the Furparent link, requests On Hold, a booked
+  Meet & Greet), and the reason. "Apply change" sends the action and the reason; the toast confirms, the page
+  is read again and the form starts over on where the pet stands now. If the pet or the request moved on in
+  the meantime (409), the API's words are said in a toast and the page is read again.
+- **Recent resolutions** (`components/recent-resolutions.tsx`): the latest manual changes beside the form, each
+  with who made it, when and why, and a link to the request.
+- **AL-09:** the Alumni tab of the accounts list (`/admin/accounts?tab=alumni`, built with FE-22). FE-23 adds
+  "Resolve issue" to each row, which opens AL-07 on that pet.
+- **The reason is read by both accounts** in their Alerts, and kept in the activity log with the admin's name;
+  the form says so under the field.
+- API contract: `docs/api/adoption-and-meet-greet.md` ("Resolve adoption issue"). Types: `types/resolutions.ts`
+  and `src/types/adoption-resolution.ts`. Tests: `tests/unit/features/adoption/resolutions.test.ts`. Mock mode:
+  `src/lib/api/mock/handlers/admin-adoption.ts`, with the API's rules for the four actions.
 
 ## Requirements covered
 

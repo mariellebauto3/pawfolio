@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PET_STATUS_NAMES } from "@/constants/pets";
-import { ROUTES, adminReportPath, adminVerificationReviewPath, homeProfilePath, petPath } from "@/constants/routes";
+import { ROUTES, adminReportPath, adminRequestPath, adminVerificationReviewPath, homeProfilePath, petPath } from "@/constants/routes";
 import { ACCOUNT_STATUS_LABELS, REPORT_STATUS_LABELS, REQUEST_STATUS_LABELS } from "@/constants/statuses";
 import { VERIFICATION_DOCUMENT_LABELS } from "@/constants/verification";
 import { formatDate, formatDateTime } from "@/lib/utils/format-date";
@@ -116,7 +116,9 @@ export function AccountDetailScreen({ account }: Props) {
                 {account.requests.map((request) => (
                   <li key={request.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 first:pt-0 last:pb-0">
                     <span className="wrap-break-word">
-                      {request.pet_name ?? "A pet"} to {request.home_name ?? "a home"}
+                      <Link href={adminRequestPath(request.id)} className={TEXT_LINK}>
+                        {request.pet_name ?? "A pet"} to {request.home_name ?? "a home"}
+                      </Link>
                       <span className="text-ink-muted">
                         , sent <time dateTime={request.created_at}>{formatDate(request.created_at)}</time>
                       </span>

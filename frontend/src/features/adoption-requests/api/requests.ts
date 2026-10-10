@@ -52,7 +52,7 @@ function readPet(value: unknown): RequestPet | null {
  * and button, so they are read strictly: a date that isn't text is "not there", a reason that isn't on the list is
  * no reason.
  */
-function readRequest(value: unknown): AdoptionRequest | null {
+export function readRequest(value: unknown): AdoptionRequest | null {
   if (!isRecord(value) || typeof value.id !== "number" || !isStatus(value.status)) return null;
   const pet = readPet(value.pet);
   const home = readHome(value.home_profile);

@@ -41,7 +41,7 @@ export function readSlot(value: unknown): MeetGreetSlot | null {
 }
 
 /** A booking, or null when it isn't one. Its status chooses every button, so anything else is "no booking". */
-function readBooking(value: unknown): MeetAndGreet | null {
+export function readBooking(value: unknown): MeetAndGreet | null {
   if (!isRecord(value) || typeof value.id !== "number") return null;
   if (value.status !== "booked" && value.status !== "confirmed" && value.status !== "ended") return null;
   return {

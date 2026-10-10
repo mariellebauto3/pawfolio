@@ -5,12 +5,12 @@ import type { AdoptionRequest } from "@/types/adoption-request";
 import type { IsoDateTime } from "@/types/api";
 import type { RequestStatus } from "@/types/statuses";
 
-// How a request's status and dates are told to its two readers: the pet that sent it (RQ-07, RQ-08, RQ-14…RQ-17)
-// and the human it was sent to (RQ-09…RQ-11). The status and every date are the API's; nothing here decides one
-// (FR27).
+// How a request's status and dates are told to its readers: the pet that sent it (RQ-07, RQ-08, RQ-14…RQ-17), the
+// human it was sent to (RQ-09…RQ-11), and an admin monitoring it (RQ-19). The status and every date are the API's;
+// nothing here decides one (FR27).
 
-/** Who is reading: each side is "you" in its own history. */
-export type RequestReader = "pet" | "human";
+/** Who is reading: each side is "you" in its own history, and an admin reads both by name. */
+export type RequestReader = "pet" | "human" | "admin";
 
 /** The path every request detail shows (proposal §5.3). The last step is the pet's own status once it is adopted. */
 export const REQUEST_STEPS = ["Sent", "Approved", "Meet Scheduled", "Awaiting Decision", "Adopted — Hired"];
@@ -65,6 +65,11 @@ const STEPS: Record<RequestReader, { sent: (n: Names) => string; approved: (n: N
     approved: () => "You approved the request",
     expires: () => "Expires if you haven’t answered",
   },
+  admin: {
+    sent: ({ pet }) => `${pet} sent the request`,
+    approved: ({ home }) => `${home} approved the request`,
+    expires: ({ home }) => `Expires if ${home} hasn’t answered`,
+  },
 };
 
 /** How each ending reads to each side. */
@@ -81,6 +86,14 @@ const ENDINGS: Record<RequestReader, Partial<Record<RequestStatus, (n: Names) =>
     adopted: ({ pet }) => `You adopted ${pet}`,
     declined: () => "You declined the request",
     not_adopted: () => "You decided not to adopt",
+    withdrawn: ({ pet }) => `${pet} withdrew the request`,
+    expired: () => "The request expired without an answer",
+    closed: () => "The request was closed",
+  },
+  admin: {
+    adopted: ({ pet, home }) => `${home} adopted ${pet}`,
+    declined: ({ home }) => `${home} declined the request`,
+    not_adopted: ({ home }) => `${home} decided not to adopt`,
     withdrawn: ({ pet }) => `${pet} withdrew the request`,
     expired: () => "The request expired without an answer",
     closed: () => "The request was closed",
