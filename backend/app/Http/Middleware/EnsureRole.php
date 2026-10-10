@@ -45,10 +45,10 @@ class EnsureRole
                     userAgent: $request->userAgent(),
                 );
 
-                return ErrorResource::forbidden('This page is for admins only.')->toResponse($request);
+                return ErrorResource::forbidden('This action is unauthorized.', 'role_not_allowed')->toResponse($request);
             }
 
-            return ErrorResource::forbidden('You do not have permission to perform this action.')->toResponse($request);
+            return ErrorResource::forbidden('This action is unauthorized.', 'role_not_allowed')->toResponse($request);
         }
 
         return $next($request);

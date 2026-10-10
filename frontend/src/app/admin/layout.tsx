@@ -1,3 +1,7 @@
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants/routes";
+import { routeRedirect } from "@/lib/auth/redirects";
+import { renderAccount } from "@/lib/auth/render-account";
 import type { ReactNode } from "react";
 import { AdminShell } from "@/components/layout/admin-shell";
 import { getOverdueRequestCount } from "@/features/adoption-requests/api/admin-requests";
@@ -8,6 +12,11 @@ import { getServerApi } from "@/lib/api/server";
 // Admin pages. proxy.ts sends non-admins away first, as a convenience only: every /api/v1/admin endpoint checks the
 // admin role itself (SEC-AUTHZ-07, SEC-FE-06).
 export default async function AdminLayout({ children }: { children: ReactNode }) {
+  const lookup = await renderAccount();
+  if (!lookup.ok) throw lookup.error;
+  const away = routeRedirect(ROUTES.adminHome, lookup.account);
+  if (away) redirect(away);
+
   const api = await getServerApi();
   // The sidebar's "Verification" (AU-22), "Reports" (RP-03) and "Requests & Meets" counts, the last one being the
   // requests overdue for a decision (MG-16). A layout isn't rendered again on navigation, so a screen that changes

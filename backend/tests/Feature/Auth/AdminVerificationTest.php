@@ -50,12 +50,12 @@ class AdminVerificationTest extends TestCase
             $this->json($method, $path)->assertUnauthorized();
         }
 
-        // A pet or a human is told the page is for admins, and the attempt is logged (SEC-LOG-02).
+        // A pet or a human receives a generic denial, and the attempt is logged (SEC-LOG-02).
         foreach ([User::factory()->human()->active()->create(), User::factory()->pet()->active()->create()] as $member) {
             foreach ($paths as [$method, $path]) {
                 $this->actingAs($member)->json($method, $path)
                     ->assertForbidden()
-                    ->assertJsonPath('message', 'This page is for admins only.');
+                    ->assertJsonPath('message', 'This action is unauthorized.');
             }
         }
         $this->assertSame(10, ActivityLog::query()->where('type', 'security')->where('action', 'admin_access_denied')->count());

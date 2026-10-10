@@ -67,10 +67,31 @@ describe("routeRedirect", () => {
     },
   );
 
-  it("keeps pets and humans out of /admin", () => {
+  it("sends pets and humans away from admin URLs to their own dashboard", () => {
     expect(routeRedirect("/admin/reports", account({ role: "pet" }))).toBe("/feed");
+    expect(routeRedirect("/admin/activity-logs", account({ role: "pet" }))).toBe("/feed");
     expect(routeRedirect("/admin", account({ role: "human" }))).toBe("/feed");
+    // Legacy denial URLs also redirect without revealing the restricted module.
+    expect(routeRedirect("/admins-only", account({ role: "pet" }))).toBe("/feed");
+    expect(routeRedirect("/admin/activity-logs", null)).toBe("/sign-in?next=%2Fadmin%2Factivity-logs");
     expect(routeRedirect("/admin/reports", account({ role: "admin" }))).toBeNull();
+  });
+
+  it.each(["pet", "human", "admin"] as const)("redirects a signed-in %s from landing", (role) => {
+    const user = account({ role });
+    expect(routeRedirect("/?campaign=welcome", user)).toBe(homePathFor(user));
+  });
+
+  it.each([
+    ["/feed", "admin", "/admin"],
+    ["/resume/edit?step=2", "human", "/feed"],
+    ["/invites", "human", "/feed"],
+    ["/apply/12", "human", "/feed"],
+    ["/home-profile/edit", "pet", "/feed"],
+    ["/availability", "pet", "/feed"],
+    ["/admin/reports/private.json", "human", "/feed"],
+  ] as const)("redirects %s for %s without a denial page", (path, role, home) => {
+    expect(routeRedirect(path, account({ role }))).toBe(home);
   });
 
   it("lets Active members through", () => {
@@ -151,13 +172,15 @@ describe("afterSignInPath (AU-02)", () => {
     expect(afterSignInPath(account({ status: "suspended" }), "/feed")).toBe("/account-status");
   });
 
-  it("returns to a page the account may open", () => {
-    expect(afterSignInPath(account(), "/requests/12?tab=thread")).toBe("/requests/12?tab=thread");
-    expect(afterSignInPath(account({ role: "admin", profile_id: null }), "/admin/reports")).toBe("/admin/reports");
+  it("always opens the dashboard even with an allowed next page", () => {
+    expect(afterSignInPath(account(), "/requests/12?tab=thread")).toBe("/feed");
+    expect(afterSignInPath(account({ role: "admin", profile_id: null }), "/admin/reports")).toBe("/admin");
   });
 
   it("ignores next pages the account may not open, public pages and other sites (SEC-FE-07)", () => {
+    // A requested module never overrides the dashboard destination.
     expect(afterSignInPath(account(), "/admin/reports")).toBe("/feed");
+    expect(afterSignInPath(account({ status: "suspended" }), "/admin/reports")).toBe("/account-status");
     expect(afterSignInPath(account(), "/sign-in")).toBe("/feed");
     expect(afterSignInPath(account(), "https://evil.example/feed")).toBe("/feed");
     expect(afterSignInPath(account(), "//evil.example")).toBe("/feed");

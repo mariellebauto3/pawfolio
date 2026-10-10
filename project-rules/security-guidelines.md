@@ -104,6 +104,7 @@ Review this table whenever a module is added or changed. New threats get the nex
 - **SEC-AUTH-08 (MUST)** Password-reset links are single-use and expire in 30 minutes.
 - **SEC-AUTH-09 (SHOULD)** Admin accounts use two-factor authentication once available; admin sessions time out after 30 minutes of inactivity.
 - **SEC-AUTH-10 (MUST)** Admin accounts are created only by seeder/console command, never through public sign-up.
+- **SEC-AUTH-11 (MUST)** One account per browser session. Sign-in refuses an existing authenticated session with `409 already_signed_in` before reading credentials. Tabs check the current session when revisited and leave stale account pages when it changes.
 
 ### 5.2 Authorization (OWASP A01, API1, API5)
 
@@ -328,3 +329,13 @@ Update this table as risks are found, accepted or fixed.
 | 1.12 | 2026-10-10 | FE-24: §12 records how announcements are published, shown and logged, and the scheduling fault fixed while wiring BE-24 |
 | 1.13 | 2026-10-10 | FE-25: §12 records how stats and the platform dashboard keep to counts, how a view's source is read, and the counting faults fixed while wiring BE-25 |
 | 1.14 | 2026-10-10 | FE-26: §12 records the activity log faults fixed while wiring BE-26, what a member and an admin each read of an entry, and how the CSV export is protected |
+
+## Authentication navigation update (2026-10-11)
+
+Protected navigation redirects signed-out visitors to sign-in and cross-role visitors silently to their own
+dashboard. Successful sign-in and authenticated landing-page visits also open that dashboard. Non-Active
+accounts retain the account-status flow. Session verification fails closed before rendering; Laravel independently
+checks authentication, role, status and ownership. Role-denial responses are generic and admin attempts remain logged.
+Sign-in uses the verified login response without a second browser account request, keeps the guest UI pending,
+and pauses automatic session updates until a fresh dashboard document loads. Failed attempts resume checks and
+show form errors without redirecting. Session-change broadcasts contain no account information.

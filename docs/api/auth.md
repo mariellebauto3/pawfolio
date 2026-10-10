@@ -47,6 +47,11 @@ The signed-in account. Used by `SessionProvider` and `proxy.ts`.
   - `"That email and password don't match. Try again."` for a wrong password or an unknown email alike (SEC-AUTH-05).
   - `"This account was closed."` for a **deactivated** account, and only after the right password, so it reveals
     nothing to someone guessing.
+- **409** `{ "code": "already_signed_in", "message": "This browser is already signed in to an account. Log out of it
+  before signing in to another one." }` when the session is already signed in, whichever account the body names
+  (SEC-AUTH-11). It is answered before the email and password are looked at, so it says nothing about them and
+  counts no failed try; the session stays the first account's. The page offers that account's home and Log out.
+  Logged as `sign_in_refused_already_signed_in`.
 - **429** `{ "code": "rate_limited" }` with `Retry-After` in seconds: 5 failed attempts for one email from one IP pause
   that pair for 15 minutes (SEC-AUTH-04), even with the right password. Other accounts on the same IP are not
   affected. A separate flood guard allows 20 sign-in requests a minute per IP.
@@ -303,7 +308,7 @@ the mock, the types (`frontend/src/types/verification-review.ts`), the shared ru
 (`frontend/src/lib/auth/verification-review.ts`) and the tests on both sides in the same PR.
 
 - **Who:** Active admins only, on every endpoint below (SEC-AUTHZ-07). Signed out: **401**. Not Active: **403**
-  `account_not_active`. A pet or a human: **403** `"This page is for admins only."`, written to the security log
+  `account_not_active`. A pet or a human: **403** `role_not_allowed` with the generic message `"This action is unauthorized."`, written to the security log
   (SEC-LOG-02).
 - **`{accountId}`** is the `users.id` of a pet or human account. Every endpoint works on that account's **latest**
   `verification_submissions` row. An id that doesn't exist, an admin's id, or an account that never submitted

@@ -20,7 +20,7 @@ export function needsAccountLookup(cookieHeader: string | null): boolean {
  * The signed-in account for an incoming request, for the optimistic redirects in proxy.ts, where an answer that takes
  * too long is worth less than not waiting for it.
  * Resolves to null when signed out, or undefined when the API couldn't tell us (down, or slower than 2 s): callers
- * then let the request through and the browser asks again. Never throws.
+ * fail closed without rendering the requested page. Never throws.
  *
  * Server Components use renderAccount() instead: it shares one lookup across a whole render and reports failures
  * rather than swallowing them.

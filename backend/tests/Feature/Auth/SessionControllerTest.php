@@ -367,6 +367,37 @@ class SessionControllerTest extends TestCase
         $this->getJson('/api/v1/auth/me')->assertUnauthorized();
     }
 
+    public function test_a_signed_in_browser_is_not_handed_to_another_account(): void
+    {
+        $ana = User::factory()->create(['role' => Role::Human, 'status' => AccountStatus::Active, 'email' => 'ana.santos@example.com']);
+        $marco = User::factory()->create(['role' => Role::Human, 'status' => AccountStatus::Active, 'email' => 'marco.cruz@example.com']);
+
+        $this->postJson('/api/v1/auth/sign-in', ['email' => 'ana.santos@example.com', 'password' => 'password'])->assertOk();
+
+        // Another account's right password, a wrong one and the same account again are all refused the same way,
+        // before the email and password are looked at: nothing is learnt about them, and no try is counted.
+        foreach ([['marco.cruz@example.com', 'password'], ['marco.cruz@example.com', 'wrong-password'], ['ana.santos@example.com', 'password']] as [$email, $password]) {
+            $this->postJson('/api/v1/auth/sign-in', ['email' => $email, 'password' => $password])
+                ->assertStatus(409)
+                ->assertJsonPath('code', 'already_signed_in')
+                ->assertJsonMissingPath('data');
+        }
+
+        // The session still belongs to the first account.
+        $this->assertAuthenticatedAs($ana, 'web');
+        $this->getJson('/api/v1/auth/me')->assertOk()->assertJsonPath('data.id', $ana->id);
+        $this->assertDatabaseHas('activity_logs', ['type' => 'security', 'action' => 'sign_in_refused_already_signed_in', 'actor_user_id' => $ana->id]);
+        $this->assertDatabaseMissing('activity_logs', ['action' => 'sign_in_failed']);
+        $this->assertDatabaseMissing('activity_logs', ['action' => 'signed_in', 'actor_user_id' => $marco->id]);
+
+        // Logged out, the other account signs in.
+        $this->postJson('/api/v1/auth/sign-out')->assertNoContent();
+        $this->postJson('/api/v1/auth/sign-in', ['email' => 'marco.cruz@example.com', 'password' => 'password'])
+            ->assertOk()
+            ->assertJsonPath('data.id', $marco->id);
+        $this->assertAuthenticatedAs($marco, 'web');
+    }
+
     public function test_sign_in_validation_rejects_missing_fields(): void
     {
         $this->postJson('/api/v1/auth/sign-in', [])

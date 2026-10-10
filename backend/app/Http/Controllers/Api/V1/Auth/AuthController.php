@@ -9,6 +9,7 @@ use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Requests\Auth\SignInRequest;
 use App\Http\Resources\Auth\AuthenticatedUserResource;
+use App\Http\Resources\ErrorResource;
 use App\Models\User;
 use App\Services\ActivityLogs\ActivityLogger;
 use Illuminate\Http\JsonResponse;
@@ -32,8 +33,27 @@ class AuthController extends Controller
 
     private const BAD_RESET_LINK = 'This reset link is invalid or has expired. Ask for a new one.';
 
-    public function signIn(SignInRequest $request, SignIn $signIn): AuthenticatedUserResource
+    private const ALREADY_SIGNED_IN = 'This browser is already signed in to an account. Log out of it before signing in to another one.';
+
+    public const ALREADY_SIGNED_IN_CODE = 'already_signed_in';
+
+    public function signIn(SignInRequest $request, SignIn $signIn): AuthenticatedUserResource|JsonResponse
     {
+        // One account per browser session: a session that is signed in is never handed to another account. It is
+        // refused before the email and password are looked at, so the answer says nothing about them (SEC-AUTH-05).
+        $current = Auth::guard('web')->user();
+        if ($current instanceof User) {
+            ActivityLogger::log(
+                type: ActivityLogType::Security,
+                action: 'sign_in_refused_already_signed_in',
+                actor: $current,
+                subject: $current,
+                userAgent: $request->userAgent(),
+            );
+
+            return ErrorResource::conflict(self::ALREADY_SIGNED_IN, self::ALREADY_SIGNED_IN_CODE)->toResponse($request);
+        }
+
         $user = $signIn(
             $request,
             $request->string('email')->toString(),
