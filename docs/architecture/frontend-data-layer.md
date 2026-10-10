@@ -178,6 +178,12 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
   server, which still has the fixtures), and a reload brings the fixtures back. A photo added to a mock post
   shows a placeholder. The mini profile shows the name only and "Write an adoption story" (`FD-04`) is left
   out, since `/me/pet` and `/me/home-profile` have no mock; use `live` for both.
+- **Reports:** Report on a mock post, comment, resume or Home Profile (FE-21) is filed in memory, with the API's
+  refusals: as `pet`, reporting Mochi's own post (`/posts/4`) isn't offered, and a second report on the same post
+  says an admin is already reviewing it. As `admin`, `/admin/reports` lists three reported items (a post reported
+  three times, a comment, a profile) and one resolved; none of them is on the mock feed. Taking an action works in
+  the browser, but the page that follows is rendered on the server, which still has the fixtures: the toast shows
+  and the report stays Open. Use `live` to see an action through.
 - **Settings and accounts:** `/settings` (FE-22) reads and saves the `pet` and `human` personas' own details in
   memory; the current password is `password`. As `admin`, `/admin/accounts` lists the personas that are pets and
   humans (Luna is the alumni, Biscuit the suspended one). Suspending, reactivating and reviewing a change request

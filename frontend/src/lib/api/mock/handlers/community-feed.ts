@@ -163,6 +163,12 @@ const findComment = (id: string) => COMMENTS.find((comment) => String(comment.id
 
 const NO_POST = () => fail(404, "We couldn't find that post.");
 
+/** Who wrote a post or a comment that is still on the feed, for the reports mock: a report is filed against its author (RP-01). */
+export function mockContentOwner(target: { post_id: number } | { comment_id: number }): { id: number; display_name: string; role: string } | null {
+  const userId = "post_id" in target ? findPost(String(target.post_id))?.author_user_id : findComment(String(target.comment_id))?.user_id;
+  return userId === undefined ? null : authorBlock(userId, null);
+}
+
 /** A field of a JSON body or of a form: the screens send a form when a post carries photos. */
 function field(body: unknown, name: string): unknown {
   if (body instanceof FormData) return body.get(name);
