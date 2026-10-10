@@ -29,7 +29,7 @@ Each route group's `layout.tsx` renders its shell, so screens only render their 
 | `GuestShell` | `layout/guest-shell.tsx` | `app/page.tsx`, `(public)` | Logo, How it works · Success stories · FAQ (footer only on phones), Join now, Sign in; footer. Pages set their own width |
 | `AccountStatusShell` | `layout/account-status-shell.tsx` | `(account-status)` | Logo (not a link), Help center, Log out. Content 760 px wide |
 | `MemberShell` | `layout/member-shell.tsx` | `(member)` | `MemberTopBar` (GN-01), content up to 1128 px. `counts={{ requests }}` for a count a page hands in; Alerts counts itself (below) |
-| `AdminShell` | `layout/admin-shell.tsx` | `admin` | `AdminSidebar`, content fills the rest. `counts={{ verification, reports, … }}` for queue sizes |
+| `AdminShell` | `layout/admin-shell.tsx` | `admin` | `AdminSidebar`, content fills the rest. `counts={{ verification, reports, requests, … }}` for queue sizes (`requests` is the overdue decisions) |
 | `SessionShell` | `layout/session-shell.tsx` | `app/not-found.tsx` | Whichever of the four fits the signed-in account (`shellAreaFor`) |
 
 Inside a shell, start a page with **`PageHeader`** (`layout/page-header.tsx`): the page's one `h1`, an optional
@@ -84,7 +84,7 @@ the same message for missing pages and for hidden, suspended or deactivated prof
 | `Textarea` | `textarea.tsx` | Long text. With `maxLength` it shows "count / max", "N more needed" below `minLength`, and announces thresholds to screen readers |
 | `Select` | `select.tsx` | Native select with `options` and an optional `placeholder`. Never for statuses (FR27) |
 | `ChoiceChips` | `choice-chips.tsx` | Quick answers (quiz, resume). Single choice = radios, `multiple` = checkboxes |
-| `RadioCards` | `radio-cards.tsx` | One choice where each option needs a line of explanation |
+| `RadioCards` | `radio-cards.tsx` | One choice where each option needs a line of explanation. An option can be `disabled`; say why in its `description`, so it isn't a dead end |
 | `Toggle` | `toggle.tsx` | On/off settings that apply right away (Open to Adopt). `labelPosition="start"` for settings rows |
 | `Checkbox` | `checkbox.tsx` | Agreements and multi-select lists; whole row is the hit area |
 | `PasswordInput` | `password-input.tsx` | A password `Input` with Show / Hide (sign-in, sign-up, reset, Change password) |

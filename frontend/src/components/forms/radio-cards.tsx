@@ -8,6 +8,8 @@ export type RadioCardOption = {
   value: string;
   label: ReactNode;
   description?: ReactNode;
+  /** An option that can't be chosen right now. Say why in `description`, so it isn't a dead end. */
+  disabled?: boolean;
 };
 
 type Props = {
@@ -72,6 +74,7 @@ export function RadioCards({
                 name={name ?? generatedName}
                 value={option.value}
                 checked={selected === option.value}
+                disabled={option.disabled || undefined}
                 onChange={() => pick(option.value)}
                 required={required || undefined}
                 aria-describedby={option.description ? descId : undefined}
@@ -84,7 +87,7 @@ export function RadioCards({
                 <span className="size-2.5 scale-0 rounded-pill bg-primary transition-transform duration-200 ease-out group-has-checked/control:scale-100" />
               </span>
               <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="font-bold text-ink">{option.label}</span>
+                <span className="font-bold text-ink group-has-disabled/control:text-ink-muted">{option.label}</span>
                 {option.description && (
                   <span id={descId} className="text-sm text-ink-muted">
                     {option.description}

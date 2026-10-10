@@ -97,6 +97,21 @@ export function adminAccountPath(accountId: number): string {
   return `${ROUTES.adminAccounts}/${accountId}`;
 }
 
+/** One adoption request as an admin monitors it (RQ-19). */
+export function adminRequestPath(requestId: number): string {
+  return `${ROUTES.adminRequests}/${requestId}`;
+}
+
+/** The query parameters that open Resolve adoption issue on a pet, and on one of its requests (AL-07). */
+export const RESOLVE_PET_PARAM = "pet";
+export const RESOLVE_REQUEST_PARAM = "request";
+
+/** Resolve adoption issue opened on a pet, with one of its requests chosen when the issue is about that one (AL-07). */
+export function adminResolvePath(petId: number, requestId?: number): string {
+  const query = new URLSearchParams({ [RESOLVE_PET_PARAM]: String(petId), ...(requestId !== undefined && { [RESOLVE_REQUEST_PARAM]: String(requestId) }) });
+  return `${ROUTES.adminResolve}?${query}`;
+}
+
 /**
  * Section ids on the landing page (AU-01), linked from the guest top bar and footer. The landing page must give its
  * sections these ids.

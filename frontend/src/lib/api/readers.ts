@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/errors";
+import { RESOLUTION_ACTIONS, type Resolution, type ResolutionAction } from "@/types/adoption-resolution";
 import type { Paginated } from "@/types/api";
 import type { HomeProfile } from "@/types/home-profile";
 import type { Pet } from "@/types/pet";
@@ -36,6 +37,27 @@ export function isHome(value: unknown): value is HomeProfile {
     typeof value.is_open_to_adopt === "boolean" &&
     HOME_LISTS.every((list) => Array.isArray(value[list]))
   );
+}
+
+/**
+ * An admin's resolution, or null when it isn't one. Read by the request an admin monitors (its timeline) and by
+ * Resolve adoption issue (its recent resolutions), so it lives here.
+ */
+export function readResolution(value: unknown): Resolution | null {
+  if (!isRecord(value) || typeof value.id !== "number" || !(RESOLUTION_ACTIONS as readonly unknown[]).includes(value.action)) return null;
+  if (!isText(value.created_at) || Number.isNaN(new Date(value.created_at).getTime())) return null;
+  const pet = isRecord(value.pet) && typeof value.pet.id === "number" && isText(value.pet.name) ? { id: value.pet.id, name: value.pet.name } : null;
+  const text = (field: unknown) => (isText(field) && field.trim() !== "" ? field : null);
+  return {
+    id: value.id,
+    action: value.action as ResolutionAction,
+    reason: isText(value.reason) ? value.reason : "",
+    pet,
+    adoption_request_id: typeof value.adoption_request_id === "number" ? value.adoption_request_id : null,
+    home_name: text(value.home_name),
+    admin_name: text(value.admin_name),
+    created_at: value.created_at,
+  };
 }
 
 /** A paginated list in the shape of every list, keeping the rows that pass `isItem`. Throws `problem` when it isn't a page. */
