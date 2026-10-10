@@ -9,7 +9,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Filters of the admin verification queue (AU-22). The order is fixed (oldest first), so there is no sort to list.
+ * Filters of the admin verification queue (AU-22). The order is fixed (newest first), so there is no sort to list.
  */
 class VerificationQueueRequest extends FormRequest
 {

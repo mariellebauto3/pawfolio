@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1\CommunityFeed;
 
 use App\Enums\AccountStatus;
 use App\Enums\ActivityLogType;
-use App\Enums\AnnouncementAudience;
 use App\Enums\PostType;
 use App\Enums\ReportReason;
 use App\Enums\ReportStatus;
@@ -103,16 +102,8 @@ class CommunityFeedController extends Controller
                 ->flip()
             : collect();
 
-        $audiences = [AnnouncementAudience::Everyone->value];
-        if ($user->isPet()) {
-            $audiences[] = AnnouncementAudience::Pets->value;
-        } elseif ($user->isHuman()) {
-            $audiences[] = AnnouncementAudience::Humans->value;
-        }
-
         $announcements = Announcement::query()
-            ->published()
-            ->whereIn('audience', $audiences)
+            ->visibleTo($user)
             ->orderByDesc('published_at')
             ->limit(3)
             ->get()

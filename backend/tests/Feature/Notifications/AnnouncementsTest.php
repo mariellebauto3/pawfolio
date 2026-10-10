@@ -178,6 +178,48 @@ class AnnouncementsTest extends TestCase
         $this->assertTrue(Announcement::query()->firstOrFail()->published_at->isToday());
     }
 
+    public function test_a_member_reads_the_announcements_published_for_its_role(): void
+    {
+        $this->publish(['title' => 'For everyone'])->assertCreated();
+        $this->travel(1)->minutes();
+        $this->publish(['title' => 'For pets', 'audience' => 'pets'])->assertCreated();
+        $this->travel(1)->minutes();
+        $this->publish(['title' => 'For humans', 'audience' => 'humans'])->assertCreated();
+        $this->publish(['title' => 'Not out yet', 'publish_at' => now()->addDay()->toISOString()])->assertCreated();
+
+        // Newest first, the caller's audience only, nothing scheduled, and no admin's name (SEC-API-01).
+        $forPets = $this->actingAs($this->mochi)->getJson('/api/v1/announcements')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('data.0.title', 'For pets')
+            ->assertJsonPath('data.1.title', 'For everyone');
+        $this->assertSame(['id', 'title', 'message', 'published_at'], array_keys($forPets->json('data.0')));
+
+        $this->actingAs($this->ana)->getJson('/api/v1/announcements')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('data.0.title', 'For humans');
+
+        // It is read whether or not an alert was delivered: an account approved later, or with alerts turned off.
+        $late = User::factory()->pet()->active()->create();
+        $this->assertSame(0, $this->alertsOf($late));
+        $this->actingAs($late)->getJson('/api/v1/announcements')->assertOk()->assertJsonPath('meta.total', 2);
+
+        $this->actingAs($this->mochi)->getJson('/api/v1/announcements?per_page=1')->assertJsonCount(1, 'data')->assertJsonPath('meta.last_page', 2);
+        $this->actingAs($this->mochi)->getJson('/api/v1/announcements?per_page=500')->assertUnprocessable();
+    }
+
+    public function test_only_an_active_account_reads_announcements(): void
+    {
+        $this->publish()->assertCreated();
+        $this->app['auth']->forgetGuards();
+
+        $this->getJson('/api/v1/announcements')->assertUnauthorized();
+
+        $pending = User::factory()->create(['role' => 'pet', 'status' => AccountStatus::PendingVerification->value]);
+        $this->actingAs($pending)->getJson('/api/v1/announcements')->assertForbidden()->assertJsonPath('code', 'account_not_active');
+    }
+
     public function test_the_list_is_newest_first_with_how_many_accounts_each_audience_is(): void
     {
         $this->publish(['title' => 'First'])->assertCreated();
