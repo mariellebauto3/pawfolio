@@ -288,8 +288,8 @@ account is Looking for a Home again, its requests On Hold back to Sent. All of i
 
 | Method | Path | Role | Description |
 | --- | --- | --- | --- |
-| `GET` | `/api/v1/admin/announcements` | `admin` | Paginated platform announcements |
-| `POST` | `/api/v1/admin/announcements` | `admin` | Publish or schedule an announcement (`title`, `message`, `audience`, optional `publish_at`) |
+| `GET` | `/api/v1/admin/announcements` | `admin` | Published and scheduled announcements, newest first, with how many Active accounts each audience is (`meta.audience_counts`) |
+| `POST` | `/api/v1/admin/announcements` | `admin` | Publish an announcement now, or schedule it for a time still ahead (`title`, `message`, `audience`, optional `publish_at`) |
 | `GET` | `/api/v1/stats` | `pet`, `human` (Active) | Role-specific member analytics tiles and breakdowns (`AN-01`, `AN-02`) |
 | `GET` | `/api/v1/admin/dashboard` | `admin` | Platform analytics dashboard & Needs Attention queues (`AN-03`) |
 | `GET` | `/api/v1/activity` | Active member | Paginated member activity history (`?type=`) |
@@ -297,3 +297,87 @@ account is Looking for a Home again, its requests On Hold back to Sent. All of i
 | `GET` | `/api/v1/admin/activity-logs` | `admin` | Paginated platform audit logs (`?type=`, `?actor_role=`, `?actor_user_id=`, `?q=`) |
 | `GET` | `/api/v1/admin/activity-logs/export` | `admin` | Stream CSV export of platform audit logs |
 | `GET` | `/api/v1/admin/activity-logs/{activityLog}` | `admin` | Read-only detail of one append-only audit log entry (`LG-04`) |
+
+### Announcements as the screens use them (FE-24, checked 2026-10-10)
+
+**Status: built (BE-24), checked and corrected for FE-24 (2026-10-10).** The screen (`NT-04`) and its dialog
+(`NT-05`) run against it through `frontend/src/features/notifications/api/announcements.ts`. In mock mode
+`frontend/src/lib/api/mock/handlers/announcements.ts` answers the same way. A change here also changes those
+files, the types beside the calls, and the tests on both sides in the same PR.
+
+- **Who:** a signed-in **Active** admin. Signed out: **401**. Any other role, or an admin account that isn't
+  Active: **403** (SEC-AUTHZ-06, SEC-AUTHZ-07).
+- **Written once.** There is no update and no delete: a published announcement is not edited or taken back, and a
+  scheduled one is not cancelled. Each is logged with the admin's name: `announcement_published` or
+  `announcement_scheduled`, and `announcement_published` by the system when a scheduled one goes out (SEC-LOG-01).
+- **Who publishes and whether it is published are never the body's to say**: `admin_user_id`, `published_at` and
+  `status` are ignored when sent (SEC-AUTHZ-02, SEC-INPUT-04).
+
+#### `GET /api/v1/admin/announcements`
+
+Published and scheduled announcements, newest first by the day they were written. `?page=`, `?per_page=` (20 by
+default, 50 at most; more is **422**, SEC-API-05).
+
+| Field | |
+| --- | --- |
+| `id`, `title`, `message` | As the admin wrote them. Text: the screens render them as text (SEC-FE-01) |
+| `audience` | `everyone`, `pets` or `humans` |
+| `status` | `published`, or `scheduled` while its time is still ahead |
+| `publish_at` | When it goes out, for a scheduled one; when it was written, for one published at once |
+| `published_at` | When it went out; `null` while scheduled |
+| `admin_name` | Who wrote it; `null` when that account is gone |
+| `created_at` | |
+
+`meta` carries the usual page fields and **`audience_counts`**: `{ everyone, pets, humans }`, the Active Pet and
+Human accounts in each audience right now, for "Everyone (312 Active accounts)" on `NT-05`. An account that turned
+announcements off in its settings is counted: it gets no alert, but reads the announcement beside the feed.
+
+#### `POST /api/v1/admin/announcements`
+
+| Body | |
+| --- | --- |
+| `title` | Required, up to 160 characters, trimmed |
+| `message` | Required, up to 2000 characters, trimmed |
+| `audience` | Required: `everyone`, `pets` or `humans` |
+| `publish_at` | Leave it out (or `null`) to publish now. To schedule: an ISO 8601 time **still ahead**, within the next 365 days. The screens send it in UTC from a date and a time typed in Philippine time |
+
+- **201:** the announcement as above, with `recipients_notified`: how many accounts got an alert (`0` for a
+  scheduled one).
+  - **Published now:** every Active account of the audience that hasn't turned announcements off gets a
+    notification (`type` `announcement`, category `account`, linking to `/feed`) with the title and the message, in
+    the same transaction. From then on the feed carries it for that audience (`meta.announcements`, the 3 latest).
+  - **Scheduled:** nothing is sent yet and the feed doesn't carry it. `PublishScheduledAnnouncementsJob` publishes
+    it once its time has come: the scheduler runs it every minute (`routes/console.php`), so the scheduler and a
+    queue worker have to be running (`docs/adr/deployment.md`).
+- **422** `errors`, with messages the form shows:
+
+  | Field | Message |
+  | --- | --- |
+  | `title` | "Enter a title." · "Keep the title to 160 characters or fewer." |
+  | `message` | "Enter a message." · "Keep the message to 2000 characters or fewer." |
+  | `audience` | "Choose who the announcement is for." |
+  | `publish_at` | "Choose a time that is still ahead, or publish now." · "Choose a time within the next year." · "Enter a valid date and time." |
+
+- Rate-limited per account (`throttle:writes`, SEC-API-04).
+
+**What FE-24 changed in BE-24:**
+
+- **A `publish_at` that had already passed was published at once**, without a word: an admin who meant to schedule
+  for 10:00 and typed a time just behind the clock sent it to everyone instead, and an announcement can't be taken
+  back. It is **422** now, and the form says the same before anything is sent. A time more than a year ahead is
+  refused too, so a mistyped year doesn't wait unseen.
+- **The dialog had no way to say how many accounts an audience is** (`NT-05`: "Everyone (312 active accounts)").
+  The list's `meta.audience_counts` says it.
+- Validation moved into a Form Request (`StoreAnnouncementRequest`, SEC-INPUT-01), with messages the form shows,
+  and `per_page` over 50 is refused instead of trimmed.
+
+**Left as it is, to decide:**
+
+- **A scheduled announcement can't be cancelled or edited.** The LoFi has no control for it and the table is
+  append-only. The dialog says so before "Schedule announcement" is pressed. Cancelling one would need an endpoint
+  and a rule about who may.
+- **Alerts for a large audience are written inside the request**, one row per account. Fine for the pilot's
+  numbers; a queued job is the next step if the platform grows.
+- **An announcement stays beside the feed until three newer ones push it out.** There is no end date.
+- **Publishing twice sends twice.** Nothing tells two identical announcements apart; the dialog's button is ignored
+  while a publish is on its way, so one press sends one.

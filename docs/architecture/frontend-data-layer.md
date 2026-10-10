@@ -171,6 +171,10 @@ Set `NEXT_PUBLIC_API_MODE=mock` and restart `npm run dev`. Calls are answered fr
   kept by whichever side made the call: the count and the dropdown follow at once, and the page, rendered on the
   server, shows the fixtures again after "Mark all as read". Nothing here sends one: an invite or an approval
   reaching the other account's Alerts needs `live`.
+- **Announcements:** as `admin`, `/admin/announcements` (FE-24) lists the LoFi's past announcements and counts
+  the Active personas for each audience. Publishing and scheduling work in the browser with the API's rules (a
+  time that has passed is refused), but the list that follows is rendered on the server, which still has the
+  fixtures: the toast shows and the list stays as it was. Nobody's Alerts get one. Use `live` to see it through.
 - **Community feed:** `/feed` and `/posts/[postId]` (FE-20) are answered from memory with the LoFi's posts,
   written by the fixtures' pets and homes: as `pet`, Mochi's own update is `/posts/4` (Edit and Delete in its
   menu); as `human`, Ana Santos's adoption story is `/posts/5`. Posting, liking, commenting, replying, editing
