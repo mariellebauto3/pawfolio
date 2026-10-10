@@ -49,6 +49,7 @@ use App\Models\VerificationSubmission;
 use App\Services\ActivityLogs\ActivityLogger;
 use App\Services\Matching\MatchScoreCalculator;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -422,6 +423,7 @@ class DemoSeeder extends Seeder
         }
 
         $this->storeSampleIds();
+        $this->fillMissingPetPhotos();
 
         ActivityLogger::log(
             type: ActivityLogType::System,
@@ -536,24 +538,174 @@ class DemoSeeder extends Seeder
     }
 
     /**
+     * Gives the sample photos to every pet that has none, puts back a demo photo whose file is gone, and then
+     * makes sure two pets don't show the same picture (`dealDistinctDemoPhotos`). A pet made by a factory or a
+     * script has no photo rows, which leaves its card, its resume and its Recently Hired panel without a picture.
+     *
+     * @return array{filled: int, changed: int} pets given photos, and pets given a different photo
+     */
+    public function fillMissingPetPhotos(): array
+    {
+        if (app()->environment('production')) {
+            throw new RuntimeException('Demo photos must never be written in production.');
+        }
+
+        $filled = 0;
+
+        foreach (Pet::query()->withCount('photos')->orderBy('id')->get() as $pet) {
+            if ($pet->photos_count === 0) {
+                for ($i = 1; $i <= 3; $i++) {
+                    $pet->photos()->create([
+                        'file_path' => "pets/photos/demo-{$pet->id}-{$i}.jpg",
+                        'caption' => "{$pet->name} photo {$i}",
+                        'sort_order' => $i,
+                    ]);
+                }
+                $filled++;
+            }
+
+            $this->storeDemoPhotos($pet, $this->enumValue($pet->species));
+        }
+
+        return ['filled' => $filled, 'changed' => $this->dealDistinctDemoPhotos()];
+    }
+
+    /**
+     * Two demo pets of a kind never show the same first photo while there is a sample nobody uses. The first photo
+     * is the one on a card, an avatar and a Recently Hired panel, so two pets sharing it look like one pet listed
+     * twice. Hired pets keep theirs first (they stand side by side on the landing page), then the others by id; a
+     * pet that shares its photo with one before it is dealt a free sample, and its other photos follow in order.
+     * Only files named `pets/photos/demo-…` are ever written: a photo someone uploaded is never touched.
+     *
+     * A photo that changes gets a new file name (`demo-11-1-dog4.jpg`), and its row is pointed at it. The image
+     * optimizer and the browser keep a picture by its address for hours, so a new picture under the old name would
+     * go on showing the old one. Returns how many pets were given a different photo.
+     */
+    public function dealDistinctDemoPhotos(): int
+    {
+        if (app()->environment('production')) {
+            throw new RuntimeException('Demo photos must never be written in production.');
+        }
+
+        $disk = Storage::disk('public');
+        $changed = 0;
+
+        foreach (['dog', 'cat'] as $kind) {
+            // Sample number => the file's fingerprint, to tell which sample a stored photo is.
+            $samples = [];
+            foreach ($this->sampleFiles($kind) as $number => $file) {
+                $samples[$number] = md5_file($file);
+            }
+
+            $pets = Pet::query()->with('photos')->orderBy('id')->get()
+                ->filter(fn (Pet $pet) => $this->sampleKind($this->enumValue($pet->species)) === $kind && $this->demoPhotosOf($pet)->isNotEmpty())
+                ->sortBy(fn (Pet $pet) => $this->enumValue($pet->status) === PetStatus::AdoptedHired->value ? 0 : 1, SORT_REGULAR)
+                ->values();
+
+            // Which sample each pet shows first now; null when its file is gone or isn't one of the samples.
+            $current = [];
+            foreach ($pets as $pet) {
+                $path = $this->demoPhotosOf($pet)->first()->file_path;
+                $found = $disk->exists($path) ? array_search(md5((string) $disk->get($path)), $samples, true) : false;
+                $current[$pet->id] = $found === false ? null : $found;
+            }
+            $held = array_count_values(array_filter($current, fn ($sample) => $sample !== null));
+
+            // How many pets are settled on each sample so far.
+            $used = array_fill_keys(array_keys($samples), 0);
+            foreach ($pets as $pet) {
+                $mine = $current[$pet->id];
+                $fewest = min($used);
+                // Nobody before it shows its photo, or every sample is shared just as much: it keeps what it has.
+                if ($mine !== null && $used[$mine] === $fewest) {
+                    $used[$mine]++;
+
+                    continue;
+                }
+
+                // The least used sample; among those, one that no pet shows at all, so a pet further down isn't
+                // pushed off its own. With more pets than samples some are bound to share, as evenly as it goes.
+                $candidates = array_keys($used, $fewest, true);
+                usort($candidates, fn (int $a, int $b) => [$held[$a] ?? 0, $a] <=> [$held[$b] ?? 0, $b]);
+                $start = $candidates[0];
+
+                $numbers = array_keys($samples);
+                $offset = (int) array_search($start, $numbers, true);
+                foreach ($this->demoPhotosOf($pet)->values() as $index => $photo) {
+                    $number = $numbers[($offset + $index) % count($numbers)];
+                    $path = "pets/photos/demo-{$pet->id}-{$photo->sort_order}-{$kind}{$number}.jpg";
+                    $disk->put($path, (string) file_get_contents($this->sampleFiles($kind)[$number]));
+
+                    if ($photo->file_path !== $path) {
+                        $disk->delete($photo->file_path);
+                        $photo->forceFill(['file_path' => $path])->save();
+                    }
+                }
+                $used[$start]++;
+                $changed++;
+            }
+        }
+
+        return $changed;
+    }
+
+    /** A pet's photo rows that stand on sample files, in the order they are shown. */
+    private function demoPhotosOf(Pet $pet): Collection
+    {
+        return $pet->photos->sortBy('sort_order')->filter(fn ($photo) => str_starts_with($photo->file_path, 'pets/photos/demo-'))->values();
+    }
+
+    /** Cats get the cat samples; every other species gets the dog ones. */
+    private function sampleKind(string $species): string
+    {
+        return $species === 'cat' ? 'cat' : 'dog';
+    }
+
+    /**
+     * The sample photos of a kind, by their number: `dog-1.jpg` … `dog-8.jpg`.
+     *
+     * @return array<int, string>
+     */
+    private function sampleFiles(string $kind): array
+    {
+        $files = [];
+        foreach (glob(database_path("seeders/assets/pets/{$kind}-*.jpg")) ?: [] as $file) {
+            $files[(int) preg_replace('/\D+/', '', basename($file))] = $file;
+        }
+        ksort($files);
+
+        return $files;
+    }
+
+    /** A cast attribute as its stored value, whether the model hands back the enum or the text. */
+    private function enumValue(mixed $value): string
+    {
+        return $value instanceof \BackedEnum ? (string) $value->value : (string) $value;
+    }
+
+    /**
      * Puts a sample photo behind each demo photo row, so resumes and the landing page have pictures to show.
      * The files in database/seeders/assets/pets are stock photos (see the README there), not real Pawfolio pets
      * (SEC-PRIV-06).
      */
     private function storeDemoPhotos(Pet $pet, string $species): void
     {
-        $kind = $species === 'cat' ? 'cat' : 'dog';
+        $samples = array_values($this->sampleFiles($this->sampleKind($species)));
 
         foreach ($pet->photos()->orderBy('sort_order')->get() as $photo) {
             if (! str_starts_with($photo->file_path, 'pets/photos/demo-') || Storage::disk('public')->exists($photo->file_path)) {
                 continue;
             }
 
-            // Three samples per kind, started at a different one for each pet.
-            $sample = (($pet->id + $photo->sort_order) % 3) + 1;
+            // A name that says which sample it is (`…-dog4.jpg`, after a re-deal) gets that sample back. Otherwise
+            // one started at a different sample for each pet; `dealDistinctDemoPhotos` settles any two that match.
+            $named = preg_match('/-(?:dog|cat)(\d+)\.jpg$/', $photo->file_path, $found) === 1
+                ? ($this->sampleFiles($this->sampleKind($species))[(int) $found[1]] ?? null)
+                : null;
+
             Storage::disk('public')->put(
                 $photo->file_path,
-                (string) file_get_contents(database_path("seeders/assets/pets/{$kind}-{$sample}.jpg")),
+                (string) file_get_contents($named ?? $samples[($pet->id + $photo->sort_order) % count($samples)]),
             );
         }
     }
