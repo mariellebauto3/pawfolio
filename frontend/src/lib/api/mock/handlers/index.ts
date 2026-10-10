@@ -3,6 +3,7 @@ import { accountStatusRoutes } from "@/lib/api/mock/handlers/account-status";
 import { adminVerificationRoutes } from "@/lib/api/mock/handlers/admin-verification";
 import { adoptionRoutes } from "@/lib/api/mock/handlers/adoption";
 import { adoptionRequestRoutes } from "@/lib/api/mock/handlers/adoption-requests";
+import { announcementRoutes } from "@/lib/api/mock/handlers/announcements";
 import { authRoutes } from "@/lib/api/mock/handlers/auth";
 import { bookmarkRoutes } from "@/lib/api/mock/handlers/bookmarks";
 import { communityFeedRoutes } from "@/lib/api/mock/handlers/community-feed";
@@ -30,6 +31,7 @@ export const MOCK_ROUTES: readonly MockRoute[] = [
   ...bookmarkRoutes,
   ...inviteRoutes,
   ...notificationRoutes,
+  ...announcementRoutes,
   ...communityFeedRoutes,
   ...reportRoutes,
   ...accountRoutes,
