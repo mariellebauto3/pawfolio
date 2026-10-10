@@ -138,11 +138,94 @@ with the post.
 | Method | Path | Role | Description |
 | --- | --- | --- | --- |
 | `POST` | `/api/v1/reports` | Active member | Submit a report on a `profile`, `post`, `comment`, or `account`. Reporting your own content or account answers **422** with the reason under `errors.target_id` |
-| `GET` | `/api/v1/admin/reports` | `admin` | Paginated reports queue (`?status=`, `?target_type=`, `?reason=`), open reports prioritized by `reporters_count` |
-| `GET` | `/api/v1/admin/reports/{report}` | `admin` | Report detail with target preview, all sibling reporters, and account history |
-| `POST` | `/api/v1/admin/reports/{report}/actions` | `admin` | Resolve report (`remove_content`, `restore_content`, `suspend_account`, `remove_content_and_suspend`, `dismiss`) |
+| `GET` | `/api/v1/admin/reports` | `admin` | Paginated reports queue (`?status=`, `?target_type=`, `?reason=`), one row per reported item, most reported first |
+| `GET` | `/api/v1/admin/reports/{report}` | `admin` | Report detail with the content, every report on the item, and the reported account |
+| `POST` | `/api/v1/admin/reports/{report}/actions` | `admin` | Resolve report (`remove_content`, `suspend_account`, `remove_content_and_suspend`, `dismiss`), or `restore_content` on a resolved one |
 
-## Account Settings & Admin Account Management (`BE-23`, `AC-01..AC-06`)
+### Reports as the screens use them (FE-21, checked 2026-10-09)
+
+Who is reporting and who is acting come from the session, and a report's `status` is the system's: none of them is
+ever sent (SEC-AUTHZ-02, FR27). Writes are rate-limited (`throttle:writes`).
+
+#### `POST /api/v1/reports` (`RP-01`)
+
+| Field | Rules |
+| --- | --- |
+| `target_type` | Required. `profile`, `post`, `comment` or `account` |
+| `post_id` / `comment_id` | The post or the comment, for those two target types |
+| `pet_id` / `home_profile_id` | The resume or the Home Profile, for `profile` |
+| `reported_user_id` | The account, for `account` |
+| `reason` | Required. `fake_or_misleading_profile`, `selling_or_trading_animals`, `harassment_or_hate`, `animal_welfare_concern`, `spam_or_scam` or `something_else` |
+| `details` | Up to 1000 characters. Required with `something_else` |
+
+Whose the item is, the API reads from the record. **201** answers `{ id, target_type, reason, status: "open", created_at }`.
+
+| Answer | When |
+| --- | --- |
+| **422** `errors.target_id` | It is the reporter's own post, comment, profile or account: "You cannot report your own content or account." |
+| **422** `errors.reason`, `errors.details`, `errors.target_type` | A value the API doesn't know, or `something_else` without details |
+| **409** `report_already_open` | This account already reported the item and that report is still open. Once it is resolved, the item can be reported again |
+| **404** | The post, the comment or the account doesn't exist. An admin's account is answered the same way |
+
+#### `GET /api/v1/admin/reports` (`RP-03`)
+
+`?status=open` (the default) or `resolved`; `?target_type=` and `?reason=` take the values above; `?page=`,
+`?per_page=` (20, at most 50). A value the API doesn't know answers **422** (SEC-INPUT-03).
+
+One row per reported item: the reports on the same account, target type, post and comment that share the row's
+status, stood for by the latest of them. Most reported first, then newest. `meta.total` counts items, which is the
+sidebar's number.
+
+```json
+{
+  "id": 14, "target_type": "post", "reason": "spam_or_scam", "details": null, "status": "open",
+  "reports_count": 3, "post_id": 9, "comment_id": null,
+  "reporter": { "id": 8, "display_name": "Ana Santos", "role": "human" },
+  "reported_user": { "id": 17, "display_name": "Pepper", "role": "pet", "status": "active", "profile_id": 10 },
+  "report_action": null,
+  "created_at": "2026-10-09T15:41:00.000000Z"
+}
+```
+
+`reports_count` is how many reports on the item share the row's status. On a resolved row, `report_action` is
+`{ id, action, reason, notify_reporters, performed_by, created_at }`; `performed_by` is the admin's name.
+
+#### `GET /api/v1/admin/reports/{report}` (`RP-04`)
+
+The row above, and:
+
+| Field | What |
+| --- | --- |
+| `reported_user.joined_at`, `reported_user.reports_against_count` | When the account was created, and every report ever filed against it |
+| `content_preview.post` | `{ id, type, title, body, photos: [{ id, url }], is_removed, is_deleted, created_at }`, or `null`. A report on a comment carries the post it is under |
+| `content_preview.comment` | `{ id, body, is_removed, created_at }`, or `null` |
+| `sibling_reports` | Every report on the item, resolved ones included, newest first: `{ id, reporter_id, reporter_name, reason, details, status, created_at }` |
+
+A profile or an account report has neither a post nor a comment.
+
+#### `POST /api/v1/admin/reports/{report}/actions` (`RP-05`)
+
+`{ action, reason, notify_reporters }`. `reason` is always required, up to 1000 characters (SEC-AUTHZ-07);
+`notify_reporters` defaults to `true`. One action writes one `report_actions` row and resolves every open report
+on the item; each action is written to the activity log (SEC-LOG-01). The answer is the report as it now stands,
+in the shape of the detail without `sibling_reports`.
+
+| `action` | What it does |
+| --- | --- |
+| `remove_content` | Hides the comment, or the post when the report is on a post. The owner is notified with the reason |
+| `suspend_account` | Suspends the reported account and ends its sessions (SEC-ABUSE-04). The owner reads the reason on `AU-21` |
+| `remove_content_and_suspend` | Both |
+| `dismiss` | Resolves the reports. The owner is not told |
+| `restore_content` | On a resolved report: makes removed content visible again. The report stays resolved |
+
+| Answer | When |
+| --- | --- |
+| **422** `errors.reason` | No reason |
+| **422** `errors.action` | An unknown action; a removal on a profile or an account report, which has nothing to remove; a suspension of an account that isn't Active |
+| **409** `report_already_resolved` | Another admin acted first. Nothing is done twice |
+| **409** `nothing_to_restore` | `restore_content` when the content isn't removed |
+
+## Account Settings & Admin Account Management (`BE-23`, `AC-01..AC-10`)
 
 | Method | Path | Role | Description |
 | --- | --- | --- | --- |

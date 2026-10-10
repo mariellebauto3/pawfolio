@@ -11,6 +11,7 @@ import { getPetProfile, getSimilarPets } from "@/features/discovery/api/discover
 import { MatchSummary } from "@/features/discovery/components/match-summary";
 import { SimilarPets } from "@/features/discovery/components/similar-pets";
 import { MatchBreakdownButton } from "@/features/matching/components/match-breakdown-button";
+import { ReportButton } from "@/features/reports/components/report-button";
 import { isApiError } from "@/lib/api/errors";
 import { getServerApi } from "@/lib/api/server";
 import { requireAccount } from "@/lib/auth/require-account";
@@ -27,7 +28,7 @@ type Props = {
 // API checks both again (SEC-FE-05). The pet's own Furparent reads it as AL-05, with the adoption's details (AL-06)
 // and the way to an adoption story (FD-04); the API answers those details to the two sides and admins only. The API decides who may see a resume: a Draft and a pet whose account isn't
 // Active answer 404, the same page as a broken link (SEC-AUTHZ-04). Contact details are not part of what it sends
-// here (NFR4).
+// here (NFR4). A pet or a human reading it can report it (RP-01); the pet's own resume is a different page.
 export default async function PetPage({ params }: Props) {
   const { petId } = await params;
   // Only a plain id goes to the API (SEC-FE-08); anything else is a page that doesn't exist.
@@ -50,6 +51,8 @@ export default async function PetPage({ params }: Props) {
   const adoption = account.role === "human" && pet.hired_by?.home_profile_id === account.profile_id ? pet.hired_by : null;
   // An extra: the resume shows even when the side list can't be loaded.
   const similar = await getSimilarPets(api, pet).catch(() => []);
+  // Members report; an admin acts on reports and files none.
+  const report = account.role !== "admin" && <ReportButton target={{ kind: "pet", petId: pet.id, ownerName: pet.name }} />;
 
   return (
     <PetResume
@@ -61,17 +64,19 @@ export default async function PetPage({ params }: Props) {
             <Link href={ADOPTION_STORY_PATH} className={buttonClasses()}>
               Write an adoption story
             </Link>
+            {report}
+          </>
+        ) : adopter ? (
+          <>
+            {/* Only a pet that is Looking for a Home can be invited; one that is In Process can still be saved. */}
+            {pet.status === "looking_for_a_home" && (
+              <InviteToApplyButton pet={pet} score={pet.match?.passed_dealbreakers ? pet.match.score : undefined} invited={pet.invited_at !== null} />
+            )}
+            <BookmarkButton target={{ kind: "pet", id: pet.id }} name={pet.name} saved={pet.is_bookmarked === true} />
+            {report}
           </>
         ) : (
-          adopter && (
-            <>
-              {/* Only a pet that is Looking for a Home can be invited; one that is In Process can still be saved. */}
-              {pet.status === "looking_for_a_home" && (
-                <InviteToApplyButton pet={pet} score={pet.match?.passed_dealbreakers ? pet.match.score : undefined} invited={pet.invited_at !== null} />
-              )}
-              <BookmarkButton target={{ kind: "pet", id: pet.id }} name={pet.name} saved={pet.is_bookmarked === true} />
-            </>
-          )
+          report
         )
       }
       aside={

@@ -9,6 +9,7 @@ import { BookmarkButton } from "@/features/bookmarks/components/bookmark-button"
 import { getHomeProfileDetail } from "@/features/discovery/api/discovery";
 import { MatchSummary } from "@/features/discovery/components/match-summary";
 import { MatchBreakdownButton } from "@/features/matching/components/match-breakdown-button";
+import { ReportButton } from "@/features/reports/components/report-button";
 import { isApiError } from "@/lib/api/errors";
 import { getServerApi } from "@/lib/api/server";
 import { requireAccount } from "@/lib/auth/require-account";
@@ -24,6 +25,7 @@ type Props = {
 // shows the city and a household summary only; the address and the phone number are shared on a confirmed
 // Meet & Greet, never here (NFR4, SEC-PRIV-03). The API decides who may see a home: one that isn't Open to Adopt
 // answers 404, a Furparent's included, unless the pet already has a request or an invite with it (SEC-AUTHZ-04).
+// A pet or another human can report it (RP-01); a human's own Home Profile is a different page.
 export default async function HomePage({ params }: Props) {
   const { homeId } = await params;
   // Only a plain id goes to the API (SEC-FE-08); anything else is a page that doesn't exist.
@@ -44,8 +46,11 @@ export default async function HomePage({ params }: Props) {
     account.role === "pet" ? getOwnRequests(api).catch(() => []) : [],
   ]);
 
-  // Humans and admins only read a Home Profile; the actions and the match are the pet's.
-  if (account.role !== "pet") return <HomeProfileView home={home} />;
+  const report = <ReportButton target={{ kind: "home", homeProfileId: home.id, ownerName: home.full_name }} />;
+
+  // Humans and admins only read a Home Profile; the actions and the match are the pet's. A human can still report
+  // it; an admin acts on reports and files none.
+  if (account.role !== "pet") return <HomeProfileView home={home} actions={account.role === "human" ? report : undefined} />;
 
   const state = applyStateFor(home, requests, new Date());
 
@@ -56,6 +61,7 @@ export default async function HomePage({ params }: Props) {
         <>
           <ApplyButton home={{ id: home.id, full_name: home.full_name }} state={state} />
           <BookmarkButton target={{ kind: "home", id: home.id }} name={home.full_name} saved={home.is_bookmarked === true} />
+          {report}
         </>
       }
       aside={

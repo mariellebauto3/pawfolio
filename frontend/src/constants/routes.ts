@@ -87,6 +87,16 @@ export function adminVerificationReviewPath(accountId: number): string {
   return `${ROUTES.adminVerification}/${accountId}`;
 }
 
+/** One reported item's review page, opened from the reports queue (RP-04). */
+export function adminReportPath(reportId: number): string {
+  return `${ROUTES.adminReports}/${reportId}`;
+}
+
+/** One account as an admin sees it (AC-07). */
+export function adminAccountPath(accountId: number): string {
+  return `${ROUTES.adminAccounts}/${accountId}`;
+}
+
 /**
  * Section ids on the landing page (AU-01), linked from the guest top bar and footer. The landing page must give its
  * sections these ids.

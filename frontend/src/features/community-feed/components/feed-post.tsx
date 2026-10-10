@@ -8,6 +8,7 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { postPath } from "@/constants/routes";
 import { api } from "@/lib/api/client";
 import { cn } from "@/lib/utils/cn";
+import { useReport } from "@/providers/report-provider";
 import { useToast } from "@/providers/toast-provider";
 import type { Post } from "@/types/post";
 import { togglePostReaction } from "../api/feed";
@@ -47,10 +48,11 @@ function ActionLabel({ icon, children }: { icon: IconName; children: ReactNode }
 }
 
 // One post with what can be done to it: Like, Comment and Share under it, and the ••• menu (FD-06) with Edit and
-// Delete on the viewer's own posts and Copy link on every post. The menu only offers what the API will accept, and
-// the API checks again (SEC-FE-05). Report joins the menu with the Reports module (RP-01).
+// Delete on the viewer's own posts, Copy link on every post, and Report on everyone else's: the post, or the
+// account behind it (RP-01). The menu only offers what the API will accept, and the API checks again (SEC-FE-05).
 export function FeedPost({ post, when, viewerId, variant = "feed", onPatch, onEdit, onDelete, onComment, children, titleAs }: Props) {
   const toast = useToast();
+  const reporting = useReport();
   const mine = post.author.id === viewerId;
   const name = post.author.display_name;
   const like = useLike(
@@ -77,6 +79,14 @@ export function FeedPost({ post, when, viewerId, variant = "feed", onPatch, onEd
         ] satisfies MenuItem[])
       : []),
     { label: "Copy link", icon: "link", onSelect: () => void copyLink() },
+    // Nobody reports what is their own, and an admin's account can't be reported.
+    ...(reporting && !mine && post.author.role !== "admin"
+      ? ([
+          { type: "separator" },
+          { label: "Report post", icon: "flag", onSelect: () => reporting.report({ kind: "post", postId: post.id, ownerName: name }) },
+          { label: "Report this account", icon: "user", onSelect: () => reporting.report({ kind: "account", accountId: post.author.id, ownerName: name }) },
+        ] satisfies MenuItem[])
+      : []),
   ];
 
   return (
