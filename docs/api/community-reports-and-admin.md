@@ -298,6 +298,95 @@ account is Looking for a Home again, its requests On Hold back to Sent. All of i
 | `GET` | `/api/v1/admin/activity-logs/export` | `admin` | Stream CSV export of platform audit logs |
 | `GET` | `/api/v1/admin/activity-logs/{activityLog}` | `admin` | Read-only detail of one append-only audit log entry (`LG-04`) |
 
+### Activity logs as the screens use them (FE-26, checked 2026-10-10)
+
+**Status: built (BE-26), checked and corrected for FE-26 (2026-10-10).** The screens (`LG-01`…`LG-04`) run against
+it through `frontend/src/features/activity-logs/api/activity-logs.ts`. In mock mode
+`frontend/src/lib/api/mock/handlers/activity-logs.ts` answers the same way. A change here also changes those
+files, the types beside the calls, and the tests on both sides in the same PR.
+
+- **Read-only.** Every endpoint is a `GET`. The log has no create, update or delete endpoint, for admins too, and
+  the model refuses an update or a delete (SEC-LOG-04). Anything else on these paths is **405**.
+- **Two readers, two views of an entry** (SEC-API-01). An admin reads it whole. A member reads their own activity
+  with less: an admin is "An admin", there is no reason, no raw user agent and no id of anyone.
+- Signed out: **401**. Not Active: **403** `account_not_active`. `/admin/...` for anyone but an Active admin:
+  **403**, and the try is itself logged (`admin_access_denied`, SEC-LOG-02).
+- Lists are newest first, `?page=`, `?per_page=` (20 by default, never more than 50; SEC-API-05).
+
+#### An entry
+
+| Field | A member's own activity | An admin |
+| --- | --- | --- |
+| `id`, `type`, `action`, `created_at` | Yes. `type` is one of `verification`, `account`, `status_change`, `request`, `meet_and_greet`, `adoption`, `feed`, `profile`, `moderation`, `announcement`, `security`, `system`. `action` is a name such as `adoption_request_approved`; the screens put it into words | Yes |
+| `actor` | `{ display_name, role, is_you }`. `role` is `pet`, `human`, `admin` or `system`. An admin other than the reader is `"An admin"`; the system is `"System"` | The same with `id` (the account, `null` for the system) and the admin's own name |
+| `subject_type`, `subject_label` | The kind of record it was about (`AdoptionRequest`) and that record in a few words: an account's, a pet's or a home's name, `"Mochi to Ana Santos"` for a request, a Meet & Greet or an adoption, `"Ana Santos to Mochi"` for an invite, an announcement's title, otherwise the kind and its number (`"Post #12"`). `null` when the entry is about nothing in particular | The same, with `subject_id` |
+| `target` | `{ kind: "request", id }` when it is about one of the reader's own requests (also through its Meet & Greet or adoption); otherwise `null` | `{ kind, id }` with `kind` `account`, `request` or `report`: the admin page to open. `null` when the record has none |
+| `before_value`, `after_value` | The value a change went from and to, as stored (`looking_for_a_home`, `in_process`); the screens name statuses | Yes |
+| `device` | `"Edge on Windows"`, on `security` entries only (the reader's own sign-ins) | On every entry that has one |
+| `reason` | **Not sent** | The reason as stored: an admin's words, a system note, or a name such as `fake_profile` |
+| `user_agent`, `is_append_only` | **Not sent** | On `GET /admin/activity-logs/{id}` only |
+
+#### `GET /api/v1/activity` and `GET /api/v1/activity/export`
+
+The signed-in account's own activity: what it did, and what was done to the account, to its pet or Home Profile
+and to its requests (the system's status changes, an admin's decisions, the other side's answers). Whose it is is
+the session's to say: there is no id to send (SEC-AUTHZ-02). A report filed against the account is not part of it.
+
+- `?type=`: one type, or several separated by commas (`?type=request,adoption`). A value that isn't a type: **422**
+  `type.N`.
+- **The export** is the same list with the same `?type=`, as a CSV download (`text/csv; charset=UTF-8`,
+  `X-Content-Type-Options: nosniff`), the newest 1,000 entries. Columns: When (Philippine time), Who, Type, Action,
+  About, Before, After, Device. No Reason column, and "An admin" for an admin.
+
+#### `GET /api/v1/admin/activity-logs`, `…/export` and `…/{activityLog}`
+
+Every entry on the platform.
+
+| Query | |
+| --- | --- |
+| `type` | One type, or several separated by commas. Unknown: **422** `type.N` |
+| `actor_role` | `admin`, `pet`, `human`, or `system` for entries nobody is the actor of. Unknown: **422** |
+| `actor_user_id` | One account's own actions. Not a whole number of 1 or more: **422** |
+| `q` | Up to 100 characters, looked for in the action's name (`account suspended` finds `account_suspended`), the reason and the before and after values, whatever the letter case. `%` and `_` are characters, not wildcards |
+
+- **The export** takes the same query and answers the newest 2,000 entries as a CSV with a Reason column. A cell
+  that would start a formula (`=`, `+`, `-`, `@`, also behind leading spaces) is written as text.
+- **`GET …/{activityLog}`**: one entry with `user_agent` and `is_append_only: true`. **404** when there is none.
+
+The screen (`LG-03`) sends `type` (one) and `actor_role`; `actor_user_id` and `q` are there for a later screen.
+
+**What FE-26 changed in BE-26:**
+
+- **A member read an admin's name** on every decision about their account (`actor.display_name`), and the
+  **reason** with it: an admin's note, which can name another account. The LoFi says "Account approved by an
+  admin". A member's entry now carries neither, and no ids.
+- **An account with no pet and no Home Profile read every request's entries**: the list of "my requests" was built
+  with no condition at all for it. Each kind of record is now matched only when the account has one
+  (SEC-AUTHZ-02; Medium by `security-guidelines.md` §10.4).
+- **An entry couldn't say what it was about**: `subject_type` and `subject_id` only, where the LoFi shows a
+  target ("Kulit", "Mochi → Ana Santos"). `subject_label` and `target` are added, looked up a page at a time.
+- **A sign-in's device was kept but never told to its owner** (the column's own comment: "sign-in device
+  (LG-01)"). `device` says it in plain words; the raw user agent stays with admins.
+- **Filters were taken as typed**: an unknown `type` or `actor_role` was ignored or matched nothing. They are
+  checked by Form Requests and answered **422** (SEC-INPUT-01, SEC-INPUT-03). A member can ask for several types
+  at once, which the page's tabs need.
+- **The search depended on the database engine**: `LIKE` is case-sensitive on PostgreSQL and its escapes differ
+  from SQLite's. Both sides are lowered and the escape is explicit.
+- **A member's export had a Reason column and admin names**, and a formula behind leading spaces was not caught.
+  The export goes through the same view as the list.
+
+**Left as it is, to decide:**
+
+- **No search box and no date range on `LG-03`.** The LoFi has the actor and type filters and Export. `q` and
+  `actor_user_id` are ready for them.
+- **The account page's "Full activity log" link (`AC-07`) opens the whole log**, not that account's entries.
+  `actor_user_id` covers what the account did; what was done to it would need one more filter.
+- **An export stops at its newest 1,000 (member) or 2,000 (admin) entries.** The admin screen says so when the
+  list is longer and suggests narrowing it.
+- **A failed sign-in for an email nobody has is an entry with no actor and no subject**: it reads as the system's.
+- **The other side's Meet & Greet actions are not in a member's activity** (a human's confirm in a pet's list):
+  the entry is about the meeting, not the request. The status change that follows it is listed.
+
 ### Announcements as the screens use them (FE-24, checked 2026-10-10)
 
 **Status: built (BE-24), checked and corrected for FE-24 (2026-10-10).** The screen (`NT-04`) and its dialog
