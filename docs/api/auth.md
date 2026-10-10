@@ -320,9 +320,10 @@ the mock, the types (`frontend/src/types/verification-review.ts`), the shared ru
 
 ### `GET /admin/verifications`
 
-Submissions with `status: "pending"`, one row per account, **oldest first** by `submitted_at` (the
-`status, submitted_at` index). The order is fixed; there is no sort parameter. An account that edited its details
-while Pending has several rows; only its latest counts, so an edit sends it to the back of the queue.
+Submissions with `status: "pending"`, one row per account, **newest first** by `submitted_at` (the
+`status, submitted_at` index; changed from oldest first on 2026-10-10, so a new sign-up is the first thing an admin
+sees). The order is fixed; there is no sort parameter. An account that edited its details while Pending has several
+rows; only its latest counts, so an edit sends it to the top of the queue.
 
 | Query | Rules |
 | --- | --- |
@@ -354,7 +355,8 @@ while Pending has several rows; only its latest counts, so an edit sends it to t
 
   `caretaker_name` is `null` for humans. `is_resubmission` and `documents` mean what they mean in
   `GET /account-status`: the documents are described, never linked.
-- The admin sidebar's count is `meta.total` of this list, asked with `per_page=1`.
+- `meta.total` is how many accounts are waiting. The admin sidebar's number is something else: how many arrived
+  since that admin last opened the section (`GET /admin/sidebar`, in `community-reports-and-admin.md`).
 
 ### `GET /admin/verifications/{accountId}`
 
@@ -402,9 +404,9 @@ while Pending has several rows; only its latest counts, so an edit sends it to t
   | `reviewed_at`, `reviewed_by`, `denial_reason`, `message_to_owner` | Set once decided. `reviewed_by` is the admin's display name, `null` if that admin's row is gone |
   | `details` | What the owner submitted. A pet: `role: "pet"`, `name`, `species`, `breed`, `approximate_age_months`, `currently_at`, `city`, `province`, `caretaker_name`, `caretaker_contact_number`. A human: the fields above |
   | `documents` | As in the queue, plus the `id` that opens the file below |
-  | `queue.position` | 1 for the oldest waiting account; `null` once this one is decided |
+  | `queue.position` | 1 for the newest waiting account, as the queue lists them; `null` once this one is decided |
   | `queue.total` | How many accounts are waiting now |
-  | `queue.next_account_id` | The waiting account submitted next after this one, or the oldest when this is the newest; `null` when no other is waiting |
+  | `queue.next_account_id` | The waiting account listed under this one (submitted just before it), or the newest when this is the oldest; `null` when no other is waiting |
 
 - **A human's `street_address` is not sent.** The review compares the name, the age and the ID; the LoFi shows the
   city only (SEC-PRIV-04). The contact number is shown to admins because verifying the account needs it

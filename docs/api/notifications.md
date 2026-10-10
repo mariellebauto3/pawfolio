@@ -61,15 +61,20 @@ itself, is shown as a row without a link.
 
 ## `GET /api/v1/notifications`
 
-Newest first. Dismissed notifications are left out.
+Newest first. Dismissed notifications are left out. **Nothing is left out for its age**: every notification the
+account ever got is listed, a page at a time, for as long as the account exists. There is no job that prunes them.
 
 | Query | Values |
 | --- | --- |
 | `category` | `requests`, `meet_and_greets`, `account`. Leave it out (or send `all`) for everything. `meet-and-greets` and the tab labels (`Meet & Greets`) are read as the same thing |
+| `period` | `recent`: the last 7 days. `earlier`: everything before them, however long ago. Leave it out (or send `all`) for both (added 2026-10-10) |
 | `page`, `per_page` | default 20, at most 50 |
 
 - **200:** a page of notifications (above), with `meta` and `links` as every list (`README.md`).
-- **422** with `errors.category` for a `category` that is no tab (SEC-INPUT-03).
+- **422** with `errors.category` for a `category` that is no tab, and with `errors.period` for a `period` that is
+  none of the three (SEC-INPUT-03).
+- The page shows them in sections by age (Today, Yesterday, This week, Earlier this month, then one per month),
+  worked out from `created_at`; "This week" ends where `recent` does.
 - An empty page is the empty state of the tab.
 
 ## `GET /api/v1/notifications/unread-count`
@@ -86,6 +91,34 @@ Newest first. Dismissed notifications are left out.
 ## `POST /api/v1/notifications/read-all`
 
 - **200:** `{ "data": { "marked_read_count": 3 } }`: every unread notification of the account, on every tab.
+
+## `GET /api/v1/announcements`
+
+The Announcements tab of the Notifications page (`NT-02`, `NT-03`, added 2026-10-10): what the Pawfolio team
+published for the caller's role, newest first.
+
+- **Who:** a signed-in **Active** account. 401 signed out, 403 `account_not_active` otherwise.
+- **Query:** `page`, `per_page` as every list: default 20, max 50 (SEC-API-05).
+- **200:**
+
+  ```json
+  {
+    "data": [
+      { "id": 3, "title": "Pawfolio Adoption Week starts Oct 10!", "message": "A week of adoption stories on the feed. Share yours.", "published_at": "2026-09-25T02:00:00.000000Z" }
+    ],
+    "meta": { "current_page": 1, "last_page": 1, "per_page": 20, "total": 1 },
+    "links": { "first": "…", "last": "…", "prev": null, "next": null }
+  }
+  ```
+
+- Only **published** announcements whose audience is Everyone or the caller's own role (a pet never reads one for
+  humans; an admin reads Everyone's). Scheduled ones are not listed. **Only these four fields:** the admin's name
+  and the audience stay out (SEC-API-01).
+- It doesn't depend on an alert: an account approved after an announcement went out, or one that turned
+  announcement alerts off, still reads it here. The feed (`GET /feed`) carries the latest three of the same list.
+
+An `announcement` notification carries the announcement's title as `title` and its whole message as `body`, so a
+row shows a preview and the screens open it in full where the list is, instead of following `action_url`.
 
 ## Who is told what
 
@@ -128,7 +161,8 @@ and verification notices are always sent.
 `GET /notifications/{id}`, `PATCH /notifications/{id}/unread`, `DELETE /notifications/{id}` and
 `PATCH /notifications/{id}/dismiss` (both hide it from the list), `PATCH /notifications/{id}/resend` and `/retry`,
 `POST /notifications`, and `GET`/`PATCH /notifications/preferences` (the Settings screen, `AC-01`, reads preferences
-through `GET /settings`). The admin's announcements (`NT-04`, `NT-05`) are in `community-reports-and-admin.md`.
+through `GET /settings`). The admin's side of announcements (`NT-04`, `NT-05`) is in
+`community-reports-and-admin.md`.
 
 ## Known gap
 
