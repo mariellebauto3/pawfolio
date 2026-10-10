@@ -121,7 +121,7 @@ export function meetingPassed(request: AdoptionRequest, now = Date.now()): boole
   return slot !== null && new Date(slot.starts_at).getTime() <= now;
 }
 
-function formatBooking(booking: MockBooking) {
+export function formatBooking(booking: MockBooking) {
   const { slot_id, proposed_slot_id, ...rest } = booking;
   return { ...rest, meet_greet_slot_id: slot_id, proposed_slot_id, slot: slotOf(slot_id), proposed_slot: slotOf(proposed_slot_id) };
 }
