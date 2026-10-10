@@ -1,3 +1,4 @@
+import { accountRoutes } from "@/lib/api/mock/handlers/accounts";
 import { accountStatusRoutes } from "@/lib/api/mock/handlers/account-status";
 import { adminVerificationRoutes } from "@/lib/api/mock/handlers/admin-verification";
 import { adoptionRoutes } from "@/lib/api/mock/handlers/adoption";
@@ -29,4 +30,5 @@ export const MOCK_ROUTES: readonly MockRoute[] = [
   ...inviteRoutes,
   ...notificationRoutes,
   ...communityFeedRoutes,
+  ...accountRoutes,
 ];
