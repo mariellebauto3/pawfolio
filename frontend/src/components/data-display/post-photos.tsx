@@ -1,8 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import { PhotoViewer } from "@/components/overlays/photo-viewer";
+import { ApiImage } from "@/components/ui/api-image";
+import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils/cn";
 import type { PostPhoto } from "@/types/post";
 
@@ -49,7 +50,19 @@ export function PostPhotos({ author, photos, sizes = "(min-width: 1024px) 552px,
               // The frame clips what leaves it, so the focus ring is drawn inside the photo.
               className="absolute inset-0 cursor-zoom-in transition-opacity duration-200 ease-out hover:opacity-90 focus-visible:z-10 focus-visible:-outline-offset-4"
             >
-              <Image src={photo.src} alt={photo.alt} fill sizes={shown.length === 1 ? sizes : `(min-width: 1024px) 276px, 50vw`} className="object-cover" />
+              <ApiImage
+                src={photo.src}
+                alt={photo.alt}
+                fill
+                sizes={shown.length === 1 ? sizes : `(min-width: 1024px) 276px, 50vw`}
+                className="object-cover"
+                // The button already names the photo; the tile keeps its place in the frame.
+                fallback={
+                  <span aria-hidden="true" className="grid size-full place-items-center">
+                    <Icon name="paw" className="size-8 text-ink-subtle" />
+                  </span>
+                }
+              />
             </button>
           </li>
         ))}

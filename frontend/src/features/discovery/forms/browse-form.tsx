@@ -1,8 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, type ReactNode, useId, useState, useTransition } from "react";
-import { CONTROL_CLASSES } from "@/components/forms/control-styles";
+import { type FormEvent, type ReactNode, useEffect, useId, useState, useTransition } from "react";
 import { Select } from "@/components/forms/select";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -12,15 +11,18 @@ import { cn } from "@/lib/utils/cn";
 import { FilterDrawer } from "../dialogs/filter-drawer";
 import {
   BROWSE_PARAMS,
-  BROWSE_SEARCH_MAX,
+  BROWSE_SEARCH_DELAY_MS,
   BROWSE_SORT_LABELS,
   type BrowseFilters,
   type BrowseKind,
   type BrowseSort,
   browseHref,
+  browsePanelKey,
   clearPanelFilters,
   countPanelFilters,
+  searchBoxAfter,
 } from "../schemas/browse-filters";
+import { BrowseSearchBox } from "./browse-search-box";
 import { FilterFields } from "./filter-fields";
 
 type Props = {
@@ -35,8 +37,9 @@ const SORT_OPTIONS = optionsFrom(BROWSE_SORT_LABELS).map(({ value, label }) => (
 
 // The controls of Browse (DS-01, DS-02) around its results: the filter panel (a drawer below `lg`), the search box
 // and the sort. Applying any of them only changes the URL; the page reads it on the server and loads the results,
-// so every view can be linked and the back button undoes a filter. The forms also work as plain GET forms before
-// the page's JavaScript has loaded.
+// so every view can be linked and the back button undoes a filter. The search box applies itself: the names that
+// match drop down under it at once (`BrowseSearchBox`), and the results follow the typing a moment after the last
+// key, without Enter. The forms also work as plain GET forms before the page's JavaScript has loaded.
 export function BrowseForm({ kind, filters, children }: Props) {
   const router = useRouter();
   const searchId = useId();
@@ -44,19 +47,48 @@ export function BrowseForm({ kind, filters, children }: Props) {
   const [pending, startTransition] = useTransition();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // What is picked in the controls. It follows the URL whenever that changes from outside them: a filter chip
-  // removed, a page link, the back button.
-  const applied = browseHref(kind, filters);
+  // What is picked in the panel and the sort. It follows the URL whenever that changes from outside them: a filter
+  // chip removed, the back button.
+  const panel = browsePanelKey(kind, filters);
   const [draft, setDraft] = useState(filters);
-  const [shown, setShown] = useState(applied);
-  if (shown !== applied) {
-    setShown(applied);
+  const [shownPanel, setShownPanel] = useState(panel);
+  if (shownPanel !== panel) {
+    setShownPanel(panel);
     setDraft(filters);
   }
 
+  // What is typed in the search box, and the searches it has asked for. The box follows the URL only when the
+  // search there isn't one of its own (`searchBoxAfter`), so results that arrive late never undo a key just typed.
+  const [search, setSearch] = useState(filters.search);
+  const [asked, setAsked] = useState<readonly string[]>([filters.search]);
+  const [shownSearch, setShownSearch] = useState(filters.search);
+  if (shownSearch !== filters.search) {
+    setShownSearch(filters.search);
+    const box = searchBoxAfter(filters.search, asked);
+    setAsked(box.asked);
+    if (box.follow) setSearch(filters.search);
+  }
+
+  // Results as the user types: a moment after the last key, the applied filters are asked for again with the new
+  // words, on page 1. The address is replaced, not added to, so the back button doesn't step through every letter,
+  // and the page doesn't scroll away from the box. What is picked in the panel but not yet shown stays picked.
+  const typed = search.trim();
+  const liveHref = browseHref(kind, { ...filters, search: typed, page: 1 });
+  const lastAsked = asked[asked.length - 1];
+  useEffect(() => {
+    if (typed === lastAsked) return;
+    const timer = window.setTimeout(() => {
+      setAsked((previous) => [...previous, typed]);
+      startTransition(() => router.replace(liveHref, { scroll: false }));
+    }, BROWSE_SEARCH_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [typed, lastAsked, liveHref, router]);
+
+  /** Shows the results for the panel, the sort and the search box as they are now, from page 1. */
   function apply(next: BrowseFilters) {
-    const firstPage = { ...next, page: 1 };
+    const firstPage = { ...next, search: typed, page: 1 };
     setDraft(firstPage);
+    setAsked((previous) => [...previous, typed]);
     startTransition(() => router.push(browseHref(kind, firstPage)));
   }
 
@@ -101,24 +133,7 @@ export function BrowseForm({ kind, filters, children }: Props) {
       <div className="flex min-w-0 flex-col gap-4">
         {/* Named, since the top bar has a search of its own. */}
         <form role="search" aria-label={`Search ${noun}`} action={ROUTES.browse} onSubmit={handleSubmit} className="flex flex-wrap gap-3">
-          <div className="relative min-w-0 flex-1 basis-full md:basis-0">
-            <label htmlFor={searchId} className="sr-only">
-              Search {noun}
-            </label>
-            <Icon name="search" className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-ink-muted" />
-            <input
-              id={searchId}
-              name={BROWSE_PARAMS.search}
-              type="search"
-              value={draft.search}
-              onChange={(event) => setDraft({ ...draft, search: event.target.value })}
-              placeholder={kind === "pets" ? "Search by name, breed or city" : "Search by name or city"}
-              enterKeyHint="search"
-              autoComplete="off"
-              maxLength={BROWSE_SEARCH_MAX}
-              className={cn(CONTROL_CLASSES, "pl-10")}
-            />
-          </div>
+          <BrowseSearchBox id={searchId} kind={kind} filters={filters} value={search} onChange={setSearch} />
 
           <Button
             className="lg:hidden"

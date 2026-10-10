@@ -92,6 +92,13 @@ export const notificationRoutes: MockRoute[] = [
       if (!(NOTIFICATION_CATEGORIES as readonly unknown[]).includes(category)) return validationFailed({ category: "Choose All, Requests, Meet & Greets or Account." });
       rows = rows.filter((row) => row.category === category);
     }
+    // Recent is the last 7 days, earlier everything before them, however old; anything else is refused.
+    const period = query.period;
+    if (period !== undefined && period !== null && period !== "all") {
+      if (period !== "recent" && period !== "earlier") return validationFailed({ period: "Choose All, Recent or Earlier." });
+      const cutoff = Date.now() - 7 * DAY_MS;
+      rows = rows.filter((row) => (Date.parse(row.created_at) >= cutoff) === (period === "recent"));
+    }
     return { status: 200, body: paginate(rows.map(resource), query, "/api/v1/notifications") };
   }),
 

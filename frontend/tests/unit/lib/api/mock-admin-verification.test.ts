@@ -99,18 +99,19 @@ describe("mock admin verification: who may use it (SEC-AUTHZ-01, SEC-AUTHZ-07)",
 });
 
 describe("mock verification queue (AU-22)", () => {
-  it("lists every waiting account, oldest first, a page at a time", async () => {
+  it("lists every waiting account, newest first, a page at a time", async () => {
     const { client } = admin();
     const first = await getVerificationQueue(client);
     expect(first.meta).toMatchObject({ current_page: 1, last_page: 2, per_page: 20, total: 23 });
     expect(first.data).toHaveLength(20);
-    expect(first.data[0]).toMatchObject({ account_id: KULIT, role: "pet", display_name: "Kulit", caretaker_name: "Joy Lim" });
+    expect(first.data[0]).toMatchObject({ account_id: CARLA, role: "human", display_name: "Carla Mendoza", caretaker_name: null });
 
     const second = await getVerificationQueue(client, { page: 2 });
     expect(second.data).toHaveLength(3);
+    expect(second.data[2]).toMatchObject({ account_id: KULIT, role: "pet", display_name: "Kulit", caretaker_name: "Joy Lim" });
 
     const sent = [...first.data, ...second.data].map((item) => Date.parse(item.submitted_at));
-    expect(sent).toEqual([...sent].sort((a, b) => a - b));
+    expect(sent).toEqual([...sent].sort((a, b) => b - a));
     await expect(getVerificationQueueSize(client)).resolves.toBe(23);
   });
 
@@ -143,7 +144,7 @@ describe("mock verification queue (AU-22)", () => {
 
   it("marks resubmissions and describes the documents without linking them (SEC-PRIV-01)", async () => {
     const all = await everyone(admin().client);
-    expect(all.filter((item) => item.is_resubmission).map((item) => item.display_name)).toEqual(["Rico Dela Paz", "Carla Mendoza"]);
+    expect(all.filter((item) => item.is_resubmission).map((item) => item.display_name)).toEqual(["Carla Mendoza", "Rico Dela Paz"]);
     for (const item of all) {
       expect(item.documents.length).toBeGreaterThan(0);
       for (const document of item.documents) {
@@ -166,7 +167,8 @@ describe("mock verification review (AU-23, AU-24)", () => {
       reviewed_at: null,
       reviewed_by: null,
       details: { role: "pet", name: "Kulit", caretaker_name: "Joy Lim", caretaker_contact_number: "09170000014" },
-      queue: { position: 1, total: 23, next_account_id: 101 },
+      // The oldest account is last, and points back to the newest.
+      queue: { position: 23, total: 23, next_account_id: CARLA },
     });
     expect(review.documents.map((document) => [document.id, document.document_type])).toEqual([
       [41, "valid_id"],
@@ -182,7 +184,7 @@ describe("mock verification review (AU-23, AU-24)", () => {
       is_resubmission: true,
       previous_denial: { denial_reason: "id_photo_unreadable", message_to_owner: expect.stringContaining("blurry") },
       details: { role: "human", full_name: "Carla Mendoza", birthdate: "1994-11-22", city: "Pasig" },
-      queue: { position: 23, next_account_id: KULIT },
+      queue: { position: 1 },
     });
     expect(review.details).not.toHaveProperty("street_address");
     expect(review.details).not.toHaveProperty("documents");
@@ -237,7 +239,7 @@ describe("mock approve (AU-26, FR33)", () => {
       account_status: "active",
       reviewed_by: "admin.jess",
       denial_reason: null,
-      queue: { position: null, total: 22, next_account_id: 101 },
+      queue: { position: null, total: 22, next_account_id: CARLA },
     });
     expect(Date.parse(review.reviewed_at ?? "")).not.toBeNaN();
 
@@ -318,7 +320,7 @@ describe("mock deny (AU-25, AU-20)", () => {
       is_resubmission: true,
       previous_denial: { denial_reason: "name_mismatch", message_to_owner: "The ID says Beatriz." },
       // Sent again just now: the newest submission goes to the back of the queue.
-      queue: { position: 23, total: 23 },
+      queue: { position: 1, total: 23 },
     });
     await expect(approveVerification(client, BEA)).resolves.toMatchObject({ status: "approved", account_status: "active" });
   });

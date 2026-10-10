@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { type FocusEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { NotificationRow } from "@/components/data-display/notification-row";
+import { AnnouncementDialog } from "@/components/overlays/announcement-dialog";
 import { Skeleton, SkeletonGroup } from "@/components/feedback/skeleton";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -11,6 +12,7 @@ import { isApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils/cn";
 import { formatTimeAgo } from "@/lib/utils/format-date";
 import type { Alerts } from "@/providers/alerts-provider";
+import type { Notification } from "@/types/notification";
 import { useToast } from "@/providers/toast-provider";
 import { NavCount } from "./nav-count";
 
@@ -24,7 +26,8 @@ type Props = {
 
 // NT-01 Alerts dropdown: the latest few notifications from any page, Mark all as read, and the way to the full
 // list. A disclosure, not a menu: the panel holds links and a button that Tab reaches in order, right after the
-// tab that opens it. Escape closes and returns focus; so does a click, or focus, anywhere else.
+// tab that opens it. Escape closes and returns focus; so does a click, or focus, anywhere else. An announcement
+// is read from here too: its row closes the panel and opens the whole message in a dialog.
 export function AlertsMenu({ alerts, triggerClassName, countClassName }: Props) {
   const baseId = useId();
   const panelId = `${baseId}-panel`;
@@ -33,6 +36,9 @@ export function AlertsMenu({ alerts, triggerClassName, countClassName }: Props) 
   const [openedAt, setOpenedAt] = useState<Date | null>(null);
   const [open, setOpen] = useState(false);
   const [marking, setMarking] = useState(false);
+  // The announcement being read, kept while its dialog closes.
+  const [reading, setReading] = useState<Notification | null>(null);
+  const [readingOpen, setReadingOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const toast = useToast();
@@ -135,6 +141,10 @@ export function AlertsMenu({ alerts, triggerClassName, countClassName }: Props) 
                         if (alerts.isUnread(item)) alerts.markRead(item);
                         setOpen(false);
                       }}
+                      onRead={() => {
+                        setReading(item);
+                        setReadingOpen(true);
+                      }}
                     />
                   </li>
                 ))}
@@ -176,6 +186,16 @@ export function AlertsMenu({ alerts, triggerClassName, countClassName }: Props) 
           </Link>
         </section>
       )}
+
+      <AnnouncementDialog
+        announcement={reading && { title: reading.title, message: reading.body, published_at: reading.created_at }}
+        open={readingOpen}
+        onClose={() => {
+          setReadingOpen(false);
+          // The row that opened it left with the panel: focus goes back to the tab.
+          buttonRef.current?.focus();
+        }}
+      />
     </div>
   );
 }

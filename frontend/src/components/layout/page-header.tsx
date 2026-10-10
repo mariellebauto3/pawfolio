@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils/cn";
 type Props = {
   /** The page's one h1, e.g. "Verification queue". */
   title: ReactNode;
-  /** One line on what the page is for: "New Human and Pet accounts waiting for review. Oldest first." */
+  /** One line on what the page is for: "New Human and Pet accounts waiting for review. Newest first." */
   description?: ReactNode;
   /** Page-level actions or a search box, on the right on desktop and below the title on phones. */
   actions?: ReactNode;

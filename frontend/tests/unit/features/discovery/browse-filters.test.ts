@@ -8,9 +8,15 @@ import {
   browseFiltersFromUrl,
   browseHref,
   browseKindFor,
+  browsePanelKey,
   browseSearchParams,
   clearPanelFilters,
   countPanelFilters,
+  homeSuggestion,
+  petSuggestion,
+  rankByName,
+  searchBoxAfter,
+  splitAtMatch,
 } from "@/features/discovery/schemas/browse-filters";
 
 const filters = (change: Partial<BrowseFilters>): BrowseFilters => ({ ...NO_FILTERS, ...change });
@@ -130,5 +136,68 @@ describe("the filter panel", () => {
   it("clears the panel and keeps the search and the sort", () => {
     const cleared = clearPanelFilters(filters({ search: "aspin", sort: "newest", province: "Rizal", page: 2, picked: { species: ["dog"] } }));
     expect(cleared).toEqual(filters({ search: "aspin", sort: "newest" }));
+  });
+});
+
+describe("the search box, which shows results as it is typed in", () => {
+  it("tells a new filter or sort from a new search or page", () => {
+    const shown = filters({ search: "aspin", province: "Rizal", picked: { species: ["dog"] }, page: 3 });
+    const key = browsePanelKey("pets", shown);
+    expect(browsePanelKey("pets", { ...shown, search: "aspin mix", page: 1 })).toBe(key);
+    expect(browsePanelKey("pets", { ...shown, province: "" })).not.toBe(key);
+    expect(browsePanelKey("pets", { ...shown, sort: "newest" })).not.toBe(key);
+  });
+
+  it("keeps what is typed when its own results come back, even late ones", () => {
+    // "asp" was asked for, then "aspin": the page for "asp" arrives while "aspin" is on its way.
+    expect(searchBoxAfter("asp", ["", "asp", "aspin"])).toEqual({ follow: false, asked: ["asp", "aspin"] });
+    expect(searchBoxAfter("aspin", ["asp", "aspin"])).toEqual({ follow: false, asked: ["aspin"] });
+  });
+
+  it("follows a search that came from outside the box: a chip removed, the back button, a link", () => {
+    expect(searchBoxAfter("", ["aspin"])).toEqual({ follow: true, asked: [""] });
+    expect(searchBoxAfter("beagle", ["asp", "aspin"])).toEqual({ follow: true, asked: ["beagle"] });
+  });
+});
+
+describe("the names that drop down under the search box", () => {
+  const names = ["Pebbles", "Bok Kimchi", "Kimchi", "Loki", "Kiko", "Mochi"];
+  const ranked = (typed: string) => rankByName(typed, names, (name) => name);
+
+  it("puts a name that starts with what was typed first, from the first letters on", () => {
+    expect(ranked("ki").slice(0, 4)).toEqual(["Kimchi", "Kiko", "Bok Kimchi", "Loki"]);
+    expect(ranked("KIM").slice(0, 2)).toEqual(["Kimchi", "Bok Kimchi"]);
+    expect(ranked("k")[0]).toBe("Kimchi");
+  });
+
+  it("keeps the API's order inside each group, and every row it sent", () => {
+    // None of these names holds "aspin": they matched on a breed or a city, and stay as they came.
+    expect(ranked("aspin")).toEqual(names);
+    expect(ranked("  ")).toEqual(names);
+    expect(ranked("chi")).toEqual(["Bok Kimchi", "Kimchi", "Mochi", "Pebbles", "Loki", "Kiko"]);
+  });
+
+  it("marks the part of a name that was typed, whatever the case", () => {
+    expect(splitAtMatch("Kimchi", "ki")).toEqual(["", "Ki", "mchi"]);
+    expect(splitAtMatch("Bok Kimchi", "KIM")).toEqual(["Bok ", "Kim", "chi"]);
+    expect(splitAtMatch("Pebbles", "ki")).toEqual(["Pebbles", "", ""]);
+    expect(splitAtMatch("Pebbles", "")).toEqual(["Pebbles", "", ""]);
+  });
+
+  it("says who a suggestion is and where it leads, from public details only", () => {
+    expect(petSuggestion({ id: 7, name: "Kimchi", breed: "Aspin", city: "Quezon City", photos: [] })).toEqual({
+      id: 7,
+      name: "Kimchi",
+      detail: "Aspin · Quezon City",
+      photo: null,
+      href: "/pets/7",
+    });
+    expect(homeSuggestion({ id: 2, full_name: "Reyes Household", city: "Pasig", profile_photo_url: null })).toEqual({
+      id: 2,
+      name: "Reyes Household",
+      detail: "Pasig",
+      photo: null,
+      href: "/homes/2",
+    });
   });
 });

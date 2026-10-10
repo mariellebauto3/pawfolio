@@ -54,11 +54,11 @@ function roundOf(entry: MockQueueEntry, decisions: MockDecisions): Round {
 
 type Waiting = { entry: MockQueueEntry; round: Round };
 
-/** Everyone still waiting, oldest first (AU-22). */
+/** Everyone still waiting, newest first (AU-22). */
 function waiting(decisions: MockDecisions): Waiting[] {
   return MOCK_QUEUE.map((entry) => ({ entry, round: roundOf(entry, decisions) }))
     .filter(({ round }) => round.status === "pending")
-    .sort((a, b) => Date.parse(a.round.submitted_at) - Date.parse(b.round.submitted_at));
+    .sort((a, b) => Date.parse(b.round.submitted_at) - Date.parse(a.round.submitted_at));
 }
 
 const displayName = ({ submission }: MockQueueEntry) => (submission.role === "pet" ? submission.name : submission.full_name);
@@ -95,9 +95,10 @@ function review(entry: MockQueueEntry, decisions: MockDecisions): VerificationRe
   const round = roundOf(entry, decisions);
   const queue = waiting(decisions);
   const index = queue.findIndex((item) => item.entry === entry);
-  // The account after this one, or the oldest when this one was last. A decided account sits where its time puts it.
+  // The account listed under this one, or the newest when this one is last. A decided account sits where its time
+  // puts it.
   const others = queue.filter((item) => item.entry !== entry);
-  const next = others.find((item) => Date.parse(item.round.submitted_at) > Date.parse(round.submitted_at)) ?? others[0];
+  const next = others.find((item) => Date.parse(item.round.submitted_at) < Date.parse(round.submitted_at)) ?? others[0];
   return {
     account_id: entry.account_id,
     display_name: displayName(entry),

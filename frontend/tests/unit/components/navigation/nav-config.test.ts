@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   ADMIN_NAV,
+  countedAdminSection,
   formatNavCount,
   isNavLinkActive,
   meMenuFor,
   memberNavItems,
+  nextClearedAdminCounts,
+  shownAdminCounts,
 } from "@/components/navigation/nav-config";
 
 const labels = (role: Parameters<typeof memberNavItems>[0]) => memberNavItems(role).map((item) => item.label);
@@ -93,6 +96,86 @@ describe("isNavLinkActive", () => {
   it("keeps the admin Dashboard to /admin itself", () => {
     expect(isNavLinkActive("/admin", dashboard)).toBe(true);
     expect(isNavLinkActive("/admin/reports", dashboard)).toBe(false);
+  });
+});
+
+describe("the admin sidebar's counts, which clear once their section is opened", () => {
+  const counts = { verification: 4, reports: 3, requests: 1 };
+  /** The sidebar going through a list of pages with the counts the layout had at each. */
+  function visit(steps: Array<[pathname: string, counts: typeof counts]>) {
+    let cleared = {};
+    let shown = {};
+    for (const [pathname, loaded] of steps) {
+      cleared = nextClearedAdminCounts(cleared, loaded, countedAdminSection(pathname));
+      shown = shownAdminCounts(loaded, cleared);
+    }
+    return shown;
+  }
+
+  it("knows which pages belong to a counted section", () => {
+    expect(countedAdminSection("/admin/verification")).toBe("verification");
+    expect(countedAdminSection("/admin/verification/12")).toBe("verification");
+    expect(countedAdminSection("/admin/reports/7")).toBe("reports");
+    expect(countedAdminSection("/admin/requests")).toBe("requests");
+    expect(countedAdminSection("/admin")).toBeNull();
+    expect(countedAdminSection("/admin/accounts")).toBeNull();
+  });
+
+  it("shows every count until a section is opened", () => {
+    expect(visit([["/admin", counts]])).toEqual(counts);
+    expect(visit([["/admin/accounts", counts]])).toEqual(counts);
+  });
+
+  it("clears a section's count the moment it is opened, whichever of the three it is", () => {
+    expect(visit([["/admin/verification", counts]])).toEqual({ reports: 3, requests: 1 });
+    expect(visit([["/admin/reports/7", counts]])).toEqual({ verification: 4, requests: 1 });
+    expect(visit([["/admin/requests", counts]])).toEqual({ verification: 4, reports: 3 });
+  });
+
+  it("keeps it cleared on the next pages, while the layout still holds the old numbers", () => {
+    expect(
+      visit([
+        ["/admin/verification", counts],
+        ["/admin", counts],
+        ["/admin/accounts", counts],
+      ]),
+    ).toEqual({ reports: 3, requests: 1 });
+    expect(
+      visit([
+        ["/admin/verification", counts],
+        ["/admin/reports", counts],
+        ["/admin/requests", counts],
+        ["/admin", counts],
+      ]),
+    ).toEqual({});
+  });
+
+  it("shows what is new once the layout has a new answer, even when it is the same number as before", () => {
+    const fresh = { verification: 0, reports: 3, requests: 1 };
+    const later = { verification: 4, reports: 3, requests: 1 };
+    expect(
+      visit([
+        ["/admin/verification", counts],
+        ["/admin", counts],
+        ["/admin", fresh],
+        ["/admin", later],
+      ]),
+    ).toEqual(later);
+    expect(
+      visit([
+        ["/admin/verification", counts],
+        ["/admin", { ...counts, verification: 1 }],
+      ]),
+    ).toEqual({ ...counts, verification: 1 });
+  });
+
+  it("hands back the same record when nothing changed, so a render doesn't loop", () => {
+    const cleared = nextClearedAdminCounts({}, counts, "verification");
+    expect(nextClearedAdminCounts(cleared, counts, "verification")).toBe(cleared);
+    expect(nextClearedAdminCounts(cleared, counts, null)).toBe(cleared);
+    const none = {};
+    expect(nextClearedAdminCounts(none, counts, null)).toBe(none);
+    expect(nextClearedAdminCounts(none, {}, "reports")).toBe(none);
   });
 });
 

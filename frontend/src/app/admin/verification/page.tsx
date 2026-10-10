@@ -35,7 +35,7 @@ export default async function VerificationQueuePage({ searchParams }: Props) {
     <>
       <PageHeader
         title="Verification queue"
-        description="New Human and Pet accounts waiting for review. Oldest first."
+        description="New Human and Pet accounts waiting for review. Newest first."
         actions={<VerificationSearch search={search} role={role} />}
       />
       <VerificationQueue queue={queue} role={role} search={search} searchParams={params} />
