@@ -79,9 +79,10 @@ Shared with other modules since FE-22: `PasswordInput` and `NewPasswordGuide` (`
 - **Suspending or deactivating closes the account's open requests** (proposal §5.3, "Closed"): their Meet & Greets
   end, the other side is told, and a pet In Process with the account is Looking for a Home again. The dialogs say
   so, because the API does it.
-- **Not here:** "See sign-in activity" and "Full activity log" lead to Activity Logs (`LG-01`, `LG-03`), and the
-  Alumni tab's "Resolve issue" to Resolve Issues (`AL-07`), built by their own tasks. The email can't be changed:
-  no endpoint does it.
+- **Since FE-23:** the Alumni tab's "Resolve issue" (`AL-09`) opens Resolve Issues on that pet (`AL-07`), and a
+  request on an account's page opens its record (`RQ-19`).
+- **Not here:** "See sign-in activity" and "Full activity log" lead to Activity Logs (`LG-01`, `LG-03`), built by
+  its own task. The email can't be changed: no endpoint does it.
 
 ## Requirements covered
 

@@ -106,8 +106,10 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
 - **Mock mode** answers every endpoint (`src/lib/api/mock/handlers/meet-and-greet.ts`): Ana Santos has four slots
   and Mochi's confirmed meeting on the first, and met Bantay yesterday, so request 7 is at the decision. A page rendered on the server doesn't see what the browser changed,
   so the steps before confirmation are walked against the API, not in mock mode.
-- **Not built here:** editing a slot (the LoFi's "Edit" has no endpoint: remove it and add another). MG-15, MG-16
-  (admin).
+- **MG-15, MG-16 (FE-23):** the admin's Meet & Greets and Overdue decisions are tabs of the requests monitor
+  (`/admin/requests`, `src/features/adoption-requests/README.md`): the LoFi lists requests with their meeting, one
+  row each. The monitor reads a booking with this module's `readBooking` (`api/meetings.ts`), handed in by the page.
+- **Not built here:** editing a slot (the LoFi's "Edit" has no endpoint: remove it and add another).
 
 ## Requirements covered
 

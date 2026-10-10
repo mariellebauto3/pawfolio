@@ -555,14 +555,199 @@ before it the decision had only the one lifecycle test.
 - **A notification is not sent** to an account that turned "Adoption requests and invites" or "Meet & Greets"
   off; the screens' toasts don't claim it.
 
-## Admin Monitor & Resolution (`BE-20`, `RQ-18..RQ-19`, `MG-12`, `AD-06..AD-08`)
+## Admin Monitor & Resolution (`BE-20`, `RQ-18..RQ-19`, `MG-15..MG-16`, `AL-07..AL-09`)
 
 | Method | Path | Role | Description |
 | --- | --- | --- | --- |
-| `GET` | `/api/v1/admin/adoption-requests` | `admin` | Paginated platform adoption requests (`?status=`, `?overdue=1`, `?q=`) |
-| `GET` | `/api/v1/admin/adoption-requests/{id}` | `admin` | Admin request detail (timeline, audit trail) |
-| `POST` | `/api/v1/admin/adoption-requests/{id}/remind` | `admin` | Send decision reminder notification to both parties on an `awaiting_decision` request |
-| `GET` | `/api/v1/admin/meet-and-greets` | `admin` | Paginated platform Meet & Greets (`?status=`) |
-| `POST` | `/api/v1/admin/adoptions/{pet}/resolve/preview` | `admin` | Preview side effects of an admin resolution action (`AD-06`) |
-| `POST` | `/api/v1/admin/adoptions/{pet}/resolve` | `admin` | Execute admin resolution (`mark_adopted_to_requester`, `return_to_looking_for_a_home`, `mark_adopted_off_platform`, `remove_furparent_link`) |
-| `GET` | `/api/v1/admin/alumni` | `admin` | Paginated list of platform adoptions / Alumni (`AD-08`) |
+| `GET` | `/api/v1/admin/adoption-requests` | `admin` | Every adoption request, newest first (`?tab=`, `?status=`, `?q=`) |
+| `GET` | `/api/v1/admin/adoption-requests/{id}` | `admin` | One request's record: milestones, Meet & Greet, the two accounts, who it waits on, what admins changed |
+| `POST` | `/api/v1/admin/adoption-requests/{id}/remind` | `admin` | Remind the side that has the next step, at most once a day |
+| `GET` | `/api/v1/admin/meet-and-greets` | `admin` | Every Meet & Greet booking (`?status=`). No screen reads it: see below |
+| `GET` | `/api/v1/admin/adoptions/{pet}/resolve` | `admin` | What can be resolved for a pet: its Furparent link, its requests, and which of the four actions each offers |
+| `POST` | `/api/v1/admin/adoptions/{pet}/resolve/preview` | `admin` | What an action would change, before anything is written (`AL-08`) |
+| `POST` | `/api/v1/admin/adoptions/{pet}/resolve` | `admin` | Apply an action, with a required reason (`AL-07`, FR37) |
+| `GET` | `/api/v1/admin/adoption-resolutions` | `admin` | Every manual change, newest first, with who made it and why (`?pet_id=`) |
+| `GET` | `/api/v1/admin/alumni` | `admin` | Adoptions with their pet and Furparent. No screen reads it: see below |
+
+### The admin's monitor (`RQ-18`, `RQ-19`, `MG-15`, `MG-16`, FR36)
+
+**Status: built (BE-20), checked and corrected for FE-23 (2026-10-10).** The screens (FE-23) run against it through
+`frontend/src/features/adoption-requests/api/admin-requests.ts`. In mock mode
+`frontend/src/lib/api/mock/handlers/admin-adoption.ts` answers the same way. A change here also changes those
+files, the types beside the calls, and the tests on both sides in the same PR.
+
+- **Who:** a signed-in **Active** admin. Signed out: **401**. Any other role, the two sides of the request
+  included, and an admin account that isn't Active: **403** (SEC-AUTHZ-06, SEC-AUTHZ-07). A request that doesn't
+  exist: **404**.
+- **Nothing here changes a request.** Its status is the system's (FR27). A reminder only notifies, and a fix goes
+  through Resolve adoption issue, below.
+- **No phone number and no address** is in any of these answers (SEC-PRIV-02): monitoring a request doesn't need
+  them. The record carries the two accounts' emails, which is how an admin tells accounts apart.
+
+#### `GET /api/v1/admin/adoption-requests`
+
+| Query | |
+| --- | --- |
+| `tab` | `all` (default), `meet_and_greets` (requests that have had a booking, `MG-15`), `overdue` (`MG-16`). Anything else: **422** |
+| `status` | One request status (proposal §5.3). Anything else: **422** (SEC-INPUT-03) |
+| `q` | Part of the pet's name or the human's full name, up to 100 characters |
+| `page`, `per_page` | 20 a page by default, 50 at most; more is **422** (SEC-API-05) |
+
+Each row is the request as every list sends it (the pet's and the home's summaries, the cover letter, the dates of
+its milestones), and:
+
+| Field | |
+| --- | --- |
+| `updated_at` | When anything about it last changed |
+| `is_overdue` | `true` while it is Awaiting Decision and either the scheduled job flagged it (`overdue_flagged_at`) or 7 days have passed since `awaiting_decision_at` (§5.4). A request that was flagged and then decided is not overdue |
+| `latest_meet_and_greet` | Its latest booking with its `slot` (when, the kind of place, the place's name), or `null` |
+
+The Overdue tab's count is this list's `meta.total` with `tab=overdue`; the admin sidebar asks for one row to read
+it.
+
+#### `GET /api/v1/admin/adoption-requests/{id}`
+
+The request as its own page reads it (`match_score`, `meeting_passed`, `adoption`, `meet_and_greet`,
+`latest_meet_and_greet`), **without** `contacts`, `unlocked_contact`, `contact_unlocked` and `available_slots`,
+and with:
+
+| Field | |
+| --- | --- |
+| `updated_at`, `is_overdue` | As in the list |
+| `parties` | `{ pet_user_id, pet_email, pet_account_status, human_user_id, human_email, human_account_status }`, for the links to the two accounts (`AC-07`) |
+| `reminder` | `{ waiting_on: "pet" \| "human" \| null, last_sent_at, can_send }`. `can_send` is `false` when nobody has a step to take, or a reminder went out in the last 24 hours |
+| `resolutions` | What admins changed on this request by hand, oldest first: `{ id, action, reason, pet: { id, name }, adoption_request_id, home_name, admin_name, created_at }` |
+
+#### `POST /api/v1/admin/adoption-requests/{id}/remind`
+
+No body. One in-app notification (urgency `warning`, linking to the request) goes to the side that has the next
+step, in words that name the step:
+
+| The request is | Reminded | "Reminder: …" |
+| --- | --- | --- |
+| Sent | the human | "{pet} is waiting for your answer" |
+| Approved, nothing booked | the pet | "book your Meet & Greet with {home}" |
+| Approved, a slot booked | the human | "confirm the Meet & Greet with {pet}" |
+| Meet Scheduled with its time behind it, or Awaiting Decision | the human | "decide on the request from {pet}" |
+
+- **200:** `{ reminded: true, recipient: "pet" | "human", recipient_name }`. The reminder is written to the
+  activity log with the admin's name (`admin_request_reminder_sent`, SEC-LOG-01).
+- **409** `no_reminder_needed`: nobody has a step to take (On Hold, a confirmed meeting still ahead, or a request
+  that ended). **409** `already_reminded`: one went out for this request in the last 24 hours. Both come with a
+  message the screen shows.
+
+### Resolve adoption issue (`AL-07`, `AL-08`, FR37)
+
+**Status: built (BE-20), checked and corrected for FE-23 (2026-10-10).** The screens run against it through
+`frontend/src/features/adoption/api/resolutions.ts`; the rules are in
+`backend/app/Actions/Adoption/ResolveAdoptionIssue.php`, and the mock handler above repeats them.
+
+The only way a pet's or a request's status changes outside the normal flow (FR27, proposal §5.2). It is one of
+**four actions**, never a status that is sent, and each applies to one situation only:
+
+| `action` | Applies to | What it does |
+| --- | --- | --- |
+| `cancel_adoption` | A pet that is Adopted | The Furparent link is removed (`adoptions.link_removed_at`), the adopted request becomes `closed`, the pet is Looking for a Home again and returns to search and matches. The human **keeps the Furparent label** (§5.5), and Open to Adopt stays as they left it |
+| `return_to_looking_for_a_home` | A pet that is In Process | Its request in process becomes `closed`, a booked Meet & Greet ends, the pet is Looking for a Home, and its requests On Hold are `sent` again with a fresh 14 days (§5.3) |
+| `close_request` | One request that is Sent or On Hold | That request becomes `closed`. Nothing else changes. A request in process is ended with the action above, which also frees the pet |
+| `reopen_meet_greet_booking` | A request that is Meet Scheduled or Awaiting Decision | The request goes back to `approved` with a fresh 14 days to book; a booking that still stands ends; the overdue flag is cleared. The pet stays In Process |
+
+- **Who:** an Active admin, as above. A pet that doesn't exist: **404**.
+- **The reason is required** on the change itself (up to 1000 characters): **422** `errors.reason` without one
+  (FR37, SEC-AUTHZ-07). **Both accounts read it** in a notification that says what changed in plain words, and it
+  is kept in `adoption_resolutions` and in the activity log with the admin's name: `admin_adoption_resolved` (the
+  pet's status before and after), `admin_request_status_changed`, and `adoption_link_removed` when a link goes
+  (NFR9, SEC-LOG-01).
+- The change runs in one transaction with the pet's row locked, and the rules are checked again inside it, so two
+  admins can't both resolve the same issue (SEC-AUTHZ-08).
+
+#### `GET /api/v1/admin/adoptions/{pet}/resolve`
+
+**200:** `{ pet, furparent, requests, actions }`.
+
+| Field | |
+| --- | --- |
+| `pet` | The pet's summary with its `status`, and `user_id` for the link to its account |
+| `furparent` | `{ home_profile_id, full_name, adopted_at, adoption_request_id }` while the link stands, otherwise `null` |
+| `requests` | The pet's latest 50 requests, newest first: `{ id, status, home_name, sent_at, closed_at }` |
+| `actions` | All four, in the order above: `{ action, available, request_ids, unavailable_reason }`. `request_ids` are the requests the action can be applied to; empty while `available` means it changes the pet alone. `unavailable_reason` is a sentence the screen shows under an action it can't offer |
+
+#### `POST /api/v1/admin/adoptions/{pet}/resolve/preview` and `POST …/resolve`
+
+| Body | |
+| --- | --- |
+| `action` | Required, one of the four. Anything else: **422** |
+| `adoption_request_id` | The request it is for. May be left out when the action applies to exactly one request, or to the pet alone |
+| `reason` | The change only. Required, up to 1000 characters |
+
+- **Preview, 200:** `{ pet_id, pet_name, action, request: { id, home_name } | null, before, after,
+  requests_restored, meeting_ended }`, where `before` and `after` are `{ pet_status, request_status,
+  furparent_name }`, `requests_restored` counts the requests On Hold that go back to Sent, and `meeting_ended` says
+  whether a booking that stands ends with it. Nothing is written.
+- **Change, 200:** the resolution (`{ id, action, reason, pet, adoption_request_id, home_name, admin_name,
+  created_at }`) with `pet_status` and the same `change`.
+- **409**, with a message the screen shows:
+
+  | `code` | When |
+  | --- | --- |
+  | `resolution_not_available` | The action doesn't apply to the pet or to that request as they stand: the message is the action's `unavailable_reason`, or says that the request moved on |
+  | `resolution_request_required` | The action applies to several requests and none was named |
+
+#### `GET /api/v1/admin/adoption-resolutions`
+
+Paginated (20 a page, 50 at most), newest first, each row a resolution as above. `?pet_id=` narrows it to one pet.
+
+### Alumni (`AL-09`, FR38)
+
+The Alumni tab of the accounts list (`GET /api/v1/admin/accounts?tab=alumni`, BE-23) is the screen: adopted pets
+with their Furparent and the day of the adoption. FE-23 adds "Resolve issue" to each row, which opens Resolve
+adoption issue on that pet.
+
+**What FE-23 changed in BE-20:**
+
+- **Any of the four actions could be applied to any pet and any request**, whatever their status: reopening the
+  booking of a request that was Adopted or Declined set it to Approved and the pet to In Process (an adopted pet
+  included); "Close request" could close an Adopted request while the pet stayed Hired and linked; and with no
+  request named, the pet's newest request was taken, whichever it was. Each action now applies to one situation
+  only, and anything else is **409**.
+- **"Close request" freed the pet** (Looking for a Home, requests On Hold back to Sent) even when the request it
+  closed wasn't the one in process, though `AL-07` says other requests are not affected. It closes one Sent or On
+  Hold request now, and changes nothing else.
+- **"Return pet to Looking for a Home" left the pet's requests On Hold paused** and its booked Meet & Greet
+  standing, and also removed an adoption link when there was one. It ends the process the way a decline after the
+  meeting does (§5.3); removing a link is "Cancel adoption" only.
+- **The notification to both accounts carried the action's code** ("… adoption status (cancel_adoption)"). It
+  says what changed in plain words, and links to the request.
+- **The screens had nothing to ask what applies** to a pet, and nothing to list for "Recent resolutions"
+  (`AL-07`). `GET …/resolve` and `GET /admin/adoption-resolutions` are new. The preview answered statuses for an
+  action that wouldn't be applied that way; it now reads the same plan the change applies.
+- **A request's record sent both sides' phone numbers and the human's street address to the admin** once a meeting
+  was confirmed (SEC-PRIV-02). It carries none now, and says who the request waits on instead.
+- **A reminder went to the wrong side or to nobody's benefit**: to the human on a confirmed meeting that was still
+  ahead, and to the pet on an Approved request whose slot was already booked. Its text asked to "update the status
+  of adoption request #53". It goes to the side with the next step, names the step, and is limited to one a day
+  per request.
+- **A request that was flagged overdue and then decided still read as overdue** in the list. `is_overdue` follows
+  the Overdue tab's rule now (`AdoptionRequest::isOverdue`, `scopeOverdue`).
+- **`status` took any text and a comma-separated list, and `tab` any value**; both are allow-listed now, and
+  `per_page` over 50 is refused instead of trimmed (SEC-INPUT-03).
+- This file listed four actions the API never had (`mark_adopted_to_requester`, `mark_adopted_off_platform`,
+  `remove_furparent_link`) and an `?overdue=1` filter; the four above and `tab=overdue` are the real ones, as the
+  LoFi's `AL-07` and the `adoption_resolutions` table have them.
+- The rules moved out of the controller into Actions (`ResolveAdoptionIssue`, `SendRequestReminder`), as backend
+  guidelines §3 ask.
+
+**Left as it is, to decide:**
+
+- **`GET /admin/meet-and-greets` and `GET /admin/alumni` are not read by any screen.** The LoFi's Meet & Greets
+  tab lists requests with their meeting (one row per request), which the requests list answers with
+  `tab=meet_and_greets`; a list of bookings would show one request several times. The Alumni tab is the accounts
+  list's. Both endpoints still answer, and their filters are allow-listed.
+- **The admin's reason is read by both accounts.** `AL-08` says both are notified; the form says so beside the
+  field, so an admin doesn't write there what the two sides shouldn't read.
+- **A cancelled adoption leaves the pet's "Hired" post on the feed**, and the human keeps the Furparent label even
+  when it was their only adoption (§5.5: "the Furparent label stays").
+- **A closed or declined request can't be reopened.** Only a request that reached a confirmed Meet & Greet goes
+  back to booking; anything else starts with a new request.
+- **Notification preferences don't hold these back.** An admin's reminder and an admin's correction always reach
+  the account.
