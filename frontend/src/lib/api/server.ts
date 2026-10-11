@@ -1,4 +1,5 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { requestOrigin } from "@/lib/auth/request-origin";
 import { env } from "@/config/env";
 import { readCookie } from "@/lib/api/cookies";
 import { type ApiClient, createApiClient } from "@/lib/api/core";
@@ -28,5 +29,5 @@ export function createServerApiClient({ cookie, origin }: ServerApiContext): Api
 /** For Server Components and Route Handlers: an API client acting as the current visitor. */
 export async function getServerApi(): Promise<ApiClient> {
   const cookieStore = await cookies();
-  return createServerApiClient({ cookie: cookieStore.toString() || null, origin: env.appUrl });
+  return createServerApiClient({ cookie: cookieStore.toString() || null, origin: requestOrigin(await headers()) });
 }

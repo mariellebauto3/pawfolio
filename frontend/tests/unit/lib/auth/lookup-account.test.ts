@@ -10,6 +10,16 @@ function stubApi(response: () => Promise<Response>) {
 }
 
 describe("lookUpAccount", () => {
+  it("uses the page origin for Sanctum instead of the configured app origin", async () => {
+    const fetchMock = stubApi(async () => Response.json({ data: account }));
+    await expect(lookUpAccount("pawfolio-session=s1", "https://pawfolio-service.vercel.app")).resolves.toEqual(account);
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const headers = new Headers(init.headers);
+    expect(headers.get("Origin")).toBe("https://pawfolio-service.vercel.app");
+    expect(headers.get("Referer")).toBe("https://pawfolio-service.vercel.app/");
+    expect(headers.get("Cookie")).toBe("pawfolio-session=s1");
+  });
+
   it("skips the API when there is no session cookie", async () => {
     const fetchMock = stubApi(async () => new Response(null, { status: 500 }));
     await expect(lookUpAccount(null)).resolves.toBeNull();

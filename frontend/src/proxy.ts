@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { ROUTES } from "@/constants/routes";
 import { lookUpAccount } from "@/lib/auth/lookup-account";
 import { routeArea, routeRedirect } from "@/lib/auth/redirects";
+import { requestOrigin } from "@/lib/auth/request-origin";
 
 // Verify navigation before any page, metadata or loading UI can be rendered.
 // Laravel independently authorizes every API request. An unavailable session check fails closed.
@@ -10,7 +11,7 @@ export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   if (routeArea(pathname) === "public" && pathname !== ROUTES.landing && pathname !== ROUTES.adminsOnly) return NextResponse.next();
 
-  const account = await lookUpAccount(request.headers.get("cookie"));
+  const account = await lookUpAccount(request.headers.get("cookie"), requestOrigin(request.headers));
   if (account === undefined) {
     return new NextResponse("We couldn't verify your session. Please try again.", {
       status: 503,
