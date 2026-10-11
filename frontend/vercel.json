@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://pawfolio-api.onrender.com/api/:path*"
+    },
+    {
+      "source": "/sanctum/:path*",
+      "destination": "https://pawfolio-api.onrender.com/sanctum/:path*"
+    }
+  ]
+}
