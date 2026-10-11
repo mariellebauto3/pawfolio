@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Avatar } from "@/components/ui/avatar";
 import { buttonClasses } from "@/components/ui/button-styles";
 import { ROUTES } from "@/constants/routes";
@@ -27,9 +28,11 @@ function homeLabel(account: Account): string {
 // instead of offering another sign-in. Laravel independently enforces the session on every API (SEC-FE-05).
 export function GuestActions({ layout, onNavigate }: Props) {
   const { account, status } = useSession();
+  const pathname = usePathname();
+  const authPage = pathname === ROUTES.signIn || pathname === ROUTES.signUp || pathname.startsWith(`${ROUTES.signUp}/`);
   const drawer = layout === "drawer";
 
-  if (!account && status !== "signed-out") {
+  if (!authPage && !account && status !== "signed-out") {
     return (
       <span role="status" className="text-sm text-ink-muted">
         {status === "error" ? "Session unavailable" : "Checking session…"}
@@ -37,7 +40,7 @@ export function GuestActions({ layout, onNavigate }: Props) {
     );
   }
 
-  if (!account) {
+  if (authPage || !account) {
     return (
       <>
         <Link href={ROUTES.signUp} onClick={onNavigate} className={buttonClasses(drawer ? { variant: "primary", block: true } : { variant: "tertiary", size: "sm" })}>

@@ -1,9 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { type FieldErrors, isApiError } from "@/lib/api/errors";
+import { announceSessionChange } from "@/lib/auth/session-sync";
 import { useSession } from "@/providers/session-provider";
 import { type StepFields, placeFieldErrors } from "../schemas/sign-up-schemas";
 import { useFormFields } from "./use-form-fields";
@@ -21,7 +21,6 @@ type Options<V> = {
 
 // State for a sign-up wizard (AU-08…AU-17): the typed values and inline errors (useFormFields), and the step.
 export function useSignUpWizard<V extends object>({ initial, stepFields, validateStep, submit }: Options<V>) {
-  const router = useRouter();
   const session = useSession();
   const [step, setStep] = useState(0);
   const { values, errors, setErrors, set, text, markSaved, isSaved } = useFormFields(initial, (current) => validateStep(step, current));
@@ -62,13 +61,16 @@ export function useSignUpWizard<V extends object>({ initial, stepFields, validat
     }
 
     setProblem(null);
+    const resumeSessionChecks = session.pauseSessionChecks();
     try {
       await submit(values);
       markSaved();
-      // The API signs the new account in; it is Pending Verification, so the status screen is its only page (AU-18).
-      await session.refresh();
-      router.replace(ROUTES.accountStatus);
+      // Replace the guest document and its router cache with the newly authenticated status screen (AU-18).
+      announceSessionChange();
+      window.location.replace(ROUTES.accountStatus);
+      await new Promise<never>(() => {});
     } catch (failure) {
+      resumeSessionChecks();
       if (!isApiError(failure)) return setProblem(UNKNOWN_PROBLEM);
       if (failure.kind !== "validation") return setProblem(failure.message);
       const placed = placeFieldErrors(stepFields, failure.fieldErrors);
