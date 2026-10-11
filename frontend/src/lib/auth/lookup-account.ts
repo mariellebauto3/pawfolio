@@ -1,10 +1,9 @@
 import { env, readSessionCookieName } from "@/config/env";
 import { readCookie } from "@/lib/api/cookies";
 import { createServerApiClient } from "@/lib/api/server";
+import { SERVER_CALL_TIMEOUT_MS } from "@/lib/api/server-transport";
 import { fetchSession } from "@/lib/auth/session";
 import type { Account } from "@/types/account";
-
-const SESSION_LOOKUP_TIMEOUT_MS = 2000;
 
 /**
  * Whether knowing who the visitor is takes an API call. False when the browser holds no Laravel session cookie:
@@ -17,9 +16,9 @@ export function needsAccountLookup(cookieHeader: string | null): boolean {
 }
 
 /**
- * The signed-in account for an incoming request, for the optimistic redirects in proxy.ts, where an answer that takes
- * too long is worth less than not waiting for it.
- * Resolves to null when signed out, or undefined when the API couldn't tell us (down, or slower than 2 s): callers
+ * The signed-in account for an incoming request, checked before protected navigation in proxy.ts.
+ * Use the same timeout as page API calls so ordinary hosted latency does not reject a valid session.
+ * Resolves to null when signed out, or undefined when the API couldn't tell us: callers
  * fail closed without rendering the requested page. Never throws.
  *
  * Server Components use renderAccount() instead: it shares one lookup across a whole render and reports failures
@@ -33,8 +32,15 @@ export async function lookUpAccount(cookieHeader: string | null, origin: string 
 
   const client = createServerApiClient({ cookie: cookieHeader, origin });
   try {
-    return await fetchSession(client, { signal: AbortSignal.timeout(SESSION_LOOKUP_TIMEOUT_MS) });
-  } catch {
+    return await fetchSession(client, { signal: AbortSignal.timeout(SERVER_CALL_TIMEOUT_MS) });
+  } catch (error) {
+    // Log only classification, never cookies, account details, response bodies or exception messages.
+    const details = error && typeof error === "object" ? error as { name?: unknown; kind?: unknown; status?: unknown } : {};
+    console.error("Pawfolio navigation session check failed", {
+      name: typeof details.name === "string" ? details.name : "UnknownError",
+      kind: typeof details.kind === "string" ? details.kind : "unknown",
+      status: typeof details.status === "number" ? details.status : null,
+    });
     return undefined;
   }
 }

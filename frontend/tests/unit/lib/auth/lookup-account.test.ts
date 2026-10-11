@@ -10,6 +10,24 @@ function stubApi(response: () => Promise<Response>) {
 }
 
 describe("lookUpAccount", () => {
+  it("allows a healthy hosted session check to take longer than two seconds", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async (_url, init) => {
+      await new Promise<void>((resolve, reject) => {
+        const onAbort = () => {
+          clearTimeout(timer);
+          reject(init?.signal?.reason);
+        };
+        const timer = setTimeout(() => {
+          init?.signal?.removeEventListener("abort", onAbort);
+          resolve();
+        }, 2100);
+        init?.signal?.addEventListener("abort", onAbort, { once: true });
+      });
+      return Response.json({ data: account });
+    }));
+    await expect(lookUpAccount("pawfolio-session=s1")).resolves.toEqual(account);
+  });
+
   it("uses the page origin for Sanctum instead of the configured app origin", async () => {
     const fetchMock = stubApi(async () => Response.json({ data: account }));
     await expect(lookUpAccount("pawfolio-session=s1", "https://pawfolio-service.vercel.app")).resolves.toEqual(account);
