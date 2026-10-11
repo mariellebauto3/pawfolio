@@ -1,0 +1,35 @@
+import { cn } from "@/lib/utils/cn";
+
+type Props = {
+  className?: string;
+};
+
+/**
+ * The Pawfolio brand mark: a paw whose toes spell F-O-L-I-O over a yellow pad, so the mark reads "Paw-folio". Converted
+ * 1:1 from the logo's vector PDF; colours come from the brand-mark tokens (src/styles/tokens.css). Decorative: whatever
+ * shows it also shows or announces the name "Pawfolio". Size it by height (`h-10`); the width follows (ratio 1.16).
+ */
+export function BrandMark({ className }: Props) {
+  return (
+    <svg
+      viewBox="76.8 76.3 458.2 393.7"
+      aria-hidden="true"
+      focusable="false"
+      className={cn("aspect-[458/394] w-auto shrink-0", className)}
+    >
+      <g transform="matrix(1 0 0 -1 0 792)">
+      <g fill="none" stroke="var(--pf-brand-mark-blue)" strokeWidth="30" strokeLinecap="round" strokeLinejoin="round">
+      <path transform="matrix(0.4813221 0.7135893 0.7135893 -0.4813221 142.889 559.5978)" d="M-20 58L-20-58L32-58M-20-2L20-2"/>
+      <path transform="matrix(0.860744 0 0 -0.860744 314.177 650.8367)" d="M-24-58L-24 58L32 58"/>
+      <path transform="matrix(0.7599921 -0.404095 -0.404095 -0.7599921 411.4412 626.7359)" d="M0-58L0 58M-26-58L26-58M-26 58L26 58"/>
+      </g>
+      <path fill="var(--pf-brand-mark-blue)" d="M250.3526 644.5161C263.7431 619.3322 259.6269 590.9561 241.1586 581.1364C222.6905 571.3166 196.8638 583.7718 183.4734 608.9558C170.0828 634.1397 174.199 662.5157 192.6673 672.3354C211.1355 682.1551 236.9621 669.7 250.3526 644.5161Z"/>
+      <path fill="var(--pf-white)" fillOpacity="0.85" d="M201.0384 645.5911C204.1628 639.7149 203.9736 633.5038 200.6158 631.7185C197.2579 629.933 192.003 633.2494 188.8785 639.1256C185.754 645.0018 185.9432 651.2128 189.3011 652.9982C192.659 654.7837 197.9139 651.4674 201.0384 645.5911Z"/>
+      <path fill="var(--pf-brand-mark-blue)" d="M506.6434 528.1999C482.997 512.2503 454.3462 513.3779 442.6498 530.7186C430.9534 548.0591 440.6407 575.0462 464.287 590.9958C487.9333 606.9454 516.5842 605.8178 528.2806 588.4772C539.9769 571.1366 530.2896 544.1495 506.6434 528.1999Z"/>
+      <path fill="var(--pf-white)" fillOpacity="0.85" d="M502.5578 577.3564C497.0402 573.6348 490.8435 573.1738 488.7169 576.3266C486.5903 579.4794 489.3391 585.0522 494.8566 588.7738C500.3741 592.4954 506.5708 592.9565 508.6974 589.8036C510.824 586.6508 508.0752 581.078 502.5578 577.3564Z"/>
+      <path fill="var(--pf-brand-mark-yellow)" d="M314.177 530.3326C357.2143 530.3326 383.0366 504.5102 408.859 465.7767C434.6813 427.0432 477.7185 409.8283 477.7185 371.0949C477.7185 336.6651 447.5924 323.7539 417.4664 323.7539C374.4292 323.7539 352.9106 339.2474 314.177 339.2474C275.4436 339.2474 253.925 323.7539 210.8878 323.7539C180.7617 323.7539 150.6357 336.6651 150.6357 371.0949C150.6357 409.8283 193.6729 427.0432 219.4952 465.7767C245.3175 504.5102 271.1398 530.3326 314.177 530.3326Z"/>
+      <path fill="none" stroke="var(--pf-white)" strokeOpacity="0.55" strokeWidth="10" strokeLinecap="round" transform="matrix(0.860744 0 0 -0.860744 4.309144 909.06)" d="M300 500C285 520 270 545 262 560"/>
+      </g>
+    </svg>
+  );
+}

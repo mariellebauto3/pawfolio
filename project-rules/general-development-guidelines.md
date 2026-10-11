@@ -70,9 +70,10 @@ A new module gets a new row here first, then folders in both apps.
 | Environment variables | `UPPER_SNAKE_CASE`, public ones prefixed `NEXT_PUBLIC_` | `NEXT_PUBLIC_API_URL` |
 | Git branches | `type/scope-short-description` | `feature/requests-approve-dialog` |
 
-Use the **domain words from the proposal** exactly: *Pet, Human, Admin, Furparent, résumé, Home Profile, Open to Adopt,
+Use the **domain words from the proposal** exactly: *Pet, Human, Admin, Furparent, resume, Home Profile, Open to Adopt,
 Looking for a Home, In Process, Hired, alumni, adoption request, Invite to Apply, Meet & Greet*. Don't invent synonyms
-(e.g. never "owner", "listing" or "application" for these).
+(e.g. never "owner", "listing" or "application" for these). Write **resume** without accents in all copy, code and
+docs (agreed 2026-10-02); the proposal and LoFi spell it "résumé", which is the same word.
 
 ## 5. Definition of done
 
@@ -82,7 +83,7 @@ A task is done when:
 - [ ] Business rules are enforced on the backend, with a test for each rule touched.
 - [ ] It works on desktop (1440 px) **and** phone (390 px) layouts.
 - [ ] Loading, empty and error states exist where the LoFi shows them.
-- [ ] Lint and type checks pass (`npm run lint`, `php artisan test`, builds succeed).
+- [ ] Lint, type checks and tests pass (`npm run lint`, `npm test`, `php artisan test`, builds succeed).
 - [ ] The security checklist (`security-guidelines.md` §10.1) is complete.
 - [ ] No secrets, personal data or debug output are committed.
 - [ ] Docs or rules are updated if behaviour or conventions changed.

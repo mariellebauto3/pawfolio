@@ -20,6 +20,52 @@ Sign-up, sign-in and the admin verification gate. Every new Pet and Human accoun
 
 ## Screens, dialogs and states to build
 
+Built: AU-01 to AU-06 (FE-06), AU-07 to AU-17 (FE-07), AU-18 to AU-21 (FE-08) and AU-22 to AU-26 (FE-09).
+Endpoints: `docs/api/auth.md`.
+
+**Sign-in transition.** `hooks/use-sign-in.ts` uses the verified account returned after Laravel initializes the
+session, then replaces the document with the account's dashboard. It does not refresh or publish the account to
+the guest page. Automatic session checks stay paused through navigation, including checks already in flight;
+the destination loads its session through the existing server lookup. The form stays pending until replacement.
+Failures resume checks and retain the existing form errors without redirecting. Other tabs are notified only
+after successful authentication, and there is no additional browser `/auth/me` request or artificial delay.
+
+**Sign-up wizards (FE-07).** `forms/pet-sign-up-wizard.tsx` and `forms/human-sign-up-wizard.tsx` share
+`hooks/use-sign-up-wizard.ts`: typed values stay in React state only (no browser storage, no URL: SEC-FE-04), so a
+reload starts over and the browser warns first. Each step is checked on Next by `schemas/sign-up-schemas.ts`; a `422`
+from the API is shown on its field and the wizard returns to the first step that has one. On success the account is
+signed in as Pending Verification and goes to `/account-status`. The sign-up endpoints are not built yet (BE-04), so
+the wizards run against the mock (`NEXT_PUBLIC_API_MODE=mock`, as the `signed-out` persona).
+
+**Account-status screens (FE-08).** Both pages are Server Components that read the account and its status from the
+API (`api/account-status.ts`) and send anyone who doesn't belong there to their own home. `/account-status` renders
+`components/account-status-screen.tsx`: Pending (`AU-18`, with what was submitted), Denied (`AU-20`, the admin's
+reason and "Correct and resubmit"), Suspended (`AU-21`, the reason only) and the message for an account closed while
+signed in. `/account/edit` (`AU-19`) is for Pending and Denied accounts only: `forms/pet-submission-form.tsx` and
+`forms/human-submission-form.tsx` show the sign-up fields again, filled in, through the field components the wizards
+use (`components/*-fields.tsx`) and the same checks (`schemas/submission-schemas.ts`). Files are optional there:
+leaving one out keeps the one on file. Saving returns to `/account-status` with a toast, Pending again. The owner
+never gets their documents back, only what was sent and when (SEC-PRIV-01). The endpoints are not built yet (BE-06),
+so the screens run against the mock.
+
+**Admin verification (FE-09).** Both pages are Server Components that read from the admin endpoints
+(`api/verification-review.ts`). The queue is newest first. The sidebar's count is the accounts that arrived since
+this admin last opened Verification; it is read and cleared by the Accounts module (`features/accounts`,
+`api/admin-sidebar.ts`), for every counted section alike. `/admin/verification`
+(`AU-22`) renders `components/verification-queue.tsx`: the tabs All / Pet / Human, the search by name
+(`components/verification-search.tsx`) and the pages all live in the URL (`?tab=pet&q=carla&page=2`).
+`/admin/verification/[accountId]` (`AU-23`, `AU-24`) renders `components/verification-review-screen.tsx`: the
+submitted details, the documents and the decision, with the earlier denial on a resubmission and the place in the
+queue with Next. `components/review-documents.tsx` loads each file through the admin endpoint with
+`useDocumentFile` (`src/hooks/`) and shows it from memory; `DocumentViewer` (`src/components/overlays/`) opens it full
+size. No URL to a
+document exists, and only a JPG, PNG or PDF is ever shown (SEC-PRIV-01, SEC-FE-09). `components/review-decision.tsx`
+holds the checklist (a working aid: every check must be ticked before Approve, nothing is sent), Approve (`AU-26`
+toast) and `dialogs/deny-account-dialog.tsx` (`AU-25`: a reason is required, and a message when the reason is
+"Other"; rules in `src/lib/auth/verification-review.ts`). After a decision the page reloads what the API says: the
+outcome, the status badge and the sidebar count. The endpoints are not built yet (BE-08), so the screens run against
+the mock as the `admin` persona; the mock remembers decisions, so an approved owner can sign in to the member shell.
+
 | ID | Name | Type | Role | Route (planned) |
 | --- | --- | --- | --- | --- |
 | AU-01 | Landing page | Screen | Visitor | `/` |
@@ -39,10 +85,10 @@ Sign-up, sign-in and the admin verification gate. Every new Pet and Human accoun
 | AU-15 | Human sign-up · 3 Address | Screen | Visitor | `/sign-up/human` |
 | AU-16 | Human sign-up · 4 Valid ID | Screen | Visitor | `/sign-up/human` |
 | AU-17 | Human sign-up · 5 Review | Screen | Visitor | `/sign-up/human` |
-| AU-18 | Pending approval screen | Screen | Pet | `/account-status` |
-| AU-19 | Edit submitted details | Screen | Pet | `/account/edit` |
-| AU-20 | Account denied | Screen | Human | `/account-status` |
-| AU-21 | Account suspended | Screen | Pet | `/account-status` |
+| AU-18 | Pending approval screen | Screen | Pet, Human | `/account-status` |
+| AU-19 | Edit submitted details | Screen | Pet, Human | `/account/edit` |
+| AU-20 | Account denied | Screen | Pet, Human | `/account-status` |
+| AU-21 | Account suspended | Screen | Pet, Human | `/account-status` |
 | AU-22 | Admin · Verification queue | Screen | Admin | `/admin/verification` |
 | AU-23 | Admin · Review pet account | Screen | Admin | `/admin/verification/[accountId]` |
 | AU-24 | Admin · Review human account (resubmitted) | Screen | Admin | `/admin/verification/[accountId]` |

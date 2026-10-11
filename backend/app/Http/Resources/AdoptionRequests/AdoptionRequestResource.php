@@ -1,0 +1,216 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Resources\AdoptionRequests;
+
+use App\Enums\AdoptionRequestStatus;
+use App\Enums\MeetAndGreetStatus;
+use App\Http\Resources\Profiles\HomeProfileResource;
+use App\Http\Resources\Profiles\PetResource;
+use App\Models\AdoptionRequest;
+use App\Models\HomeProfile;
+use App\Models\MatchScore;
+use App\Models\MeetAndGreet;
+use App\Models\MeetGreetSlot;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+/**
+ * AdoptionRequest resource matching frontend/src/types/adoption-request.ts (BE-16..BE-18, SEC-PRIV-02/04).
+ */
+class AdoptionRequestResource extends JsonResource
+{
+    /** The open slots a request carries at most; a home with more shows its soonest. */
+    public const MAX_SLOTS = 50;
+
+    private bool $includeDetails = false;
+
+    public function withDetails(bool $include = true): self
+    {
+        $this->includeDetails = $include;
+
+        return $this;
+    }
+
+    public function toArray(Request $request): array
+    {
+        /** @var AdoptionRequest $ar */
+        $ar = $this->resource;
+        $ar->loadMissing(['pet.photos', 'homeProfile.householdMembers']);
+
+        $status = $ar->getStatus()->value;
+
+        $data = [
+            'id' => $ar->id,
+            'status' => $status,
+            // The summary, and the age a row of the inbox shows beside the breed (RQ-09).
+            'pet' => $ar->pet ? [...PetResource::summary($ar->pet), 'approximate_age_months' => $ar->pet->approximate_age_months] : null,
+            'home_profile' => $ar->homeProfile ? self::home($ar->homeProfile) : null,
+            'cover_letter' => $ar->cover_letter,
+            'caretaker_notes' => $ar->caretaker_notes,
+            'approval_message' => $ar->approval_message,
+            'decline_reason' => $ar->decline_reason,
+            'decision_message' => $ar->decision_message,
+            'withdraw_reason' => $ar->withdraw_reason,
+            'sent_at' => $ar->sent_at?->toISOString(),
+            'expires_at' => $ar->expires_at?->toISOString(),
+            'approved_at' => $ar->approved_at?->toISOString(),
+            'meet_scheduled_at' => $ar->meet_scheduled_at?->toISOString(),
+            'awaiting_decision_at' => $ar->awaiting_decision_at?->toISOString(),
+            'overdue_flagged_at' => $ar->overdue_flagged_at?->toISOString(),
+            'closed_at' => $ar->closed_at?->toISOString(),
+        ];
+
+        if (! $this->includeDetails) {
+            return $data;
+        }
+
+        $ar->loadMissing([
+            'activeMeetAndGreet.slot',
+            'latestMeetAndGreet.slot',
+            'latestMeetAndGreet.proposedSlot',
+            'homeProfile.meetAndGreetSlots',
+            'adoption',
+        ]);
+
+        $matchScore = MatchScore::query()
+            ->where('pet_id', $ar->pet_id)
+            ->where('home_profile_id', $ar->home_profile_id)
+            ->value('score');
+
+        $cooldownUntil = null;
+        if (in_array($status, [AdoptionRequestStatus::Declined->value, AdoptionRequestStatus::NotAdopted->value], true) && $ar->closed_at) {
+            $cooldownEnd = $ar->closed_at->copy()->addDays(30);
+            if ($cooldownEnd->isFuture()) {
+                $cooldownUntil = $cooldownEnd->toISOString();
+            }
+        }
+
+        $viewer = $request->user();
+        $isParticipantOrAdmin = $viewer && (
+            $viewer->isAdmin()
+            || ($viewer->pet && $viewer->pet->id === $ar->pet_id)
+            || ($viewer->homeProfile && $viewer->homeProfile->id === $ar->home_profile_id)
+        );
+
+        $activeMeet = $ar->activeMeetAndGreet;
+        $latestMeet = $ar->latestMeetAndGreet;
+        $isMeetConfirmed = ($activeMeet && $activeMeet->getStatus() === MeetAndGreetStatus::Confirmed)
+            || ($latestMeet && $latestMeet->getStatus() === MeetAndGreetStatus::Confirmed)
+            || in_array($status, [
+                AdoptionRequestStatus::AwaitingDecision->value,
+                AdoptionRequestStatus::Adopted->value,
+            ], true);
+
+        $formattedActiveMeet = $activeMeet ? self::formatMeetAndGreet($activeMeet) : null;
+        $formattedLatestMeet = $latestMeet ? self::formatMeetAndGreet($latestMeet) : null;
+
+        $data['match_score'] = $matchScore !== null ? (int) $matchScore : null;
+        $data['cooldown_until'] = $cooldownUntil;
+        // Whether the confirmed meeting's time is behind us, so the human's decision is open (MG-11, MG-12). The
+        // screens read this instead of comparing clocks: it is true before the job moves the status as well.
+        $data['meeting_passed'] = $ar->meetingHasPassed();
+        // The adoption an Adopted request ended in, for its record (AL-04, AL-06); null for every other request,
+        // and once an admin removed the link (AL-07).
+        $data['adoption'] = $ar->adoption && $ar->adoption->isActiveLink()
+            ? ['id' => $ar->adoption->id, 'adopted_at' => $ar->adoption->adopted_at?->toISOString()]
+            : null;
+        $data['meet_and_greet'] = $formattedActiveMeet ?? $formattedLatestMeet;
+        $data['active_meet_and_greet'] = $formattedActiveMeet;
+        $data['latest_meet_and_greet'] = $formattedLatestMeet;
+
+        // Contact details unlocked ONLY after a Meet & Greet is confirmed (SEC-PRIV-02, MG-07).
+        if ($isMeetConfirmed && $isParticipantOrAdmin) {
+            $contactPayload = [
+                'caretaker_name' => $ar->pet?->caretaker_name,
+                'caretaker_contact_number' => $ar->pet?->caretaker_contact_number,
+                'human_full_name' => $ar->homeProfile?->full_name,
+                'human_contact_number' => $ar->homeProfile?->contact_number,
+                'human_street_address' => $ar->homeProfile?->street_address,
+                'human_city' => $ar->homeProfile?->city,
+                'human_province' => $ar->homeProfile?->province,
+            ];
+            $data['contact_unlocked'] = true;
+            $data['contacts'] = $contactPayload;
+            $data['unlocked_contact'] = $contactPayload;
+        } else {
+            $data['contact_unlocked'] = false;
+            $data['contacts'] = null;
+            $data['unlocked_contact'] = null;
+        }
+
+        if (in_array($status, [AdoptionRequestStatus::Approved->value, AdoptionRequestStatus::MeetScheduled->value], true) && $ar->homeProfile) {
+            // The slots the pet can book, or the human can offer instead: still ahead and held by nobody.
+            $data['available_slots'] = $ar->homeProfile->meetAndGreetSlots()
+                ->bookable()
+                ->orderBy('starts_at')
+                ->limit(self::MAX_SLOTS)
+                ->get()
+                ->map(fn (MeetGreetSlot $slot) => self::formatSlot($slot))
+                ->values()
+                ->all();
+        } else {
+            $data['available_slots'] = [];
+        }
+
+        return $data;
+    }
+
+    /**
+     * The home as a request names it: the summary, and the two public facts a row of My requests shows beside the
+     * city (RQ-07). Never the address or the phone number (SEC-PRIV-03); those are `contacts`, above.
+     *
+     * @return array<string, mixed>
+     */
+    private static function home(HomeProfile $home): array
+    {
+        $value = fn ($answer) => $answer instanceof \BackedEnum ? $answer->value : $answer;
+
+        return [
+            ...HomeProfileResource::summary($home),
+            'home_type' => $value($home->home_type),
+            'household_members' => $home->householdMembers->map(fn ($row) => $value($row->member))->values()->all(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function formatSlot(MeetGreetSlot $slot): array
+    {
+        return [
+            'id' => $slot->id,
+            'home_profile_id' => $slot->home_profile_id,
+            'starts_at' => $slot->starts_at?->toISOString(),
+            'place_type' => $slot->placeType()->value,
+            'place_details' => $slot->place_details,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function formatMeetAndGreet(MeetAndGreet $mg): array
+    {
+        $mg->loadMissing(['slot', 'proposedSlot', 'endedBy']);
+
+        return [
+            'id' => $mg->id,
+            'adoption_request_id' => $mg->adoption_request_id,
+            'meet_greet_slot_id' => $mg->meet_greet_slot_id,
+            'status' => $mg->getStatus()->value,
+            'booked_at' => $mg->booked_at?->toISOString(),
+            'confirmed_at' => $mg->confirmed_at?->toISOString(),
+            'ended_at' => $mg->ended_at?->toISOString(),
+            'ended_by_user_id' => $mg->ended_by_user_id,
+            // Which side ended it, so a screen can say "you" or name the other side; null when its time simply came.
+            'ended_by' => $mg->endedBy?->getRole()->value,
+            'end_reason' => $mg->end_reason,
+            'end_details' => $mg->end_details,
+            'proposed_slot_id' => $mg->proposed_slot_id,
+            'slot' => $mg->slot ? self::formatSlot($mg->slot) : null,
+            'proposed_slot' => $mg->proposedSlot ? self::formatSlot($mg->proposedSlot) : null,
+        ];
+    }
+}

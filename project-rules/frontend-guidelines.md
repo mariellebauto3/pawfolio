@@ -48,7 +48,9 @@ routes and the requirements they cover. Update it when scope changes.
 | A type used across modules | `src/types/` |
 
 **Import direction:** `app → features → components → lib`. Features must not import from other features' internals; if two
-features need the same thing, move it to `components/`, `lib/`, `hooks/` or `types/`.
+features need the same thing, move it to `components/`, `lib/`, `hooks/` or `types/`. When a shell needs a feature's
+data (the top bar's Alerts), the contract is a context in `src/providers/` and the feature fills it from the route
+group's `layout.tsx`; shared code still imports no feature.
 
 ## 3. Routing
 
@@ -58,10 +60,13 @@ Planned routes (from the LoFi, full list in the feature READMEs):
 | --- | --- |
 | Visitor | `/`, `/sign-in`, `/forgot-password`, `/reset-password`, `/sign-up`, `/sign-up/pet`, `/sign-up/human` |
 | Account status | `/account-status`, `/account/edit` |
+| Legacy redirect | `/admins-only` redirects to the signed-in account's dashboard, or sign-in when signed out; it renders no notice |
 | Member | `/feed`, `/posts/[postId]`, `/matches`, `/browse`, `/search`, `/pets/[petId]`, `/homes/[homeId]`, `/me`, `/resume/edit`, `/home-profile/edit`, `/availability`, `/invites`, `/apply/[homeId]`, `/requests`, `/requests/[requestId]`, `/notifications`, `/bookmarks`, `/stats`, `/activity`, `/settings` |
 | Admin | `/admin`, `/admin/verification`, `/admin/verification/[accountId]`, `/admin/reports`, `/admin/reports/[reportId]`, `/admin/requests`, `/admin/requests/[requestId]`, `/admin/resolve`, `/admin/accounts`, `/admin/accounts/[accountId]`, `/admin/announcements`, `/admin/activity-logs` |
 
-- Route groups `(public)`, `(account-status)`, `(member)` don't appear in URLs; they share layouts (shells).
+- Route groups `(public)`, `(account-status)`, `(member)` don't appear in URLs; they share layouts (shells). Each
+  group's `layout.tsx` already renders its shell, `error.tsx` and `loading.tsx`: pages render only their content,
+  starting with `PageHeader` (`src/components/README.md`, "Page shells").
 - Tabs and filters use query strings (`?tab=closed`), so views are linkable.
 - Dialogs are components, not routes, unless a dialog must be shareable by URL.
 - Role and account-status checks happen on the **server** (Laravel). `proxy.ts` may do optimistic redirects only.
@@ -76,9 +81,21 @@ Planned routes (from the LoFi, full list in the feature READMEs):
 
 ## 5. Data and API
 
-- The backend is the Laravel API at `NEXT_PUBLIC_API_URL` (`/api/v1/...`). All HTTP goes through `src/lib/api` — never call `fetch` to the API directly from components.
-- Auth uses **Laravel Sanctum SPA cookie sessions** (NFR2: session-based). Send credentials with requests; handle `401` (sign in), `403` (not allowed / account not active → status screen), `422` (show field errors).
-- Types for API responses live in `src/types/` (shared) or `src/features/<module>/types/`; they mirror Laravel API Resources.
+- The backend is the Laravel API at `NEXT_PUBLIC_API_URL` (`/api/v1/...`). All HTTP goes through `src/lib/api`: `api` from
+  `@/lib/api/client` in the browser, `getServerApi()` from `@/lib/api/server` in Server Components. Never call `fetch` on the
+  API directly. How-to: `docs/architecture/frontend-data-layer.md`.
+- Auth uses **Laravel Sanctum SPA cookie sessions** (NFR2: session-based). The client sends credentials and the CSRF token.
+  Failures throw `ApiError`: `401` → sign-in and `403 account_not_active` → status screen happen automatically; screens show
+  `message` for `409` rules and `fieldErrors` for `422`. Read the current account with `useSession()`.
+- Types for API responses live in `src/types/` (shared) or `src/features/<module>/types/`; they mirror Laravel API Resources,
+  field names in `snake_case` as the API sends them (ADR 0004).
+- Build screens before their endpoint exists with **mock mode** (`NEXT_PUBLIC_API_MODE=mock`): add handlers in
+  `src/lib/api/mock/handlers/` that follow the endpoint's entry in `docs/api/`.
+- Nothing is pushed to the browser (no websockets). A count that must stay current is asked for again on a timer
+  and when the window is looked at again, as Alerts does (`features/notifications/hooks/alerts-store.ts`): not while
+  the tab is hidden, never with a redirect on failure (`skipAuthRedirect`), and it stops once the session is over.
+- Photos from the API are rendered with `ApiImage` (`src/components/ui/api-image.tsx`), or with `Photo` and `Avatar`
+  which use it, never with `next/image` directly: it retries a picture that failed and falls back to a placeholder.
 - Show loading states (`loading.tsx` or skeletons) and handle empty and error states for every data view.
 
 ## 6. Security
@@ -89,6 +106,11 @@ Follow **[security-guidelines.md](security-guidelines.md)** §6 (authoritative):
 ## 7. Styling
 
 - Tailwind CSS utility classes; shared values (colours, radii, spacing) are tokens in `src/styles/` referenced by Tailwind — no hard-coded hex values in components.
+- Values are written only in `src/styles/tokens.css`; `src/app/globals.css` maps them into the Tailwind theme (`@theme`).
+  Tailwind's default colours, radii, shadows and type sizes are switched off, so only token utilities exist
+  (`bg-surface`, `rounded-card`, `shadow-menu`, `text-2xl`). Need a new value? Add a token and document it in
+  `docs/design/hifi/README.md`. Reference page: `/design-tokens` (development only).
+- Focus styles come from the global `:focus-visible` rule in `globals.css`. Don't remove outlines or restyle focus per component.
 - Mobile-first: write the phone layout, then add `md:`/`lg:` for larger screens. Verify at 390 px and 1440 px.
 
 ## 8. Forms and validation
@@ -100,8 +122,10 @@ Follow **[security-guidelines.md](security-guidelines.md)** §6 (authoritative):
 ## 9. Testing
 
 - `tests/unit/` — pure functions and hooks; `tests/integration/` — components with mocked API; `tests/e2e/` — key flows
-  (sign-up → pending, request → approve → book → adopt). Test framework choice is recorded in `docs/decisions/` when added.
+  (sign-up → pending, request → approve → book → adopt).
+- Unit tests use **Vitest** (ADR 0003): `tests/**/*.test.ts`, Node environment. Keep logic in pure functions so it can be tested
+  without a browser. Component and e2e tooling get their own record when first needed.
 
 ## 10. Commands
 
-`npm run dev` (http://localhost:3000) · `npm run build` · `npm run lint`
+`npm run dev` (http://localhost:3000) · `npm run build` · `npm run lint` · `npm test` (`npm run test:watch` while working)

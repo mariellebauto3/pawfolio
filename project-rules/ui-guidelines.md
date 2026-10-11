@@ -9,25 +9,52 @@ Every screen, dialog and state has an ID (e.g. `MG-11`); use it in branches, PRs
 - **Two target layouts:** desktop at 1440 × 900 and phone at 390 × 844. Everything in between must reflow without horizontal
   page scrolling. Tables may scroll sideways inside their card on phones.
 - **Page shells** (see `frontend/src/components/layout/`):
-  - *Guest shell* — visitor top bar (How it works, Success stories, FAQ, Join now, Sign in) + footer. Screens `AU-01`–`AU-17`.
+  - *Guest shell* — visitor top bar (Home, How it works, Success stories, FAQ, Join now, Sign in) + footer. Screens
+    `AU-01`–`AU-17`. On public pages that allow signed-in visitors, both the desktop bar and phone drawer show
+    the account's name, a link to its dashboard or account-status page, and Log out instead of Join now and Sign in.
+    While the session is unknown, show its checking or error state. Home was added 2026-10-03 (not in the LoFi)
+    for visitors who don't know the logo is a link; it and
+    the logo both scroll back to the hero when the landing page is already open.
   - *Account-status shell* — minimal bar with Help center and Log out only. Pending, Denied, Suspended accounts see nothing else (`AU-18`–`AU-21`).
   - *Member shell* — top bar: logo, search, Home, Pets for You / Homes for You, Browse, Requests, Alerts, Me. Max content width 1128 px.
   - *Admin shell* — left sidebar (Dashboard, Verification, Reports, Requests & Meets, Resolve Issues, Accounts & Alumni,
-    Announcements, Activity Logs) with counts.
-- **Phone adaptations** (as in the mobile PDF): the top bar keeps icon tabs with short labels and moves search to its own row;
-  feed side rails are hidden; request detail shows the action panel first; the admin sidebar becomes a wrapped tab strip;
-  dialogs become full width; multi-column grids become one column.
+    Announcements, Activity Logs) with counts. The signed-in admin and Log out are the sidebar's foot: Log out is
+    a row shaped like the links (same width, same 44 px height, an icon and the words), on the same left edge as
+    the admin's name. Next.js's own development badge is moved to the bottom right (`next.config.ts`), since it
+    was drawn over that corner. A count is news: what arrived in the section since the admin last opened it. It
+    clears the moment the section is opened, for all three counted sections (Verification, Reports, Requests &
+    Meets), and comes back only for something new; a queue's size is on the dashboard and on its own page
+    (2026-10-10).
+- **Phone adaptations** (as in the mobile PDF, except the navigation, below): feed side rails are hidden; request detail
+  shows the action panel first; dialogs become full width; multi-column grids become one column.
+- **Navigation below `lg`** (changed 2026-10-02 from the mobile LoFi's crowded top tabs and wrapped admin strip):
+  - *Visitor* (below `md`, added 2026-10-03): the top bar holds the logo and a menu button; Home, How it works,
+    Success stories, FAQ, Join now and Sign in open in a drawer. Visitors pass through once, so one tap more is fine.
+  - *Member:* the top bar keeps the logo mark, search and the Me avatar; Home, Matches, Browse, Requests and Alerts move
+    to a tab bar fixed to the bottom of the screen, with their counts. No hamburger: these are the screens members
+    return to all day, so they stay one tap away.
+  - *Alerts* (decided 2026-10-09; the mobile LoFi's `NT-01` hangs the dropdown from the old top tabs): the
+    dropdown opens from the desktop top bar only. In the phone tab bar, Alerts opens the Notifications page, which
+    is the same list at that width.
+  - *Admin:* a top bar with the current section and a menu button that opens the sidebar's links and counts, then
+    the signed-in admin and Log out, in a drawer.
 - The pet's and human's shells are the same; content changes by role. Pets see "Homes for You", humans "Pets for You".
 
 ## 2. Visual language
 
-- LoFi is grayscale on purpose. The HiFi design (future, `docs/design/hifi/`) sets colours, fonts and brand. Until then, build
-  with neutral tokens defined once in `frontend/src/styles/` — never hard-code colours in components.
+- LoFi is grayscale on purpose. The HiFi design system (`docs/design/hifi/README.md`) sets colour, fonts and shape:
+  **blue, yellow and gray**, the colours dogs see. Values live once in `frontend/src/styles/tokens.css`; components use role
+  names (`bg-surface`, `text-ink-muted`, `bg-primary`), never raw colours or the brand ramps.
+- Meaning travels on the blue ↔ yellow axis. Red is only for errors and destructive actions; yellow is for good news
+  (Hired, match score), always as a fill with dark text.
 - **Buttons by emphasis:** one primary (filled) action per area; secondary (outlined); tertiary (text only). Destructive
   actions are never primary by default and always confirmed.
 - **Status badges:** outlined (dashed) for in-progress statuses; solid for final or highlighted ones (Hired, Adopted, Furparent,
-  Decision needed). Use the exact status names from the proposal.
-- Image placeholders keep their aspect ratios: covers wide, avatars round, pet photos 4:3.
+  Decision needed). Use the exact status names from the proposal. Tones: `badge-progress`, `badge-celebrate`,
+  `badge-attention`, `badge-closed` (which status gets which: `docs/design/hifi/README.md`).
+- Image placeholders keep their aspect ratios: covers wide, avatars round, pet photos 4:3. A photo that can't be
+  loaded is tried once more and then replaced by its placeholder in the same frame (`ApiImage`); no screen shows a
+  broken-image icon or an empty hole.
 
 ## 3. Components (reuse before creating)
 
@@ -37,18 +64,37 @@ Empty state, Table, Timeline, Meter, Match card, Post card. Add a new shared com
 
 ## 4. Forms
 
-- Long forms are **wizards** with a visible step indicator and "Step X of N" (NFR1): sign-up (5 steps), résumé (6), Home Profile & quiz (6).
+- Long forms are **wizards** with a visible step indicator and "Step X of N" (NFR1): sign-up (5 steps), resume (6), Home Profile & quiz (6).
 - Show helper text under fields (e.g. "Only your city is shown publicly"); show errors inline next to the field.
 - Verified fields (name, species, breed, age; human name, birthdate) render as **Locked** with a "Request a change" path (`AC-03`).
 - Required reasons (deny, suspend, cancel meeting, resolve issue) block the confirm button until filled.
 - Never lose user input on validation errors; keep "Save draft" where the LoFi shows it.
+- **A search box over a list shows results as it is typed in** (Browse, 2026-10-10): it asks about 300 ms after the
+  last key, Enter still works at once, results that arrive late never undo a key typed since, and the address is
+  replaced rather than added to, so Back doesn't step through every letter. From the first letter, the names that
+  hold what is typed drop down under the box, the ones that start with it first, with the typed part in bold;
+  ↓ ↑ move, Enter or a click opens that profile, Escape closes the list and keeps the words. When no name matches,
+  the list says so and why (adopted pets are in no list, proposal §5).
 
 ## 5. Dialogs, menus and feedback
 
 - Use a **dialog** for: confirmations of irreversible or important actions (Adopt, Withdraw, Deactivate, Suspend, Delete post),
   short forms (Invite to Apply, Report, Add slot), and explanations (Match breakdown). Everything else is a page.
+- **Log out always asks first** (added 2026-10-04, not in the LoFi): every "Log out", for every role and in every
+  shell, opens "Log out of Pawfolio?" with Stay signed in and Log out, so a slip doesn't end the session.
+- **Confirming a Meet & Greet asks first** (added 2026-10-08, not in the LoFi's `MG-05`): Confirm opens "Confirm
+  this Meet & Greet?", which says that each side's contact details are shared, because what is seen can't be unseen.
 - Dialog anatomy: title, optional subtitle, close button, body, footer with actions — cancel on the left, primary on the right.
 - Permanent actions say so in the dialog ("This is permanent") and list what will happen.
+- **Menus highlight one item at most** (2026-10-10): the highlighted item is the one Enter would choose. Pointing at
+  an item highlights it and it stays so while pressed; a menu opened with the mouse shows no highlight until an item
+  is pointed at, and moving off the items clears it. Never style a menu item's `hover` apart from its `focus`.
+- **Notifications are a history** (2026-10-10): the Notifications page lists every notification the account ever
+  got, in sections by age (Today, Yesterday, This week, Earlier this month, then month by month), with how many
+  there are, and "All / Last 7 days / Earlier" above the list to go straight to the older ones.
+- **An announcement is read where its notification is** (2026-10-10): its row shows a preview, and opening it shows
+  the whole message in a dialog, from the Alerts dropdown and from the Notifications page, whose Announcements tab
+  lists everything published for the account's role.
 - **Toasts** confirm a completed action in one short sentence (bottom-left on desktop, full width at the bottom on phones) and
   auto-dismiss after ~5 s.
 - **Empty states** explain why it's empty and offer the next step (e.g. "Take the lifestyle quiz").
@@ -59,7 +105,13 @@ Empty state, Table, Timeline, Meter, Match card, Post card. Add a new shared com
 - Show only actions the current user may take: Adopt/Decline appear only after the meeting time; booking only after approval;
   Apply is replaced by "View my request" when one is open; limit (3 open) and 30-day cooldown dialogs explain blocks (`RQ-05`, `RQ-06`).
 - No status dropdowns anywhere for pets or requests (FR27).
-- Contact details and exact addresses appear only on a confirmed Meet & Greet (`MG-07`).
+- Contact details and exact addresses appear only on a confirmed Meet & Greet (`MG-07`), and stay on the request
+  while the decision after it is open (`MG-11`, `MG-12`) and once it is Adopted (`AL-04`, added 2026-10-09): with no
+  request thread, they are how the two sides arrange the handover. A decline, a cancellation or "It didn't happen"
+  hides them again.
+- **No request thread** (decided 2026-10-09; the LoFi draws one on `RQ-11`, `MG-03`, `MG-07` and `AL-04`): the
+  proposal keeps messaging between a pet and a human as future scope (§10). A request page shows its status and
+  history, and no screen or notification promises a thread.
 - Match scores always come with their top reasons and a way to see the breakdown (`MT-03`).
 
 ## 7. Copy and tone
@@ -67,7 +119,7 @@ Empty state, Table, Timeline, Meter, Match card, Post card. Add a new shared com
 - Pets speak in **first person** on their own screens ("Your request to Ana", "Share an update, Mochi…").
 - Friendly, short, plain language. Sentence case for headings and buttons ("Send request", not "SEND REQUEST").
 - Buttons name the action ("Approve request", "Book this slot"), not "OK" or "Submit" (except final wizard steps).
-- Keep the job-hunting metaphor consistent: résumé, apply, cover letter, Hired, alumni.
+- Keep the job-hunting metaphor consistent: resume, apply, cover letter, Hired, alumni.
 
 ## 8. Accessibility
 

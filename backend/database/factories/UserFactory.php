@@ -2,44 +2,109 @@
 
 namespace Database\Factories;
 
+use App\Enums\AccountStatus;
+use App\Enums\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
-/**
- * @extends Factory<User>
- */
+/** @extends Factory<User> */
 class UserFactory extends Factory
 {
-    /**
-     * The current password being used by the factory.
-     */
+    protected $model = User::class;
+
     protected static ?string $password;
 
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
+            'password' => static::$password ??= bcrypt('password'),
             'remember_token' => Str::random(10),
+            // role + status are system-set only (FR27, SEC-INPUT-04); the
+            // factory's default is a working active human account for tests.
+            'role' => Role::Human->value,
+            'status' => AccountStatus::Active->value,
         ];
     }
 
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
-    public function unverified(): static
+    public function petAccount(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
+        return $this->state(fn (array $attrs) => [
+            'role' => Role::Pet->value,
+            'status' => AccountStatus::Active->value,
+        ]);
+    }
+
+    public function pet(): static
+    {
+        return $this->petAccount();
+    }
+
+    public function humanAccount(): static
+    {
+        return $this->state(fn (array $attrs) => [
+            'role' => Role::Human->value,
+            'status' => AccountStatus::Active->value,
+        ]);
+    }
+
+    public function human(): static
+    {
+        return $this->humanAccount();
+    }
+
+    public function adminAccount(): static
+    {
+        return $this->state(fn (array $attrs) => [
+            'role' => Role::Admin->value,
+            'status' => AccountStatus::Active->value,
+        ]);
+    }
+
+    public function admin(): static
+    {
+        return $this->adminAccount();
+    }
+
+    public function active(): static
+    {
+        return $this->state(fn (array $attrs) => [
+            'status' => AccountStatus::Active->value,
+        ]);
+    }
+
+    public function pendingVerification(): static
+    {
+        return $this->state(fn (array $attrs) => [
+            'role' => Role::Human->value,
+            'status' => AccountStatus::PendingVerification->value,
+        ]);
+    }
+
+    public function denied(): static
+    {
+        return $this->state(fn (array $attrs) => [
+            'role' => Role::Human->value,
+            'status' => AccountStatus::Denied->value,
+        ]);
+    }
+
+    public function suspended(): static
+    {
+        return $this->state(fn (array $attrs) => [
+            'role' => Role::Human->value,
+            'status' => AccountStatus::Suspended->value,
+        ]);
+    }
+
+    public function deactivated(): static
+    {
+        return $this->state(fn (array $attrs) => [
+            'role' => Role::Human->value,
+            'status' => AccountStatus::Deactivated->value,
         ]);
     }
 }

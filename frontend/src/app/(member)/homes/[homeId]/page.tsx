@@ -1,0 +1,84 @@
+import type { Metadata } from "next";
+import { notFound, redirect } from "next/navigation";
+import { HomeProfileView } from "@/components/data-display/home-profile-view";
+import { ROUTES, homeProfilePath } from "@/constants/routes";
+import { getOwnRequests } from "@/features/adoption-requests/api/requests";
+import { ApplyButton } from "@/features/adoption-requests/components/apply-button";
+import { applyStateFor } from "@/features/adoption-requests/schemas/apply-state";
+import { BookmarkButton } from "@/features/bookmarks/components/bookmark-button";
+import { getHomeProfileDetail } from "@/features/discovery/api/discovery";
+import { MatchSummary } from "@/features/discovery/components/match-summary";
+import { MatchBreakdownButton } from "@/features/matching/components/match-breakdown-button";
+import { ReportButton } from "@/features/reports/components/report-button";
+import { isApiError } from "@/lib/api/errors";
+import { getServerApi } from "@/lib/api/server";
+import { requireAccount } from "@/lib/auth/require-account";
+
+export const metadata: Metadata = { title: "Home Profile" };
+
+type Props = {
+  params: Promise<{ homeId: string }>;
+};
+
+// DS-07 Home Profile as a pet reads it: Apply, or "View my request" when one is already open, beside the match.
+// Apply explains a rule that is in the way (RQ-05, RQ-06) instead of opening a form the API would refuse. It
+// shows the city and a household summary only; the address and the phone number are shared on a confirmed
+// Meet & Greet, never here (NFR4, SEC-PRIV-03). The API decides who may see a home: one that isn't Open to Adopt
+// answers 404, a Furparent's included, unless the pet already has a request or an invite with it (SEC-AUTHZ-04).
+// A pet or another human can report it (RP-01); a human's own Home Profile is a different page.
+export default async function HomePage({ params }: Props) {
+  const { homeId } = await params;
+  // Only a plain id goes to the API (SEC-FE-08); anything else is a page that doesn't exist.
+  if (!/^[1-9]\d{0,14}$/.test(homeId)) notFound();
+  const id = Number(homeId);
+
+  const account = await requireAccount(homeProfilePath(id));
+  // A human's own Home Profile has its own page, with what only they see.
+  if (account.role === "human" && account.profile_id === id) redirect(ROUTES.me);
+
+  const api = await getServerApi();
+  const [home, requests] = await Promise.all([
+    getHomeProfileDetail(api, id).catch((error: unknown) => {
+      if (isApiError(error) && error.kind === "not_found") notFound();
+      throw error;
+    }),
+    // Only a pet applies. If its requests can't be read, the page offers Apply and the API answers for the rules.
+    account.role === "pet" ? getOwnRequests(api).catch(() => []) : [],
+  ]);
+
+  const report = <ReportButton target={{ kind: "home", homeProfileId: home.id, ownerName: home.full_name }} />;
+
+  // Humans and admins only read a Home Profile; the actions and the match are the pet's. A human can still report
+  // it; an admin acts on reports and files none.
+  if (account.role !== "pet") return <HomeProfileView home={home} actions={account.role === "human" ? report : undefined} />;
+
+  const state = applyStateFor(home, requests, new Date());
+
+  return (
+    <HomeProfileView
+      home={home}
+      actions={
+        <>
+          <ApplyButton home={{ id: home.id, full_name: home.full_name }} state={state} />
+          <BookmarkButton target={{ kind: "home", id: home.id }} name={home.full_name} saved={home.is_bookmarked === true} />
+          {report}
+        </>
+      }
+      aside={
+        <MatchSummary
+          name={home.full_name}
+          match={home.match}
+          missing={
+            home.has_completed_quiz
+              ? {
+                  text: "Publish your resume to see how well this home fits you.",
+                  action: { href: ROUTES.resumeEdit, label: "Finish your resume" },
+                }
+              : { text: "This home hasn’t finished its lifestyle quiz yet, so there is no score to show." }
+          }
+          breakdown={<MatchBreakdownButton profileId={home.id} name={home.full_name} score={home.match?.score} placement="profile" />}
+        />
+      }
+    />
+  );
+}
