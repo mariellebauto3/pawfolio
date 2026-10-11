@@ -14,25 +14,32 @@ import type { Account } from "@/types/account";
 export type RouteArea = "public" | "member" | "admin" | "account-status";
 
 export function routeArea(pathname: string): RouteArea {
+  pathname = pathOnly(pathname);
   if (startsWithSegment(pathname, ADMIN_ROUTE_PREFIX)) return "admin";
   if (ACCOUNT_STATUS_ROUTE_PREFIXES.some((prefix) => startsWithSegment(pathname, prefix))) return "account-status";
   if (MEMBER_ROUTE_PREFIXES.some((prefix) => startsWithSegment(pathname, prefix))) return "member";
   return "public";
 }
 
-/**
- * The redirect for someone opening `path` (pathname + search), or null to let them through.
- * - signed out, on any signed-in page → sign-in, then back here
- * - not Active, on a member or admin page → the account-status screen (AU-18…AU-21)
- * - not an admin, on an admin page → their home
- */
+/** Redirect before rendering a page the current account cannot open. */
 export function routeRedirect(path: string, account: Account | null): string | null {
-  const area = routeArea(pathOnly(path));
+  const pathname = pathOnly(path);
+  const area = routeArea(pathname);
+  if (pathname === ROUTES.landing || pathname === ROUTES.adminsOnly) {
+    return account ? homePathFor(account) : pathname === ROUTES.adminsOnly ? ROUTES.signIn : null;
+  }
   if (area === "public") return null;
   if (!account) return signInPath(path);
   if (area === "account-status") return null;
   if (account.status !== "active") return ROUTES.accountStatus;
-  if (area === "admin" && account.role !== "admin") return ROUTES.memberHome;
+  if (area === "admin" && account.role !== "admin") return homePathFor(account);
+  if (area === "member") {
+    if (account.role === "admin") return homePathFor(account);
+    const petOnly = ["/resume", ROUTES.invites, "/apply"];
+    const humanOnly = ["/home-profile", ROUTES.availability];
+    if (petOnly.some((prefix) => startsWithSegment(pathname, prefix)) && account.role !== "pet") return homePathFor(account);
+    if (humanOnly.some((prefix) => startsWithSegment(pathname, prefix)) && account.role !== "human") return homePathFor(account);
+  }
   return null;
 }
 
@@ -44,15 +51,11 @@ export function errorRedirect(error: ApiError, currentPath: string): string | nu
   return null;
 }
 
-/**
- * Where sign-in sends an account (AU-02): back to `next` when it is a safe, same-site page this account may open,
- * otherwise its home (members → feed, admins → dashboard, anyone not Active → account-status, FR2, FR19).
- */
-export function afterSignInPath(account: Account, next: string | null | undefined): string {
-  const home = homePathFor(account);
-  const safe = safeNextPath(next);
-  if (!safe || routeArea(pathOnly(safe)) === "public") return home;
-  return routeRedirect(safe, account) === null ? safe : home;
+/** Every successful sign-in opens the account's own dashboard. */
+export function afterSignInPath(account: Account, _next: string | null | undefined): string {
+  // Keep existing callers compatible, but never let a requested module override the dashboard.
+  void _next;
+  return homePathFor(account);
 }
 
 export function homePathFor(account: Account): string {
@@ -86,7 +89,12 @@ export function safeNextPath(next: string | null | undefined): string | null {
 
 function pathOnly(path: string): string {
   const end = path.search(/[?#]/);
-  return end === -1 ? path : path.slice(0, end);
+  const pathname = end === -1 ? path : path.slice(0, end);
+  try {
+    return decodeURIComponent(pathname).replace(/\/+$/, "") || "/";
+  } catch {
+    return pathname;
+  }
 }
 
 function startsWithSegment(pathname: string, prefix: string): boolean {

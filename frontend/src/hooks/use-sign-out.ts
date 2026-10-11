@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { api } from "@/lib/api/client";
 import { isApiError } from "@/lib/api/errors";
 import { AUTH_ENDPOINTS } from "@/lib/auth/endpoints";
+import { announceSessionChange } from "@/lib/auth/session-sync";
 import { ROUTES } from "@/constants/routes";
 
 /**
@@ -19,6 +20,8 @@ export function useSignOut(): () => Promise<void> {
       // Already signed out (session expired) is the result we wanted.
       if (!(isApiError(error) && error.kind === "unauthenticated")) throw error;
     }
+    // The browser's other tabs leave this account's pages too.
+    announceSessionChange();
     window.location.assign(ROUTES.landing);
     // The page is being replaced. Staying pending until it is keeps the dialog busy instead of closing onto a
     // signed-in page for a moment.

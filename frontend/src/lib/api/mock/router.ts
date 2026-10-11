@@ -102,7 +102,7 @@ function checkAccess(access: MockAccess, account: Account | null): MockResult | 
   if (account.status !== "active") {
     return fail(403, "Your account isn't active yet.", { code: ACCOUNT_NOT_ACTIVE_CODE });
   }
-  if (access === "admin" && account.role !== "admin") return fail(403, "This page is for admins only.");
+  if (access === "admin" && account.role !== "admin") return fail(403, "This action is unauthorized.", { code: "role_not_allowed" });
   return null;
 }
 
