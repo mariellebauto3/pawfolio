@@ -26,7 +26,7 @@ Each route group's `layout.tsx` renders its shell, so screens only render their 
 
 | Shell | File | Used by | What it shows |
 | --- | --- | --- | --- |
-| `GuestShell` | `layout/guest-shell.tsx` | `app/page.tsx`, `(public)` | Logo, How it works · Success stories · FAQ (footer only on phones), Join now, Sign in; footer. Pages set their own width |
+| `GuestShell` | `layout/guest-shell.tsx` | `app/page.tsx`, `(public)` | Logo, How it works · Success stories · FAQ (footer only on phones), session-aware account actions; footer. Visitors get Join now and Sign in; signed-in accounts get their name, a home link and Log out. Pages set their own width |
 | `AccountStatusShell` | `layout/account-status-shell.tsx` | `(account-status)` | Logo (not a link), Help center, Log out. Content 760 px wide |
 | `MemberShell` | `layout/member-shell.tsx` | `(member)` | `MemberTopBar` (GN-01), content up to 1128 px. `counts={{ requests }}` for a count a page hands in; Alerts counts itself (below) |
 | `AdminShell` | `layout/admin-shell.tsx` | `admin` | `AdminSidebar`, content fills the rest. `counts={{ verification, reports, requests, … }}` for queue sizes (`requests` is the overdue decisions) |

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { buttonClasses } from "@/components/ui/button-styles";
 import { ROUTES } from "@/constants/routes";
+import { GuestActions } from "./guest-actions";
 import { GuestMenu } from "./guest-menu";
 import { HomeLink } from "./home-link";
 import { Logo } from "./logo";
@@ -12,7 +12,8 @@ const NAV_LINK =
 // Visitor top bar (AU-01). From md up it has three columns: logo left, section links centred on the bar, Join now and
 // Sign in right; the two outer columns share the leftover space equally, so the links stay centred whatever their
 // widths. On phones the bar holds only the logo and a menu button; the links and both actions are in its drawer
-// (GuestMenu), and the section links are also in the footer.
+// (GuestMenu), and the section links are also in the footer. Someone who is signed in sees their name, the way back
+// to their own pages and Log out where Join now and Sign in would be (GuestActions).
 export function GuestTopBar() {
   return (
     <header className="sticky top-0 z-(--pf-z-sticky) border-b border-line bg-surface">
@@ -32,13 +33,8 @@ export function GuestTopBar() {
             })}
           </ul>
         </nav>
-        <div className="ml-auto hidden items-center gap-2 md:flex md:justify-self-end">
-          <Link href={ROUTES.signUp} className={buttonClasses({ variant: "tertiary", size: "sm" })}>
-            Join now
-          </Link>
-          <Link href={ROUTES.signIn} className={buttonClasses({ variant: "secondary", size: "sm" })}>
-            Sign in
-          </Link>
+        <div className="ml-auto hidden min-w-0 items-center gap-2 md:flex md:justify-self-end">
+          <GuestActions layout="bar" />
         </div>
         <GuestMenu className="ml-auto md:hidden" />
       </div>

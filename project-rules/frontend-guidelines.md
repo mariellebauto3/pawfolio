@@ -60,6 +60,7 @@ Planned routes (from the LoFi, full list in the feature READMEs):
 | --- | --- |
 | Visitor | `/`, `/sign-in`, `/forgot-password`, `/reset-password`, `/sign-up`, `/sign-up/pet`, `/sign-up/human` |
 | Account status | `/account-status`, `/account/edit` |
+| Legacy redirect | `/admins-only` redirects to the signed-in account's dashboard, or sign-in when signed out; it renders no notice |
 | Member | `/feed`, `/posts/[postId]`, `/matches`, `/browse`, `/search`, `/pets/[petId]`, `/homes/[homeId]`, `/me`, `/resume/edit`, `/home-profile/edit`, `/availability`, `/invites`, `/apply/[homeId]`, `/requests`, `/requests/[requestId]`, `/notifications`, `/bookmarks`, `/stats`, `/activity`, `/settings` |
 | Admin | `/admin`, `/admin/verification`, `/admin/verification/[accountId]`, `/admin/reports`, `/admin/reports/[reportId]`, `/admin/requests`, `/admin/requests/[requestId]`, `/admin/resolve`, `/admin/accounts`, `/admin/accounts/[accountId]`, `/admin/announcements`, `/admin/activity-logs` |
 
