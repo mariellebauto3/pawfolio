@@ -80,7 +80,7 @@ function summary({ total, from, to }: PaginationMeta, search: string | undefined
   return `${accounts} waiting`;
 }
 
-// The verification queue (AU-22): every Pet and Human account waiting for review, oldest first, by tab, with the
+// The verification queue (AU-22): every Pet and Human account waiting for review, newest first, by tab, with the
 // search and the pages kept in the URL. Only the open tab's rows are loaded; the page re-renders on a tab change.
 export function VerificationQueue({ queue, role, search, searchParams }: Props) {
   const selected = role ?? "all";

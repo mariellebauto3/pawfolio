@@ -16,3 +16,15 @@ All photos are from [Unsplash](https://unsplash.com) under the [Unsplash License
 | `cat-1.jpg` | `photo-1518791841217-8f162f1e1131` |
 | `cat-2.jpg` | `photo-1514888286974-6c03e2ca1dba` |
 | `cat-3.jpg` | `photo-1574158622682-e40e69881006` |
+| `dog-4.jpg` | `photo-1517849845537-4d257902454a` |
+| `dog-5.jpg` | `photo-1552053831-71594a27632d` |
+| `dog-6.jpg` | `photo-1537151625747-768eb6cf92b2` |
+| `dog-7.jpg` | `photo-1534361960057-19889db9621e` |
+| `dog-8.jpg` | `photo-1477884213360-7e9d7dcc1e48` |
+| `cat-4.jpg` | `photo-1533738363-b7f9aef128ce` |
+| `cat-5.jpg` | `photo-1573865526739-10659fec78a5` |
+| `cat-6.jpg` | `photo-1495360010541-f48722b34f7d` |
+
+`dog-4` … `dog-8` and `cat-4` … `cat-6` were added 2026-10-10 (720 px wide), so that the demo's pets don't share a
+picture: `DemoSeeder::dealDistinctDemoPhotos` gives each pet of a kind a first photo of its own while there is a
+sample nobody uses. Add more here (`dog-9.jpg`, …) and the seeder picks them up by name.

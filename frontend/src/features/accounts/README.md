@@ -36,6 +36,13 @@ Owners manage their own account settings. Admins suspend, reactivate or deactiva
 
 Dialogs, menus, toasts and states render on top of (or inside) the route shown; they are not separate pages.
 
+**The admin sidebar's counts (2026-10-10).** `api/admin-sidebar.ts` reads them for the admin layout
+(`GET /admin/sidebar`): what arrived in Verification, Reports and Requests & Meets since this admin last opened each.
+`components/admin-section-seen.tsx`, mounted once by that layout, tells the API when one of them is opened and loads
+the counts again; the sidebar itself (`@/components/navigation/admin-sidebar`) clears a count the moment its section
+is opened. API: `docs/api/community-reports-and-admin.md`, "The admin sidebar". Tests:
+`tests/unit/features/accounts/admin-sidebar.test.ts`, `tests/unit/components/navigation/nav-config.test.ts`.
+
 ## Built (FE-22)
 
 | What | Where |

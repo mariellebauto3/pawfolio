@@ -2,6 +2,7 @@ import { accountRoutes } from "@/lib/api/mock/handlers/accounts";
 import { accountStatusRoutes } from "@/lib/api/mock/handlers/account-status";
 import { activityLogRoutes } from "@/lib/api/mock/handlers/activity-logs";
 import { adminAdoptionRoutes } from "@/lib/api/mock/handlers/admin-adoption";
+import { adminSidebarRoutes } from "@/lib/api/mock/handlers/admin-sidebar";
 import { adminVerificationRoutes } from "@/lib/api/mock/handlers/admin-verification";
 import { analyticsRoutes } from "@/lib/api/mock/handlers/analytics";
 import { adoptionRoutes } from "@/lib/api/mock/handlers/adoption";
@@ -40,5 +41,6 @@ export const MOCK_ROUTES: readonly MockRoute[] = [
   ...communityFeedRoutes,
   ...reportRoutes,
   ...accountRoutes,
+  ...adminSidebarRoutes,
   ...analyticsRoutes,
 ];

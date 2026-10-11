@@ -108,6 +108,37 @@ class NotificationControllerTest extends TestCase
             ->assertJsonPath('meta.total', 1);
     }
 
+    /** Old notifications are kept and listed: `earlier` is everything before the last 7 days, however long ago. */
+    public function test_index_lists_recent_and_earlier_notifications_and_never_drops_an_old_one(): void
+    {
+        $this->actingAs($this->owner);
+        $service = app(NotificationService::class);
+
+        foreach (['Two years ago' => now()->subYears(2), 'Last month' => now()->subDays(40), 'Eight days ago' => now()->subDays(8), 'Six days ago' => now()->subDays(6), 'Today' => now()] as $title => $when) {
+            $notification = $service->store($this->owner, 'account_action', $title, 'Body', ['category' => 'Account']);
+            $notification->forceFill(['created_at' => $when])->save();
+        }
+        $titles = fn (string $query) => array_column($this->getJson('/api/v1/notifications'.$query)->assertOk()->json('data'), 'title');
+
+        // Everything, newest first, with nothing left out for its age.
+        $this->assertSame(['Today', 'Six days ago', 'Eight days ago', 'Last month', 'Two years ago'], $titles(''));
+        $this->assertSame($titles(''), $titles('?period=all'));
+        $this->assertSame(['Today', 'Six days ago'], $titles('?period=recent'));
+        $this->assertSame(['Eight days ago', 'Last month', 'Two years ago'], $titles('?period=earlier'));
+        // With a tab, and a page at a time.
+        $this->assertSame(['Eight days ago', 'Last month', 'Two years ago'], $titles('?period=earlier&category=account'));
+        $this->assertSame([], $titles('?period=earlier&category=requests'));
+        $this->getJson('/api/v1/notifications?period=earlier&per_page=2&page=2')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('data.0.title', 'Two years ago');
+
+        // An old one stays unread until it is read, and reading it keeps it listed.
+        $this->getJson('/api/v1/notifications/unread-count')->assertOk()->assertJsonPath('data.unread_count', 5);
+
+        $this->getJson('/api/v1/notifications?period=someday')->assertUnprocessable()->assertJsonValidationErrors(['period']);
+    }
+
     public function test_index_refuses_a_category_that_is_no_tab(): void
     {
         $this->actingAsOwner();

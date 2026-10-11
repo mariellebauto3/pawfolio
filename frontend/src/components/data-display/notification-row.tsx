@@ -27,6 +27,11 @@ type Props = {
   unread: boolean;
   /** Runs when the row is opened: the list marks it as read, the dropdown also closes. */
   onOpen?: () => void;
+  /**
+   * For an announcement: opens it to be read in full, right where the list is (`AnnouncementDialog`). The row is
+   * then a button, and `action_url` isn't followed. Leave out and an announcement behaves like any other row.
+   */
+  onRead?: () => void;
   /** `compact` in the Alerts dropdown (NT-01): the message stops after two lines and the time sits under it. */
   density?: "compact" | "comfortable";
 };
@@ -35,8 +40,12 @@ type Props = {
 // never by colour alone: a tinted row, a dot, and "Unread" for screen readers. Blue on the icon means someone must
 // act (HiFi palette), and is read out as "Important". Title and message are text from the API and from other
 // people (an invite's note, a comment), so they are rendered as text only (SEC-FE-01).
-export function NotificationRow({ notification, when, unread, onOpen, density = "comfortable" }: Props) {
-  const href = notificationHref(notification.action_url);
+//
+// An announcement is the one row that is read rather than followed: it shows the start of its message as a
+// preview, says so ("Announcement"), and opens in full where the list is.
+export function NotificationRow({ notification, when, unread, onOpen, onRead, density = "comfortable" }: Props) {
+  const announcement = notification.type === "announcement" && onRead !== undefined;
+  const href = announcement ? null : notificationHref(notification.action_url);
   const important = notification.urgency !== "info";
   const compact = density === "compact";
 
@@ -57,7 +66,8 @@ export function NotificationRow({ notification, when, unread, onOpen, density = 
         <Icon name={iconFor(notification)} className="size-5" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className={cn("font-bold text-ink", href && "group-hover:underline")}>
+        {announcement && <span className="text-xs font-bold text-primary">Announcement</span>}
+        <span className={cn("font-bold text-ink", (href || announcement) && "group-hover:underline")}>
           {(unread || important) && (
             <span className="sr-only">
               {unread && "Unread. "}
@@ -66,7 +76,17 @@ export function NotificationRow({ notification, when, unread, onOpen, density = 
           )}
           {notification.title}
         </span>
-        <span className={cn("text-sm wrap-break-word", compact && "line-clamp-2", unread ? "text-ink" : "text-ink-muted")}>{notification.body}</span>
+        <span
+          className={cn(
+            "text-sm wrap-break-word",
+            // The preview of an announcement stops after a few lines; the dialog has the rest.
+            announcement ? cn("whitespace-pre-line", compact ? "line-clamp-2" : "line-clamp-3") : compact && "line-clamp-2",
+            unread ? "text-ink" : "text-ink-muted",
+          )}
+        >
+          {notification.body}
+        </span>
+        {announcement && !compact && <span className="text-sm font-bold text-primary">Read announcement</span>}
         {time(compact ? "" : "md:hidden")}
       </span>
       {!compact && time("mt-0.5 hidden md:block")}
@@ -78,8 +98,24 @@ export function NotificationRow({ notification, when, unread, onOpen, density = 
   const classes = cn(
     "group flex w-full items-start gap-3 text-left text-ink no-underline transition-colors duration-150",
     compact ? "rounded-control px-2.5 py-2.5" : "px-4 py-4",
-    unread ? "bg-primary-soft" : href && "hover:bg-surface-sunken",
+    unread ? "bg-primary-soft" : (href || announcement) && "hover:bg-surface-sunken",
   );
+
+  if (announcement) {
+    return (
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        onClick={() => {
+          onOpen?.();
+          onRead();
+        }}
+        className={classes}
+      >
+        {content}
+      </button>
+    );
+  }
 
   if (href) {
     return (

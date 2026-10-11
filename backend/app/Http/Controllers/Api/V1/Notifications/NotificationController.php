@@ -52,6 +52,21 @@ class NotificationController extends Controller
             $query->where('category', $category->value);
         }
 
+        // Recent or earlier (NT-02, NT-03): `recent` is the last 7 days, `earlier` everything before them, however
+        // long ago; no value, or `all`, lists both. Nothing is ever dropped for its age. Allow-listed like the tab.
+        $period = $request->query('period');
+        if (is_string($period) && trim($period) !== '' && strtolower(trim($period)) !== 'all') {
+            $period = strtolower(trim($period));
+
+            if (! in_array($period, ['recent', 'earlier'], true)) {
+                return ErrorResource::unprocessable('The given data was invalid.', [
+                    'period' => ['Choose All, Recent or Earlier.'],
+                ])->toResponse($request);
+            }
+
+            $query->where('created_at', $period === 'recent' ? '>=' : '<', now()->subDays(Notification::RECENT_DAYS));
+        }
+
         $notifications = $query->paginate($perPage);
 
         return ResponseResource::paginated(

@@ -46,6 +46,16 @@ const field = (body: unknown, name: string): unknown => (typeof body === "object
 const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
 export const announcementRoutes: MockRoute[] = [
+  // What a member reads on the Announcements tab of Notifications: published, for their own role, newest first,
+  // without the admin's name.
+  route("GET", "/announcements", ({ query, account }) => {
+    const mine: Audience[] = account?.role === "pet" ? ["everyone", "pets"] : account?.role === "human" ? ["everyone", "humans"] : ["everyone"];
+    const rows = ROWS.filter((row) => row.published_at !== null && mine.includes(row.audience))
+      .sort((a, b) => (b.published_at ?? "").localeCompare(a.published_at ?? "") || b.id - a.id)
+      .map(({ id, title, message, published_at }) => ({ id, title, message, published_at }));
+    return { status: 200, body: paginate(rows, query, "/api/v1/announcements") };
+  }),
+
   route(
     "GET",
     "/admin/announcements",

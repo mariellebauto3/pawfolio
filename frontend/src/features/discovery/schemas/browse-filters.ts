@@ -1,8 +1,10 @@
 import { ACTIVITY_LEVEL_LABELS, AGE_GROUP_LABELS, HOME_TYPE_LABELS, OUTDOOR_SPACE_LABELS } from "@/constants/home-profiles";
 import { PET_SIZE_LABELS, SPECIES_LABELS, TEMPERAMENT_TAGS, optionsFrom } from "@/constants/pets";
 import { PROVINCES } from "@/constants/provinces";
-import { ROUTES } from "@/constants/routes";
+import { ROUTES, homeProfilePath, petPath } from "@/constants/routes";
 import type { Query } from "@/lib/api/core";
+import type { HomeProfile } from "@/types/home-profile";
+import type { Pet } from "@/types/pet";
 import type { Role } from "@/types/statuses";
 
 // Browse (DS-01, DS-02) keeps everything it shows in the URL, so a view can be linked, reloaded and gone back to:
@@ -27,6 +29,21 @@ export const BROWSE_PAGE_SIZE = 12;
 
 /** Longest search the box accepts, the same as the top-bar search. */
 export const BROWSE_SEARCH_MAX = 100;
+
+/**
+ * How long the search box waits after the last key before it asks for results: long enough that a word typed at an
+ * ordinary pace is one request, short enough that the list seems to follow the typing.
+ */
+export const BROWSE_SEARCH_DELAY_MS = 300;
+
+/**
+ * How long the box waits before it asks for the names that drop down under it. Shorter than the results' wait:
+ * a suggestion is the first thing looked at, and one small answer is cheap.
+ */
+export const BROWSE_SUGGESTION_DELAY_MS = 150;
+
+/** How many suggestions drop down under the search box. */
+export const BROWSE_SUGGESTION_COUNT = 6;
 
 export const BROWSE_PARAMS = { search: "q", province: "province", sort: "sort", page: "page" } as const;
 
@@ -187,6 +204,14 @@ export function browseApiQuery(kind: BrowseKind, filters: BrowseFilters): Query 
   return query;
 }
 
+/**
+ * What the list under the search box asks for: the same filters, the name alone (`search_in=name`), and only as
+ * many rows as it shows. The API puts the names that start with the words first.
+ */
+export function suggestionApiQuery(kind: BrowseKind, filters: BrowseFilters): Query {
+  return { ...browseApiQuery(kind, { ...filters, page: 1 }), search_in: "name", per_page: BROWSE_SUGGESTION_COUNT };
+}
+
 export type ActiveFilter = {
   /** Unique among the active filters. */
   key: string;
@@ -219,6 +244,75 @@ export function activeFilters(kind: BrowseKind, filters: BrowseFilters): ActiveF
     }
   }
   return chips;
+}
+
+/**
+ * The address without its search and its page: what the filter panel and the sort show. It changes only when one of
+ * them does, so the panel can tell a new filter from the search box's own results coming back.
+ */
+export function browsePanelKey(kind: BrowseKind, filters: BrowseFilters): string {
+  return browseHref(kind, { ...filters, search: "", page: 1 });
+}
+
+/**
+ * What the search box does when the page shows results for `urlSearch`. `asked` are the searches the box itself
+ * asked for and may still be waiting on, oldest first. One of those arriving is its own answer, and what is typed
+ * stays as it is, since the typing may be further along by then. Anything else came from outside the box (a chip
+ * removed, the back button, a link) and the box follows it.
+ */
+export function searchBoxAfter(urlSearch: string, asked: readonly string[]): { follow: boolean; asked: readonly string[] } {
+  const at = asked.lastIndexOf(urlSearch);
+  if (at === -1) return { follow: true, asked: [urlSearch] };
+  // Answers older than this one can no longer arrive in a way that matters: forget them.
+  return { follow: false, asked: asked.slice(at) };
+}
+
+/** One name in the list under the search box. */
+export type Suggestion = {
+  id: number;
+  name: string;
+  /** A second line that tells two of the same name apart: "Aspin · Quezon City". */
+  detail: string;
+  photo: string | null;
+  /** The resume or Home Profile it opens. */
+  href: string;
+};
+
+export function petSuggestion(pet: Pick<Pet, "id" | "name" | "breed" | "city" | "photos">): Suggestion {
+  return { id: pet.id, name: pet.name, detail: [pet.breed, pet.city].filter(Boolean).join(" · "), photo: pet.photos[0]?.url ?? null, href: petPath(pet.id) };
+}
+
+export function homeSuggestion(home: Pick<HomeProfile, "id" | "full_name" | "city" | "profile_photo_url">): Suggestion {
+  return { id: home.id, name: home.full_name, detail: home.city, photo: home.profile_photo_url, href: homeProfilePath(home.id) };
+}
+
+/**
+ * Rows in the order a list of suggestions shows them. The API matches the words anywhere (a name, a breed, a city,
+ * a bio); someone typing a name expects that name first. So: names that start with the words, then names with a
+ * later word that starts with them, then names that hold them anywhere, then the rest, each group in the order the
+ * API sent it.
+ */
+export function rankByName<T>(typed: string, rows: readonly T[], nameOf: (row: T) => string): T[] {
+  const words = typed.trim().toLowerCase();
+  if (words === "") return [...rows];
+  const rank = (row: T) => {
+    const name = nameOf(row).toLowerCase();
+    if (name.startsWith(words)) return 0;
+    if (name.split(/\s+/).some((part) => part.startsWith(words))) return 1;
+    return name.includes(words) ? 2 : 3;
+  };
+  return rows
+    .map((row, index) => ({ row, index, rank: rank(row) }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map(({ row }) => row);
+}
+
+/** A name cut around the first place the typed words are in it, whatever the case, so that part can be bold. */
+export function splitAtMatch(name: string, typed: string): [before: string, match: string, after: string] {
+  const words = typed.trim();
+  const at = words === "" ? -1 : name.toLowerCase().indexOf(words.toLowerCase());
+  if (at === -1) return [name, "", ""];
+  return [name.slice(0, at), name.slice(at, at + words.length), name.slice(at + words.length)];
 }
 
 /** How many things narrow the results, for the Filters button on phones. The search box has its own place. */

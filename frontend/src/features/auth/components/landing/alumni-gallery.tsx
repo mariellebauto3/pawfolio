@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { type CSSProperties, type KeyboardEvent, useId, useRef, useState } from "react";
+import { ApiImage } from "@/components/ui/api-image";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils/cn";
 import type { RecentlyHiredPet } from "../../types/recently-hired";
@@ -30,8 +30,6 @@ type Props = {
 export function AlumniGallery({ pets }: Props) {
   const id = useId();
   const [active, setActive] = useState(0);
-  // Photos that didn't load (the file is gone, the API is down): those panels show the paw instead of a broken image.
-  const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
   const buttons = useRef<Array<HTMLButtonElement | null>>([]);
   const grow = pets.length > 1 ? (EXPAND_RATIO * (pets.length - 1)) / (1 - EXPAND_RATIO) : 1;
 
@@ -57,7 +55,12 @@ export function AlumniGallery({ pets }: Props) {
         const isActive = i === active;
         const tilt = isActive ? 0 : i < active ? TILT_DEG : -TILT_DEG;
         const month = HIRED_MONTH.format(new Date(pet.hired_at));
-        const photo = pet.photo_url && !failed.has(pet.photo_url) ? pet.photo_url : null;
+        // A pet without a photo, or one whose photo can't be loaded after a second try, shows the paw instead.
+        const paw = (
+          <span aria-hidden="true" className="absolute inset-0 grid place-items-center bg-sky-soft">
+            <PawMark className="w-1/4 max-w-24 fill-blue-200" />
+          </span>
+        );
         return (
           <li
             key={`${pet.name}-${pet.hired_at}`}
@@ -80,22 +83,20 @@ export function AlumniGallery({ pets }: Props) {
               onKeyDown={(event) => onKeyDown(event, i)}
               className="group absolute inset-0 block size-full overflow-hidden rounded-dialog text-left"
             >
-              {photo ? (
-                <Image
-                  src={photo}
+              {pet.photo_url ? (
+                <ApiImage
+                  src={pet.photo_url}
                   alt=""
                   fill
                   sizes="(min-width: 768px) 560px, 100vw"
-                  onError={() => setFailed((previous) => new Set(previous).add(photo))}
+                  fallback={paw}
                   className={cn(
                     "object-cover transition-[filter,scale] duration-600 ease-out",
                     isActive ? "scale-100 grayscale-0" : "scale-110 grayscale",
                   )}
                 />
               ) : (
-                <span aria-hidden="true" className="absolute inset-0 grid place-items-center bg-sky-soft">
-                  <PawMark className="w-1/4 max-w-24 fill-blue-200" />
-                </span>
+                paw
               )}
 
               {/* Dim on closed panels, and a dark-blue fade at the bottom so the label stays readable on any photo. */}

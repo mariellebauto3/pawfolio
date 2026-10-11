@@ -1,5 +1,5 @@
-import Image from "next/image";
 import { cn } from "@/lib/utils/cn";
+import { ApiImage } from "./api-image";
 import { Icon } from "./icon";
 
 type Size = "xs" | "sm" | "md" | "lg" | "xl";
@@ -30,11 +30,24 @@ function initials(name: string): string {
   return letters.map((p) => p[0]?.toUpperCase() ?? "").join("");
 }
 
-// Round avatar for pets and humans. Without a photo it shows initials on a soft blue disc.
+// Round avatar for pets and humans. Without a photo, or when the photo can't be loaded, it shows initials on a
+// soft blue disc.
 export function Avatar({ name, src, alt, size = "md", className }: Props) {
   const s = SIZES[size];
   const label = alt ?? name;
   const letters = size === "xs" ? initials(name).slice(0, 1) : initials(name);
+  const drawn = (
+    <>
+      {letters ? (
+        <span aria-hidden="true" className={cn("font-display font-bold", s.text)}>
+          {letters}
+        </span>
+      ) : (
+        <Icon name="user" className="size-1/2" />
+      )}
+      {label && <span className="sr-only">{label}</span>}
+    </>
+  );
 
   return (
     <span
@@ -44,20 +57,7 @@ export function Avatar({ name, src, alt, size = "md", className }: Props) {
         className,
       )}
     >
-      {src ? (
-        <Image src={src} alt={label} fill sizes={`${s.px}px`} className="object-cover" />
-      ) : (
-        <>
-          {letters ? (
-            <span aria-hidden="true" className={cn("font-display font-bold", s.text)}>
-              {letters}
-            </span>
-          ) : (
-            <Icon name="user" className="size-1/2" />
-          )}
-          {label && <span className="sr-only">{label}</span>}
-        </>
-      )}
+      {src ? <ApiImage src={src} alt={label} fill sizes={`${s.px}px`} className="object-cover" fallback={drawn} /> : drawn}
     </span>
   );
 }

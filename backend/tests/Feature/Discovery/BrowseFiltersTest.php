@@ -55,6 +55,53 @@ class BrowseFiltersTest extends TestCase
         return $names;
     }
 
+    /**
+     * The search box asks as it is typed in, so the first letters of a name have to find it, in any case. `LIKE`
+     * alone ignores case on SQLite and not on PostgreSQL; run this class against PostgreSQL to see the difference.
+     */
+    public function test_the_first_letters_of_a_name_find_it_whatever_the_case(): void
+    {
+        $this->petWithTags('Kimchi', ['Loyal']);
+        $this->petWithTags('Pebbles', ['Calm']);
+        // Hired: a pet that was adopted is in no list, whatever is typed (proposal §5).
+        $adopted = $this->petWithTags('Kimbap', []);
+        $adopted->forceFill(['status' => 'adopted_hired'])->save();
+        $human = User::factory()->human()->active()->create();
+        HomeProfile::factory()->for($human)->create();
+
+        foreach (['k', 'ki', 'KI', 'Kim', 'kImChI', 'mch'] as $typed) {
+            $this->assertSame(['Kimchi'], $this->names('/api/v1/pets?q='.urlencode($typed), $human, 'name'), "typed: {$typed}");
+        }
+        $this->assertSame(['Kimchi'], $this->names('/api/v1/pets?q=LOYAL', $human, 'name'));
+        $this->assertSame([], $this->names('/api/v1/pets?q=kimb', $human, 'name'));
+        $this->assertSame(['Kimchi'], $this->actingAs($human)->getJson('/api/v1/search?q=KIM')->assertOk()->json('data.pets.*.name'));
+
+        // The same for homes, as a pet types.
+        $this->homeWith('Reyes Household', []);
+        $this->homeWith('Lim Family', []);
+        $pet = User::factory()->pet()->active()->create();
+        Pet::factory()->for($pet)->lookingForAHome()->create();
+        foreach (['rey', 'REYES', 'yes hou'] as $typed) {
+            $this->assertSame(['Reyes Household'], $this->names('/api/v1/home-profiles?q='.urlencode($typed), $pet, 'full_name'), "typed: {$typed}");
+        }
+
+        // The names under the search box: the name alone, the ones that start with the words first.
+        $this->petWithTags('Loki', ['Kind']);
+        $this->petWithTags('Kiko', []);
+        $suggested = fn (string $typed) => $this->actingAs($human)->getJson('/api/v1/pets?search_in=name&per_page=6&q='.urlencode($typed))->assertOk()->json('data.*.name');
+        $this->assertSame(['Kiko', 'Kimchi'], collect($suggested('ki'))->take(2)->sort()->values()->all());
+        $this->assertSame('Loki', $suggested('ki')[2]);
+        $this->assertSame(['Kimchi'], $suggested('KIM'));
+        // "kind" is one of Loki's tags, not a name: the cards find it, the names don't.
+        $this->assertSame([], $suggested('kind'));
+        $this->assertSame(['Loki'], $this->names('/api/v1/pets?q=kind', $human, 'name'));
+        $this->assertSame(['Reyes Household'], $this->actingAs($pet)->getJson('/api/v1/home-profiles?search_in=name&q=rey')->assertOk()->json('data.*.full_name'));
+        $this->actingAs($human)->getJson('/api/v1/pets?search_in=bio&q=ki')->assertUnprocessable();
+
+        // A wildcard is searched for as typed, not as "anything".
+        $this->assertSame([], $this->names('/api/v1/pets?q='.urlencode('%'), $human, 'name'));
+    }
+
     public function test_pets_are_filtered_by_any_of_the_picked_temperament_tags(): void
     {
         $this->petWithTags('Calmy', ['Calm', 'Cuddly']);

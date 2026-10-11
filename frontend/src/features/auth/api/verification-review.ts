@@ -24,7 +24,7 @@ export type QueueFilters = {
   perPage?: number;
 };
 
-/** The accounts waiting for review, oldest first, a page at a time (AU-22). */
+/** The accounts waiting for review, newest first, a page at a time (AU-22). */
 export async function getVerificationQueue(client: ApiClient, filters: QueueFilters = {}): Promise<Paginated<VerificationQueueItem>> {
   const { role, search, page, perPage } = filters;
   const response = await client.get<unknown>(QUEUE, { query: { role, search: search || undefined, page, per_page: perPage } });
@@ -34,7 +34,7 @@ export async function getVerificationQueue(client: ApiClient, filters: QueueFilt
   return response as Paginated<VerificationQueueItem>;
 }
 
-/** How many accounts are waiting, for the sidebar. One row is asked for; the count comes with it. */
+/** How many accounts are waiting. One row is asked for; the count comes with it. */
 export async function getVerificationQueueSize(client: ApiClient): Promise<number> {
   return (await getVerificationQueue(client, { perPage: 1 })).meta.total;
 }

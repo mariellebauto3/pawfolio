@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { buttonClasses } from "@/components/ui/button-styles";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils/cn";
@@ -50,6 +50,10 @@ type Props = {
 // Menu button (WAI-ARIA APG pattern): Me menu (GN-01), post options (FD-06). Enter, Space or ↓ opens on the first item,
 // ↑ on the last; ↑ ↓ Home End move; a letter jumps to the next item starting with it; Escape closes and returns focus;
 // Tab closes and moves on. Clicking outside closes.
+//
+// One item at most is highlighted, and it is always the one that Enter would choose: the highlight is the item's
+// focus, and the pointer moves that focus as it moves. So a menu opened with the mouse shows nothing highlighted
+// until an item is pointed at, an item stays highlighted while it is pressed, and leaving the items clears it.
 export function DropdownMenu({
   label,
   items,
@@ -67,7 +71,8 @@ export function DropdownMenu({
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
-  const focusOnOpen = useRef<"first" | "last">("first");
+  // Where focus goes as the menu opens: an item for the keyboard, the list itself (no item) for a pointer.
+  const focusOnOpen = useRef<"first" | "last" | "none">("first");
 
   const menuItems = () =>
     Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])') ?? []);
@@ -75,7 +80,8 @@ export function DropdownMenu({
   useEffect(() => {
     if (!open) return;
     const list = menuItems();
-    (focusOnOpen.current === "last" ? list[list.length - 1] : list[0])?.focus();
+    if (focusOnOpen.current === "none") menuRef.current?.focus();
+    else (focusOnOpen.current === "last" ? list[list.length - 1] : list[0])?.focus();
 
     function handlePointerDown(event: globalThis.PointerEvent) {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
@@ -84,7 +90,7 @@ export function DropdownMenu({
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [open]);
 
-  function openMenu(at: "first" | "last") {
+  function openMenu(at: "first" | "last" | "none") {
     focusOnOpen.current = at;
     setOpen(true);
   }
@@ -113,7 +119,8 @@ export function DropdownMenu({
         return;
       case "ArrowUp":
         event.preventDefault();
-        move(index - 1);
+        // From the list itself (nothing highlighted yet), ↑ starts at the last item.
+        move(index === -1 ? list.length - 1 : index - 1);
         return;
       case "Home":
         event.preventDefault();
@@ -153,7 +160,8 @@ export function DropdownMenu({
         aria-controls={open ? menuId : undefined}
         aria-label={children ? undefined : label}
         title={children ? undefined : label}
-        onClick={() => (open ? close(false) : openMenu("first"))}
+        // `detail` is 0 when Enter or Space pressed the button, and the click count for a mouse or a finger.
+        onClick={(event) => (open ? close(false) : openMenu(event.detail === 0 ? "first" : "none"))}
         onKeyDown={handleButtonKeyDown}
         className={
           triggerClassName ??
@@ -181,7 +189,19 @@ export function DropdownMenu({
           )}
         >
           {header && <div className="mb-1.5 border-b border-line px-2.5 pt-1.5 pb-3">{header}</div>}
-          <ul ref={menuRef} id={menuId} role="menu" aria-labelledby={buttonId} onKeyDown={handleMenuKeyDown}>
+          {/* Focusable from script only: it holds focus while no item is highlighted, so the arrow keys, a typed
+              letter and Escape still work. It is never a Tab stop and shows no ring of its own. */}
+          <ul
+            ref={menuRef}
+            id={menuId}
+            role="menu"
+            aria-labelledby={buttonId}
+            tabIndex={-1}
+            onKeyDown={handleMenuKeyDown}
+            // Off the items (the gap between two, a group's heading, out of the menu): nothing stays highlighted.
+            onPointerLeave={() => menuRef.current?.focus()}
+            className="outline-none"
+          >
             {items.map((item, i) => {
               if (item.type === "separator") {
                 return <li key={`separator-${i}`} role="separator" className="mx-2 my-1.5 border-t border-line" />;
@@ -226,12 +246,22 @@ type ItemProps = {
 };
 
 function MenuItemControl({ item, onDone }: ItemProps) {
+  // The highlight is `focus` alone, never `hover`: the two would otherwise light up two items at once (one under
+  // the pointer, one the arrow keys reached).
   const classes = cn(
     "flex min-h-11 w-full items-center gap-3 rounded-control px-2.5 py-2 text-left no-underline",
-    "transition-colors duration-150 hover:bg-surface-sunken focus:bg-surface-sunken",
+    "transition-colors duration-150 focus:bg-surface-sunken",
     item.destructive ? "text-danger" : "text-ink",
-    item.disabled && "cursor-not-allowed opacity-50 hover:bg-transparent",
+    item.disabled && "cursor-not-allowed opacity-50",
   );
+
+  /** Pointing at an item highlights it: focus follows the pointer. A disabled item takes the highlight off instead. */
+  function follow(event: PointerEvent<HTMLElement>) {
+    const target = event.currentTarget;
+    if (item.disabled) target.closest<HTMLElement>('[role="menu"]')?.focus();
+    else if (document.activeElement !== target) target.focus();
+  }
+
   const content = (
     <>
       {item.icon && (
@@ -246,7 +276,7 @@ function MenuItemControl({ item, onDone }: ItemProps) {
 
   if (item.href && !item.disabled) {
     return (
-      <Link href={item.href} role="menuitem" tabIndex={-1} className={classes} onClick={() => onDone(false)}>
+      <Link href={item.href} role="menuitem" tabIndex={-1} className={classes} onPointerMove={follow} onClick={() => onDone(false)}>
         {content}
       </Link>
     );
@@ -259,6 +289,7 @@ function MenuItemControl({ item, onDone }: ItemProps) {
       tabIndex={-1}
       aria-disabled={item.disabled || undefined}
       className={classes}
+      onPointerMove={follow}
       onClick={() => {
         if (item.disabled) return;
         onDone(true);

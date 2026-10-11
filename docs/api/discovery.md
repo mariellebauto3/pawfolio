@@ -46,7 +46,11 @@ The "Recently Hired" strip on the landing page (`AU-01`).
 
   `name` and `photo_url` are the pet's, `hired_at` is when the Adopt action was confirmed. **Only these three
   fields:** no id, breed, location, caretaker or Furparent, since anyone on the internet can read this (NFR4,
-  SEC-PRIV-03). `photo_url` is `null` when the pet has no public photo.
+  SEC-PRIV-03). `photo_url` is the pet's first photo whose file is in storage: a photo row left behind by a file
+  that is gone is passed over, so the page is never sent an address that answers 404. It is `null` when the pet has
+  no public photo, and the panel then shows a paw. In local development,
+  `php artisan pawfolio:fill-demo-pet-photos` gives the sample photos to demo pets that have none, and a different
+  one to demo pets that show the same picture as another (under a new file name, so no cache keeps the old one).
 - Pets whose account is suspended or deactivated, or whose profile is hidden, are left out.
 - **Empty:** `{ "data": [] }` before the first adoption. The page shows an empty state.
 
@@ -56,7 +60,8 @@ Browse pets (`DS-01`, FR6).
 
 | Query | Values | Meaning |
 | --- | --- | --- |
-| `q` | text | Part of the name, the breed, the city, the bio or a temperament tag |
+| `q` | text | Part of the name, the breed, the city, the bio or a temperament tag, whatever the case (on PostgreSQL too: the columns are compared lowered) |
+| `search_in` | `all` (default) \| `name` | `name` looks for `q` in the name alone and lists the names that start with it first, before the list's own order: the suggestions under Browse's search box, asked with `per_page=6` as it is typed in. Anything else: **422** |
 | `species` | `dog` \| `cat` \| `other`, a list | Any of them |
 | `age` | `puppy_kitten` (up to 12 months) \| `adult` (13 to 84) \| `senior` (over 84), a list | Any of them |
 | `size` | `small` \| `medium` \| `large`, a list | Any of them |
@@ -100,7 +105,8 @@ Browse homes (`DS-02`, FR22). Public details only: the city and the household an
 
 | Query | Values | Meaning |
 | --- | --- | --- |
-| `q` | text | Part of the name, the headline, the city or About our home |
+| `q` | text | Part of the name, the headline, the city or About our home, whatever the case |
+| `search_in` | `all` (default) \| `name` | As for pets: `name` looks in the human's name alone, names that start with `q` first |
 | `home_type` | `house` \| `condo` \| `apartment` \| `townhouse`, a list | Any of them |
 | `outdoor_space` | `none` \| `balcony` \| `small_yard` \| `large_yard`, a list | Any of them |
 | `activity_level` | `relaxed` \| `moderate` \| `active` \| `very_active`, a list | Any of them |

@@ -93,6 +93,8 @@ Planned routes (from the LoFi, full list in the feature READMEs):
 - Nothing is pushed to the browser (no websockets). A count that must stay current is asked for again on a timer
   and when the window is looked at again, as Alerts does (`features/notifications/hooks/alerts-store.ts`): not while
   the tab is hidden, never with a redirect on failure (`skipAuthRedirect`), and it stops once the session is over.
+- Photos from the API are rendered with `ApiImage` (`src/components/ui/api-image.tsx`), or with `Photo` and `Avatar`
+  which use it, never with `next/image` directly: it retries a picture that failed and falls back to a placeholder.
 - Show loading states (`loading.tsx` or skeletons) and handle empty and error states for every data view.
 
 ## 6. Security

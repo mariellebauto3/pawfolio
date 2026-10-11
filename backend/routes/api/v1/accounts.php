@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\Accounts\AdminAccountController;
+use App\Http\Controllers\Api\V1\Accounts\AdminSidebarController;
 use App\Http\Controllers\Api\V1\Accounts\SettingsController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,6 +24,10 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         ->name('settings.change-requests.store');
 
     Route::middleware('role:admin')->prefix('admin')->group(function (): void {
+        // The counts beside the admin sidebar's links, and "this admin has that section open" (GN-01).
+        Route::get('sidebar', [AdminSidebarController::class, 'show'])->name('admin.sidebar.show');
+        Route::post('sidebar/{section}/seen', [AdminSidebarController::class, 'seen'])->name('admin.sidebar.seen');
+
         Route::get('accounts', [AdminAccountController::class, 'index'])->name('admin.accounts.index');
         Route::get('accounts/{account}', [AdminAccountController::class, 'show'])
             ->whereNumber('account')

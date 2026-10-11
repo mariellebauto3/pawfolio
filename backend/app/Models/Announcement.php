@@ -52,6 +52,19 @@ class Announcement extends Model
         return $query->whereNotNull('published_at');
     }
 
+    /** Published announcements meant for this account: Everyone's, and its own role's (NT-04). */
+    public function scopeVisibleTo($query, User $user)
+    {
+        $audiences = [AnnouncementAudience::Everyone->value];
+        if ($user->isPet()) {
+            $audiences[] = AnnouncementAudience::Pets->value;
+        } elseif ($user->isHuman()) {
+            $audiences[] = AnnouncementAudience::Humans->value;
+        }
+
+        return $query->whereNotNull('published_at')->whereIn('audience', $audiences);
+    }
+
     public function scopeDue($query)
     {
         return $query->whereNull('published_at')

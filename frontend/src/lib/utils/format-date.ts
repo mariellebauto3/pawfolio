@@ -24,6 +24,14 @@ export function formatDateTime(iso: string): string {
   return date ? `${DATE.format(date)}, ${TIME.format(date).replace(/ /g, " ")}` : "";
 }
 
+const MONTH_YEAR = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: TIME_ZONE });
+
+/** "September 2026", for a heading over what happened that month. Empty when the value isn't a date. */
+export function formatMonthYear(iso: string): string {
+  const date = parse(iso);
+  return date ? MONTH_YEAR.format(date) : "";
+}
+
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;

@@ -127,7 +127,15 @@ export type AdminNavId =
 
 export type AdminNavItem = NavLink & { id: AdminNavId };
 
-/** Queue sizes next to admin sidebar items (Verification 4, Reports 3…). */
+/**
+ * The sections whose sidebar item carries a count. A count is news: what arrived in the section since this admin
+ * last opened it. Opening the section clears it (the API is told, `POST /admin/sidebar/{section}/seen`), and it
+ * comes back only when something new arrives. How long each queue is stays on the dashboard and on its own page.
+ */
+export const ADMIN_COUNTED_SECTIONS = ["verification", "reports", "requests"] as const satisfies readonly AdminNavId[];
+export type AdminCountedSection = (typeof ADMIN_COUNTED_SECTIONS)[number];
+
+/** Counts next to admin sidebar items (Verification 4, Reports 3…). */
 export type AdminNavCounts = Partial<Record<AdminNavId, number>>;
 
 export const ADMIN_NAV: readonly AdminNavItem[] = [
@@ -150,6 +158,39 @@ export const GUEST_NAV: readonly NavLink[] = [
   { href: `/#${LANDING_SECTIONS.successStories}`, label: "Success stories" },
   { href: `/#${LANDING_SECTIONS.faq}`, label: "FAQ" },
 ];
+
+/** The counted section `pathname` is inside (its own page or one below it), or null. */
+export function countedAdminSection(pathname: string): AdminCountedSection | null {
+  const open = ADMIN_NAV.find((item) => isNavLinkActive(pathname, item))?.id;
+  return ADMIN_COUNTED_SECTIONS.find((section) => section === open) ?? null;
+}
+
+/**
+ * What the sidebar remembers having cleared, as it goes from one render to the next. `counts` are the layout's,
+ * which are loaded again only now and then, so on their own they would bring a number back after the admin has
+ * looked. The count of the open section is remembered as seen; a remembered one is forgotten once the layout's
+ * count is a different number, because that is a new answer from the API, not the old one. Returns `cleared`
+ * itself when nothing changes, so it can be compared by identity.
+ */
+export function nextClearedAdminCounts(cleared: AdminNavCounts, counts: AdminNavCounts, open: AdminCountedSection | null): AdminNavCounts {
+  const next: AdminNavCounts = {};
+  for (const section of ADMIN_COUNTED_SECTIONS) {
+    const count = counts[section];
+    if (count === undefined) continue;
+    if (section === open || cleared[section] === count) next[section] = count;
+  }
+  const same = ADMIN_COUNTED_SECTIONS.every((section) => next[section] === cleared[section]);
+  return same ? cleared : next;
+}
+
+/** The counts the sidebar shows: the layout's, without the ones the admin has already looked at. */
+export function shownAdminCounts(counts: AdminNavCounts, cleared: AdminNavCounts): AdminNavCounts {
+  const shown = { ...counts };
+  for (const section of ADMIN_COUNTED_SECTIONS) {
+    if (cleared[section] !== undefined && cleared[section] === counts[section]) delete shown[section];
+  }
+  return shown;
+}
 
 /** Whether `pathname` is inside a nav item's section: its own path, a page below it, or one of its `matches`. */
 export function isNavLinkActive(pathname: string, link: NavLink): boolean {

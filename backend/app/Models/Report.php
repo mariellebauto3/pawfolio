@@ -13,6 +13,21 @@ class Report extends Model
 {
     use HasFactory;
 
+    /**
+     * Another report (`r2`) on the item a report is about, in the same status: the same account, the same kind of
+     * target and the same post or comment. Constants only, so it is safe inside raw SQL (SEC-INPUT-02).
+     */
+    public const SAME_ITEM = 'r2.reported_user_id = reports.reported_user_id AND r2.target_type = reports.target_type'
+        .' AND COALESCE(r2.post_id, 0) = COALESCE(reports.post_id, 0)'
+        .' AND COALESCE(r2.comment_id, 0) = COALESCE(reports.comment_id, 0)'
+        .' AND r2.status = reports.status';
+
+    /** One row per reported item: its latest report stands for the others on it (RP-03). */
+    public function scopeLatestPerItem($query)
+    {
+        return $query->whereRaw('reports.id = (SELECT MAX(r2.id) FROM reports r2 WHERE '.self::SAME_ITEM.')');
+    }
+
     protected $table = 'reports';
 
     protected $fillable = [

@@ -44,6 +44,7 @@ class BrowseHomeProfilesRequest extends BrowseRequest
     {
         return [
             'has_kids' => ['yes', 'no'],
+            'search_in' => self::SEARCH_IN,
             'sort' => self::SORTS,
         ];
     }

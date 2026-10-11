@@ -74,7 +74,7 @@ class AdminVerificationTest extends TestCase
         $this->assertSame(AccountStatus::PendingVerification, $bea->fresh()->getStatus());
     }
 
-    public function test_the_queue_lists_each_waiting_account_once_oldest_first(): void
+    public function test_the_queue_lists_each_waiting_account_once_newest_first(): void
     {
         $this->travelTo('2026-10-01 08:00:00');
         $bea = $this->signUpHuman('Bea Navarro');
@@ -88,7 +88,7 @@ class AdminVerificationTest extends TestCase
         $admin = $this->admin();
         $this->actingAs($admin)->postJson(self::QUEUE."/{$dan->id}/approve")->assertOk();
 
-        // Bea edits while still Pending: a second row for her, and she goes to the back of the queue.
+        // Bea edits while still Pending: a second row for her, and she goes to the top of the queue.
         $this->travelTo('2026-10-01 12:00:00');
         $this->actingAs($bea)->patchJson('/api/v1/account/submission', [...$this->humanDetails('Bea Navarro'), 'id_type' => 'umid'])->assertOk();
         $this->assertSame(2, $bea->verificationSubmissions()->count());
@@ -97,17 +97,17 @@ class AdminVerificationTest extends TestCase
 
         $response->assertJsonPath('meta.total', 3)
             ->assertJsonPath('meta.per_page', 20)
-            ->assertJsonPath('data.0.account_id', $kulit->id)
+            ->assertJsonPath('data.0.account_id', $bea->id)
             ->assertJsonPath('data.1.account_id', $carla->id)
-            ->assertJsonPath('data.2.account_id', $bea->id)
-            ->assertJsonPath('data.0.role', 'pet')
-            ->assertJsonPath('data.0.display_name', 'Kulit')
-            ->assertJsonPath('data.0.caretaker_name', 'Joy Lim')
-            ->assertJsonPath('data.0.is_resubmission', false)
+            ->assertJsonPath('data.2.account_id', $kulit->id)
+            ->assertJsonPath('data.2.role', 'pet')
+            ->assertJsonPath('data.2.display_name', 'Kulit')
+            ->assertJsonPath('data.2.caretaker_name', 'Joy Lim')
+            ->assertJsonPath('data.2.is_resubmission', false)
             ->assertJsonPath('data.1.role', 'human')
             ->assertJsonPath('data.1.display_name', 'Carla Mendoza')
             ->assertJsonPath('data.1.caretaker_name', null)
-            ->assertJsonPath('data.2.is_resubmission', true);
+            ->assertJsonPath('data.0.is_resubmission', true);
 
         $this->assertSame(
             ['account_id', 'role', 'display_name', 'caretaker_name', 'submitted_at', 'is_resubmission', 'documents'],
@@ -115,7 +115,7 @@ class AdminVerificationTest extends TestCase
         );
         // Documents are described, never linked: no id, path or URL (SEC-PRIV-01).
         $this->assertSame(self::DOCUMENT_KEYS, array_keys($response->json('data.0.documents.0')));
-        $this->assertSame(['valid_id', 'pet_photo'], array_column($response->json('data.0.documents'), 'document_type'));
+        $this->assertSame(['valid_id', 'pet_photo'], array_column($response->json('data.2.documents'), 'document_type'));
         $this->assertSame('umid', $response->json('data.1.documents.0.id_type'));
     }
 
@@ -197,10 +197,10 @@ class AdminVerificationTest extends TestCase
                 'caretaker_name' => 'Joy Lim',
                 'caretaker_contact_number' => '09170000014',
             ])
-            ->assertJsonPath('data.queue', ['position' => 2, 'total' => 3, 'next_account_id' => $carla->id]);
+            ->assertJsonPath('data.queue', ['position' => 2, 'total' => 3, 'next_account_id' => $bea->id]);
         $this->assertSame(['id', ...self::DOCUMENT_KEYS], array_keys($review->json('data.documents.0')));
 
-        // A human's street address isn't sent (SEC-PRIV-04); the newest account points back to the oldest.
+        // A human's street address isn't sent (SEC-PRIV-04); the newest account is first and points to the one under it.
         $this->actingAs($admin)->getJson(self::QUEUE."/{$carla->id}")
             ->assertOk()
             ->assertJsonPath('data.details', [
@@ -211,7 +211,12 @@ class AdminVerificationTest extends TestCase
                 'city' => 'Pasig',
                 'province' => 'Metro Manila',
             ])
-            ->assertJsonPath('data.queue', ['position' => 3, 'total' => 3, 'next_account_id' => $bea->id]);
+            ->assertJsonPath('data.queue', ['position' => 1, 'total' => 3, 'next_account_id' => $kulit->id]);
+
+        // The oldest account is last and points back to the newest.
+        $this->actingAs($admin)->getJson(self::QUEUE."/{$bea->id}")
+            ->assertOk()
+            ->assertJsonPath('data.queue', ['position' => 3, 'total' => 3, 'next_account_id' => $carla->id]);
 
         // Unknown id, an admin's id and an account that never submitted all answer 404 (SEC-AUTHZ-04).
         $neverSubmitted = User::factory()->human()->pendingVerification()->create();

@@ -45,6 +45,7 @@ class BrowsePetsRequest extends BrowseRequest
     {
         return [
             'special_needs' => ['none', 'any'],
+            'search_in' => self::SEARCH_IN,
             'sort' => self::SORTS,
             // Only the two statuses a listed pet can have: Drafts and adopted pets are never browsed (§5.2).
             'status' => [PetStatus::LookingForAHome->value, PetStatus::InProcess->value],

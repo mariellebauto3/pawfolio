@@ -173,8 +173,8 @@ Whose the item is, the API reads from the record. **201** answers `{ id, target_
 `?per_page=` (20, at most 50). A value the API doesn't know answers **422** (SEC-INPUT-03).
 
 One row per reported item: the reports on the same account, target type, post and comment that share the row's
-status, stood for by the latest of them. Most reported first, then newest. `meta.total` counts items, which is the
-sidebar's number.
+status, stood for by the latest of them. Most reported first, then newest. `meta.total` counts items. The
+sidebar's number is the items reported since the admin last opened Reports ("The admin sidebar", below).
 
 ```json
 {
@@ -224,6 +224,32 @@ in the shape of the detail without `sibling_reports`.
 | **422** `errors.action` | An unknown action; a removal on a profile or an account report, which has nothing to remove; a suspension of an account that isn't Active |
 | **409** `report_already_resolved` | Another admin acted first. Nothing is done twice |
 | **409** `nothing_to_restore` | `restore_content` when the content isn't removed |
+
+## The admin sidebar (`GN-01`)
+
+The counts beside the admin sidebar's links. Each is **news**: what arrived in a section since the admin who asks
+last opened it. Opening the section clears its count, and it comes back only when something new arrives. How long
+each queue is stays on the dashboard and on the section's own page (changed 2026-10-10: the counts used to be the
+queues' sizes, which never cleared however often an admin looked).
+
+| Method | Path | Role | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/admin/sidebar` | Active admin | What is new in each counted section |
+| `POST` | `/api/v1/admin/sidebar/{section}/seen` | Active admin | The admin has that section open: its count starts again from now |
+
+- **`GET` 200:** `{ "data": { "counts": { "verification": 2, "reports": 0, "requests": 1 } } }`
+  - `verification`: waiting accounts whose submission came in since then (a resubmission counts again).
+  - `reports`: open reported items whose latest report was filed since then.
+  - `requests`: requests overdue for a decision (`MG-16`) that became overdue since then.
+  - An admin who never opened a section gets everything that is waiting there.
+- **`POST`:** `{section}` is `verification`, `reports` or `requests`; anything else answers **404** (SEC-INPUT-03).
+  **No body**: whose count it is and the time are the session's and the server's, and anything sent is ignored
+  (SEC-AUTHZ-02, SEC-INPUT-04). **204.** Stored one row per admin and section (`admin_section_views`), so one
+  admin looking doesn't clear another's count.
+- **401** signed out, **403** for a pet or a human (`"This page is for admins only."`) and for an admin that isn't
+  Active (`account_not_active`), as every admin endpoint.
+- The frontend's admin layout reads the counts once per page load; `AdminSectionSeen` posts `seen` when a counted
+  section is opened and then loads the counts again.
 
 ## Account Settings & Admin Account Management (`BE-23`, `AC-01..AC-10`)
 

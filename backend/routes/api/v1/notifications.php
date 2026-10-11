@@ -23,6 +23,10 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::patch('notifications/{notification}/resend', [NotificationController::class, 'resend']);
     Route::patch('notifications/{notification}/retry', [NotificationController::class, 'retry']);
 
+    // The announcements published for the caller's role, read on the Notifications page (NT-02, NT-03).
+    Route::get('announcements', [AnnouncementController::class, 'published'])
+        ->name('announcements.published');
+
     // Admin Announcements API (BE-24, NT-04..NT-05)
     Route::middleware('role:admin')->prefix('admin')->group(function (): void {
         Route::get('announcements', [AnnouncementController::class, 'index'])

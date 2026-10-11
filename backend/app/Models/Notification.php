@@ -94,6 +94,9 @@ class Notification extends Model
         $query->whereIn('type', $types);
     }
 
+    /** How many days a notification counts as recent on the Notifications page. Older ones are kept, as history. */
+    public const RECENT_DAYS = 7;
+
     public function scopeNewestFirst($query): void
     {
         $query->orderByDesc('created_at');
