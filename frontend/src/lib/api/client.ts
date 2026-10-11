@@ -28,7 +28,11 @@ const transport =
         writeDecisions: writeBrowserMockDecisions,
       })
     :// Wrapped so fetch is always called with the global `this`; a detached reference throws "Illegal invocation".
-      createBrowserTransport({ apiUrl: env.apiUrl, fetch: (input, init) => fetch(input, init), readCookie: readBrowserCookie });
+      createBrowserTransport({
+        apiUrl: `${typeof window === "undefined" ? env.appUrl : window.location.origin}/backend`,
+        fetch: (input, init) => fetch(input, init),
+        readCookie: readBrowserCookie,
+      });
 
 export const api: ApiClient = createApiClient(transport, {
   onError: (error) =>

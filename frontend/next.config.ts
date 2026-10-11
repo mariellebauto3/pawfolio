@@ -7,6 +7,14 @@ const apiUrl = new URL(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000
 const isLocalApi = ["localhost", "127.0.0.1", "[::1]"].includes(apiUrl.hostname);
 
 const nextConfig: NextConfig = {
+  // Keep Sanctum cookies on the frontend host so browser calls and server page guards share one session.
+  // External rewrites forward requests and Set-Cookie without buffering uploads in a Route Handler.
+  async rewrites() {
+    return [
+      { source: "/backend/api/v1/:path*", destination: `${apiUrl.origin}/api/v1/:path*` },
+      { source: "/backend/sanctum/csrf-cookie", destination: `${apiUrl.origin}/sanctum/csrf-cookie` },
+    ];
+  },
   // Development only: Next.js draws its own badge over a corner of every page. The default corner, bottom left,
   // is where the admin sidebar ends (the signed-in admin and Log out) and where the phone tab bar starts, so the
   // badge covered them. Bottom right has nothing under it.
