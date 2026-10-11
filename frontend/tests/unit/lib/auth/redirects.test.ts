@@ -48,8 +48,17 @@ describe("routeArea", () => {
 describe("routeRedirect", () => {
   it("lets anyone open public pages", () => {
     expect(routeRedirect("/", null)).toBeNull();
-    expect(routeRedirect("/sign-in", account({ status: "suspended" }))).toBeNull();
+    expect(routeRedirect("/forgot-password", account({ status: "suspended" }))).toBeNull();
   });
+
+  it.each(["/sign-in?next=%2Faccount-status", "/sign-up", "/sign-up/pet", "/sign-up/human"])(
+    "opens the account instead of leaving a signed-in visitor on %s", (path) => {
+      expect(routeRedirect(path, account())).toBe("/feed");
+      expect(routeRedirect(path, account({ role: "admin" }))).toBe("/admin");
+      expect(routeRedirect(path, account({ status: "pending_verification" }))).toBe("/account-status");
+      expect(routeRedirect(path, null)).toBeNull();
+    },
+  );
 
   it("sends signed-out visitors to sign-in and back again", () => {
     expect(routeRedirect("/requests/12?tab=thread", null)).toBe("/sign-in?next=%2Frequests%2F12%3Ftab%3Dthread");

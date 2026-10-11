@@ -25,6 +25,9 @@ export function routeArea(pathname: string): RouteArea {
 export function routeRedirect(path: string, account: Account | null): string | null {
   const pathname = pathOnly(path);
   const area = routeArea(pathname);
+  if (account && (pathname === ROUTES.signIn || startsWithSegment(pathname, ROUTES.signUp))) {
+    return homePathFor(account);
+  }
   if (pathname === ROUTES.landing || pathname === ROUTES.adminsOnly) {
     return account ? homePathFor(account) : pathname === ROUTES.adminsOnly ? ROUTES.signIn : null;
   }

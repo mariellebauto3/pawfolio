@@ -1,0 +1,17 @@
+# Frontend session routing
+
+Browser API requests use the frontend's `/backend/api/v1/*` path, and CSRF initialization uses `/backend/sanctum/csrf-cookie`. Next.js external rewrites forward these requests to `NEXT_PUBLIC_API_URL`. Server-side API requests continue to call that backend directly, forwarding the cookies from the frontend request.
+
+This keeps Laravel's session and XSRF cookies on the frontend host, including when Vercel and Render use different domains. Calling Render directly from the browser puts the session cookie on Render instead; Vercel cannot receive that cookie when rendering a protected page and redirects back to sign-in.
+
+Backend configuration:
+
+- Leave `SESSION_DOMAIN` unset or `null` so cookies have no explicit backend domain. With the rewrite, the browser stores them on the frontend host.
+- Use `SESSION_PATH=/` so server page requests include the session cookie.
+- Use `SESSION_SECURE_COOKIE=true` in production; retain HttpOnly protection on the session cookie.
+- Include the frontend hostname in `SANCTUM_STATEFUL_DOMAINS`, and set `FRONTEND_URL` and frontend `NEXT_PUBLIC_APP_URL` to the frontend origin.
+- Match frontend `SESSION_COOKIE_NAME` to backend `SESSION_COOKIE` (default `pawfolio-session`).
+
+Redeploy the frontend after changing `NEXT_PUBLIC_API_URL`; the rewrite destination is built into the deployment. Existing cookies stored on the backend domain cannot migrate to the frontend host, so users need to sign in once after this change.
+
+Verify on the deployed frontend: CSRF and sign-in requests use `/backend/*`; the frontend host has an HttpOnly session cookie with path `/`; active members open `/feed`, admins open `/admin`, and pending accounts open `/account-status`. Reloading the destination must preserve the session. Signed-in visitors opening sign-in or signup go to their account automatically.
