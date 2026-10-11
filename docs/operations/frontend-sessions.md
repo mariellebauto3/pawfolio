@@ -6,6 +6,8 @@ Server session checks and page API calls use the request's public host and proto
 
 This keeps Laravel's session and XSRF cookies on the frontend host, including when Vercel and Render use different domains. Calling Render directly from the browser puts the session cookie on Render instead; Vercel cannot receive that cookie when rendering a protected page and redirects back to sign-in.
 
+Protected navigation waits up to 30 seconds for session verification, matching server page API calls. If it cannot verify the session, it returns HTTP 503. Vercel function logs include `Pawfolio navigation session check failed` with the error name, kind and status only. Check these alongside Render logs to distinguish timeouts/network failures from API errors; no session cookies or account details are logged.
+
 Backend configuration:
 
 - Leave `SESSION_DOMAIN` unset or `null` so cookies have no explicit backend domain. With the rewrite, the browser stores them on the frontend host.
