@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Drawer } from "@/components/overlays/drawer";
-import { buttonClasses } from "@/components/ui/button-styles";
 import { IconButton } from "@/components/ui/icon-button";
 import { ROUTES } from "@/constants/routes";
+import { GuestActions } from "./guest-actions";
 import { HomeLink } from "./home-link";
 import { GUEST_NAV } from "./nav-config";
 
@@ -51,12 +51,7 @@ export function GuestMenu({ className }: Props) {
           </ul>
         </nav>
         <div className="mt-6 flex flex-col gap-3 border-t border-line pt-6">
-          <Link href={ROUTES.signUp} onClick={close} className={buttonClasses({ variant: "primary", block: true })}>
-            Join now
-          </Link>
-          <Link href={ROUTES.signIn} onClick={close} className={buttonClasses({ variant: "secondary", block: true })}>
-            Sign in
-          </Link>
+          <GuestActions layout="drawer" onNavigate={close} />
         </div>
       </Drawer>
     </div>

@@ -9,8 +9,8 @@ type Props = {
   className?: string;
 };
 
-// "Log out" as a button, for bars without a Me menu: the account-status bar and the admin sidebar. It opens the
-// confirmation; the dialog does the logging out.
+// "Log out" for the account-status bar and public pages opened while signed in. The dialog confirms and performs
+// the sign-out. The admin sidebar uses its own row.
 export function SignOutButton({ variant = "secondary", className }: Props) {
   const [confirming, setConfirming] = useState(false);
   return (

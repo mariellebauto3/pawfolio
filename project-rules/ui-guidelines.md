@@ -10,7 +10,10 @@ Every screen, dialog and state has an ID (e.g. `MG-11`); use it in branches, PRs
   page scrolling. Tables may scroll sideways inside their card on phones.
 - **Page shells** (see `frontend/src/components/layout/`):
   - *Guest shell* — visitor top bar (Home, How it works, Success stories, FAQ, Join now, Sign in) + footer. Screens
-    `AU-01`–`AU-17`. Home was added 2026-10-03 (not in the LoFi) for visitors who don't know the logo is a link; it and
+    `AU-01`–`AU-17`. On public pages that allow signed-in visitors, both the desktop bar and phone drawer show
+    the account's name, a link to its dashboard or account-status page, and Log out instead of Join now and Sign in.
+    While the session is unknown, show its checking or error state. Home was added 2026-10-03 (not in the LoFi)
+    for visitors who don't know the logo is a link; it and
     the logo both scroll back to the hero when the landing page is already open.
   - *Account-status shell* — minimal bar with Help center and Log out only. Pending, Denied, Suspended accounts see nothing else (`AU-18`–`AU-21`).
   - *Member shell* — top bar: logo, search, Home, Pets for You / Homes for You, Browse, Requests, Alerts, Me. Max content width 1128 px.
