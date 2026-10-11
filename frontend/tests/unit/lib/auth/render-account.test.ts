@@ -7,7 +7,10 @@ vi.mock("react", () => ({ cache: (fn: unknown) => fn }));
 
 // next/headers only works inside a request; the tests stand in for the incoming Cookie header.
 const request = vi.hoisted(() => ({ cookie: "" }));
-vi.mock("next/headers", () => ({ cookies: async () => ({ toString: () => request.cookie }) }));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ toString: () => request.cookie }),
+  headers: async () => new Headers({ "x-forwarded-host": "pawfolio-service.vercel.app", "x-forwarded-proto": "https" }),
+}));
 
 const account = { id: 5, role: "human", status: "pending_verification", email: "ana.santos@example.com" };
 
@@ -27,10 +30,12 @@ describe("renderAccount", () => {
   });
 
   it("carries the account to every caller of this render", async () => {
-    stubApi(async () => Response.json({ data: account }));
+    const fetchMock = stubApi(async () => Response.json({ data: account }));
     request.cookie = "pawfolio-session=s1; XSRF-TOKEN=abc";
 
     await expect(renderAccount()).resolves.toEqual({ ok: true, account });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(new Headers(init.headers).get("Origin")).toBe("https://pawfolio-service.vercel.app");
   });
 
   it("reports a session that has ended as signed out, not as a failure", async () => {

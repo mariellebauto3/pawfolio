@@ -25,15 +25,13 @@ export function needsAccountLookup(cookieHeader: string | null): boolean {
  * Server Components use renderAccount() instead: it shares one lookup across a whole render and reports failures
  * rather than swallowing them.
  */
-export async function lookUpAccount(cookieHeader: string | null): Promise<Account | null | undefined> {
+export async function lookUpAccount(cookieHeader: string | null, origin: string = env.appUrl): Promise<Account | null | undefined> {
   // No Laravel session cookie means nobody has signed in from this browser: skip the API call.
   if (!needsAccountLookup(cookieHeader)) {
     return null;
   }
 
-  // The configured origin, not the request's: behind a reverse proxy that can be an internal address that Sanctum
-  // doesn't recognise as our SPA, which would make every signed-in visitor look signed out.
-  const client = createServerApiClient({ cookie: cookieHeader, origin: env.appUrl });
+  const client = createServerApiClient({ cookie: cookieHeader, origin });
   try {
     return await fetchSession(client, { signal: AbortSignal.timeout(SESSION_LOOKUP_TIMEOUT_MS) });
   } catch {

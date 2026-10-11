@@ -1,6 +1,6 @@
 import { cache } from "react";
-import { cookies } from "next/headers";
-import { env } from "@/config/env";
+import { cookies, headers } from "next/headers";
+import { requestOrigin } from "@/lib/auth/request-origin";
 import { createServerApiClient } from "@/lib/api/server";
 import { needsAccountLookup } from "@/lib/auth/lookup-account";
 import { fetchSession } from "@/lib/auth/session";
@@ -27,10 +27,8 @@ export const renderAccount = cache(async (): Promise<RenderAccount> => {
 
   if (!needsAccountLookup(cookie)) return { ok: true, account: null };
 
-  // The configured origin, not the request's: behind a reverse proxy that can be an internal address that Sanctum
-  // doesn't recognise as our SPA, which would make every signed-in visitor look signed out.
   try {
-    const client = createServerApiClient({ cookie, origin: env.appUrl });
+    const client = createServerApiClient({ cookie, origin: requestOrigin(await headers()) });
     return { ok: true, account: await fetchSession(client) };
   } catch (error) {
     return { ok: false, error };
