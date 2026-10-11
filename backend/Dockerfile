@@ -9,7 +9,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    && docker-php-ext-configure gd --with-jpeg \
     && docker-php-ext-install \
+        gd \
         pdo_pgsql \
         mbstring \
         bcmath \
@@ -27,7 +31,8 @@ WORKDIR /var/www/html
 COPY . .
 
 # Install production dependencies
-RUN composer install \
+RUN php docker/check-runtime.php \
+    && composer install \
     --no-dev \
     --prefer-dist \
     --optimize-autoloader \
@@ -45,4 +50,4 @@ RUN mkdir -p \
 # Render exposes the service port through PORT
 EXPOSE 10000
 
-CMD ["sh", "-c", "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-10000}"]
+CMD ["sh", "-c", "php docker/check-runtime.php && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-10000}"]
