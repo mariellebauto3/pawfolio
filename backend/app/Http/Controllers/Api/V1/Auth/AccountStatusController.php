@@ -34,13 +34,20 @@ class AccountStatusController extends Controller
         $status = $user->getStatus();
 
         $submissions = $user->verificationSubmissions()
-            ->with('documents')
             ->orderByDesc('submitted_at')
             ->orderByDesc('id')
+            ->limit(2)
             ->get();
 
         $latestSubmission = $submissions->first();
         $latestDenied = $submissions->firstWhere('status', VerificationSubmissionStatus::Denied->value);
+        if ($status === AccountStatus::Denied && $latestDenied === null) {
+            $latestDenied = $user->verificationSubmissions()
+                ->where('status', VerificationSubmissionStatus::Denied->value)
+                ->orderByDesc('submitted_at')
+                ->orderByDesc('id')
+                ->first();
+        }
 
         $denialReason = null;
         $reason = null;
@@ -59,6 +66,8 @@ class AccountStatusController extends Controller
         }
 
         $isResubmission = $status === AccountStatus::PendingVerification && $submissions->count() > 1;
+
+        $latestSubmission?->load('documents');
 
         $documents = $latestSubmission
             ? $latestSubmission->documents->map(fn (VerificationDocument $doc) => self::formatDocument($doc))->values()->all()

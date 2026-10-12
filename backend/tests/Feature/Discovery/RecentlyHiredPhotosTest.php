@@ -23,6 +23,18 @@ class RecentlyHiredPhotosTest extends TestCase
 
     private const PATH = '/api/v1/public/recently-hired';
 
+    public function test_only_the_eight_latest_published_adoptions_are_returned(): void
+    {
+        // Create oldest first: insertion order must not choose the eight results.
+        for ($days = 10; $days >= 1; $days--) {
+            $this->hired("Pet {$days}", $days);
+        }
+
+        $this->getJson(self::PATH)->assertOk()->assertJsonCount(8, 'data')
+            ->assertJsonPath('data.0.name', 'Pet 1')
+            ->assertJsonPath('data.7.name', 'Pet 8');
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

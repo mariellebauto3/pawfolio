@@ -61,7 +61,7 @@ class AuthController extends Controller
             $request->boolean('remember'),
         );
 
-        return new AuthenticatedUserResource($user->load(['pet', 'homeProfile']));
+        return new AuthenticatedUserResource($user->load($user->isPet() ? ['pet'] : ($user->isHuman() ? ['homeProfile'] : [])));
     }
 
     public function signOut(Request $request): Response
@@ -78,7 +78,8 @@ class AuthController extends Controller
 
     public function me(Request $request): AuthenticatedUserResource
     {
-        $user = $request->user()->load(['pet', 'homeProfile']);
+        $user = $request->user();
+        $user->load($user->isPet() ? ['pet'] : ($user->isHuman() ? ['homeProfile'] : []));
 
         return new AuthenticatedUserResource($user);
     }

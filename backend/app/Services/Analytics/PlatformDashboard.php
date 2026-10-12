@@ -43,9 +43,11 @@ class PlatformDashboard
     public function tiles(): array
     {
         $members = fn (): Builder => User::query()->whereIn('role', [Role::Pet->value, Role::Human->value]);
-        $byStatus = $members()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $accountGroups = $members()->selectRaw('role, status, count(*) as total')->groupBy('role', 'status')->get();
+        $byStatus = $accountGroups->groupBy('status')->map(fn ($rows) => $rows->sum('total'));
+        $byRole = $accountGroups->groupBy('role')->map(fn ($rows) => $rows->sum('total'));
         $accountCount = fn (AccountStatus $status): int => (int) ($byStatus[$status->value] ?? 0);
-        $active = fn (Role $role): int => User::query()->where('role', $role->value)->where('status', AccountStatus::Active->value)->count();
+        $active = fn (Role $role): int => (int) $accountGroups->where('role', $role->value)->where('status', AccountStatus::Active->value)->sum('total');
 
         $petsByStatus = Pet::query()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
         $pets = [];
@@ -64,6 +66,7 @@ class PlatformDashboard
         $lastMonth = Carbon::now(PhilippineTime::TIME_ZONE)->startOfMonth()->subMonth()->format('Y-m');
         $adoptedIn = $adoptions->filter(fn (Adoption $adoption) => $adoption->adopted_at !== null)->countBy(fn (Adoption $adoption) => $this->month($adoption->adopted_at));
 
+        $requestsByStatus = AdoptionRequest::query()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
         $pending = $accountCount(AccountStatus::PendingVerification);
 
         return [
@@ -74,8 +77,8 @@ class PlatformDashboard
                 'denied' => $accountCount(AccountStatus::Denied),
                 'suspended' => $accountCount(AccountStatus::Suspended),
                 'deactivated' => $accountCount(AccountStatus::Deactivated),
-                'pets' => $members()->where('role', Role::Pet->value)->count(),
-                'humans' => $members()->where('role', Role::Human->value)->count(),
+                'pets' => (int) ($byRole[Role::Pet->value] ?? 0),
+                'humans' => (int) ($byRole[Role::Human->value] ?? 0),
                 'active_pets' => $active(Role::Pet),
                 'active_humans' => $active(Role::Human),
             ],
@@ -83,10 +86,10 @@ class PlatformDashboard
             'open_reports_count' => Report::query()->where('status', ReportStatus::Open->value)->count(),
             'pets_by_status' => $pets,
             'requests' => [
-                'total' => AdoptionRequest::query()->count(),
-                'open' => AdoptionRequest::query()->open()->count(),
-                'in_process' => AdoptionRequest::query()->inProcess()->count(),
-                'adopted' => AdoptionRequest::query()->where('status', AdoptionRequestStatus::Adopted->value)->count(),
+                'total' => (int) $requestsByStatus->sum(),
+                'open' => (int) $requestsByStatus->only(AdoptionRequest::OPEN_STATUSES)->sum(),
+                'in_process' => (int) $requestsByStatus->only(AdoptionRequest::IN_PROCESS_STATUSES)->sum(),
+                'adopted' => (int) ($requestsByStatus[AdoptionRequestStatus::Adopted->value] ?? 0),
                 'overdue' => AdoptionRequest::query()->overdue()->count(),
                 'expiring_soon' => AdoptionRequest::query()
                     ->where('status', AdoptionRequestStatus::Sent->value)
