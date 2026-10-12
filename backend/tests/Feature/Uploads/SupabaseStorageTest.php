@@ -4,17 +4,28 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Uploads;
 
+use App\Models\Pet;
+use App\Models\User;
+use Aws\Command;
+use Aws\S3\Exception\S3Exception;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Promise\Create;
 use GuzzleHttp\Psr7\Response;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Env;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use League\Flysystem\UnableToWriteFile;
 use Tests\TestCase;
 
 class SupabaseStorageTest extends TestCase
 {
+    use RefreshDatabase;
+
     private array $environment = [];
 
     private function cloudConfig(): array
@@ -67,6 +78,70 @@ class SupabaseStorageTest extends TestCase
         $this->assertSame('https://example.supabase.co/storage/v1/object/public/pawfolio-public/pets/photos/photo.jpg', $public->url('pets/photos/photo.jpg'));
         $this->assertArrayNotHasKey('url', $config['disks']['local']);
         $this->assertSame([], $config['links']);
+    }
+
+    public function test_pet_photo_endpoint_processes_a_real_jpeg_and_saves_the_cloud_photo(): void
+    {
+        $settings = $this->cloudConfig();
+        $requests = [];
+        $settings['disks']['public']['http_handler'] = function ($request) use (&$requests) {
+            $requests[] = $request;
+
+            return Create::promiseFor(new Response(200, ['ETag' => '"photo"'], ''));
+        };
+        config(['filesystems' => $settings]);
+        Storage::forgetDisk(['public', 'local']);
+        $user = User::factory()->pet()->active()->create();
+        $pet = Pet::factory()->for($user)->draft()->create();
+
+        $response = $this->actingAs($user)->postJson('/api/v1/me/pet/photos', [
+            'photo' => UploadedFile::fake()->image('test.jpg', 800, 600),
+            'is_primary' => true,
+        ])->assertCreated();
+
+        $photo = $pet->photos()->sole();
+        $this->assertSame(1, $photo->sort_order);
+        $this->assertCount(1, $requests);
+        $this->assertSame('PUT', $requests[0]->getMethod());
+        $this->assertTrue($requests[0]->hasHeader('Authorization'));
+        $this->assertStringContainsString('/pawfolio-public/'.$photo->file_path, (string) $requests[0]->getUri());
+        $this->assertNotFalse(getimagesizefromstring((string) $requests[0]->getBody()));
+        $response->assertJsonPath('data.photos.0.url', 'https://example.supabase.co/storage/v1/object/public/pawfolio-public/'.$photo->file_path);
+    }
+
+    public function test_a_rejected_cloud_upload_does_not_save_a_photo_and_logs_safe_provider_details(): void
+    {
+        $settings = $this->cloudConfig();
+        $settings['disks']['public']['retries'] = 0;
+        $settings['disks']['public']['http_handler'] = fn ($request) => Create::rejectionFor(new RequestException(
+            'Do not log this raw provider message', $request, new Response(403, [], '<Error><Code>AccessDenied</Code></Error>'),
+        ));
+        config(['filesystems' => $settings]);
+        Storage::forgetDisk(['public', 'local']);
+        $user = User::factory()->pet()->active()->create();
+        $pet = Pet::factory()->for($user)->draft()->create();
+
+        $this->actingAs($user)->postJson('/api/v1/me/pet/photos', [
+            'photo' => UploadedFile::fake()->image('test.jpg', 300, 300),
+        ])->assertStatus(500)->assertJsonPath('code', 'server');
+        $this->assertSame(0, $pet->photos()->count());
+        // Exercise error rendering directly so the framework's report logger does
+        // not interfere with a Log facade spy before the original error is rendered.
+        Log::spy();
+        $provider = new S3Exception('Do not log this raw provider message', new Command('PutObject'), [
+            'code' => 'AccessDenied',
+            'response' => new Response(403),
+        ]);
+        app(ExceptionHandler::class)->render(
+            Request::create('/api/v1/me/pet/photos', 'POST'),
+            UnableToWriteFile::atLocation('pets/photos/test.jpg', 'Do not log this raw provider message', $provider),
+        );
+        Log::shouldHaveReceived('error')->withArgs(function ($message, $context) {
+            return $message === 'Unhandled API exception'
+                && $context['storage_failure'] === ['status' => 403, 'code' => 'AccessDenied', 'operation' => 'PutObject']
+                && ! str_contains(json_encode($context), 'test-secret')
+                && ! str_contains(json_encode($context), 'Do not log this raw provider message');
+        });
     }
 
     public function test_failed_remote_writes_throw_instead_of_saving_a_missing_file_path(): void

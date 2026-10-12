@@ -11,7 +11,7 @@ const COPY: Record<ErrorKind, { icon: IconName; title: string; description: stri
   network: {
     icon: "wifi-off",
     title: "Can't reach Pawfolio",
-    description: "Check your internet connection, then try again.",
+    description: "Pawfolio couldn't be reached. Check your connection or try again in a moment.",
   },
   // Also used for records the user may not see (SEC-AUTHZ-04), so it doesn't say which of the two it is.
   "not-found": {

@@ -3,6 +3,7 @@
 namespace App\Exceptions;
 
 use App\Http\Resources\ErrorResource;
+use Aws\Exception\AwsException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -122,6 +123,21 @@ class Handler extends ExceptionHandler
 
         // Unhandled exceptions: report internally and return a safe 500 JSON body, never leaking internals (SEC-API-02).
         try {
+            $storageFailure = null;
+            // Flysystem wraps provider errors. Log classification only, never the
+            // exception message, signed URL, request headers, body or credentials.
+            $cause = $e;
+            for ($depth = 0; $cause !== null && $depth < 8; $depth++, $cause = $cause->getPrevious()) {
+                if ($cause instanceof AwsException) {
+                    $code = $cause->getAwsErrorCode();
+                    $storageFailure = [
+                        'status' => $cause->getStatusCode(),
+                        'code' => is_string($code) && preg_match('/^[A-Za-z0-9_.-]{1,80}$/', $code) ? $code : null,
+                        'operation' => $cause->getCommand()->getName(),
+                    ];
+                    break;
+                }
+            }
             Log::error('Unhandled API exception', [
                 'exception' => $e::class,
                 // Exception messages can contain SQL bindings or personal data.
@@ -129,6 +145,7 @@ class Handler extends ExceptionHandler
                 'route' => $request->route()?->uri(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
+                'storage_failure' => $storageFailure,
             ]);
         } catch (Throwable) {
             // Ignore logging failures during error rendering.

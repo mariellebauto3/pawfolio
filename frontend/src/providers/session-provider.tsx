@@ -8,7 +8,8 @@ import { fetchSession } from "@/lib/auth/session";
 import { announceSessionChange, onSessionChangeElsewhere, sessionChange } from "@/lib/auth/session-sync";
 import type { Account } from "@/types/account";
 import type { AccountStatus, Role } from "@/types/statuses";
-import { ErrorState } from "@/components/feedback/error-state";
+import { ErrorState, errorKindFromStatus, type ErrorKind } from "@/components/feedback/error-state";
+import { isApiError } from "@/lib/api/errors";
 
 /** `error`: the session couldn't be checked (API down, offline) — not the same as signed out. */
 export type SessionStatus = "loading" | "signed-in" | "signed-out" | "error";
@@ -26,7 +27,7 @@ export type Session = {
   pauseSessionChecks: () => () => void;
 };
 
-type SessionState = { status: SessionStatus; account: Account | null };
+type SessionState = { status: SessionStatus; account: Account | null; errorKind?: ErrorKind };
 
 type Props = {
   children: ReactNode;
@@ -160,7 +161,7 @@ export function SessionProvider({ children, initialAccount }: Props) {
   }, [state, refresh, pauseSessionChecks]);
 
   return <SessionContext.Provider value={session}>{protectedPage && state.status === "error"
-    ? <div className="flex flex-1 items-center justify-center px-gutter py-12"><ErrorState kind="network" titleAs="h1" onRetry={() => window.location.reload()} /></div>
+    ? <div className="flex flex-1 items-center justify-center px-gutter py-12"><ErrorState kind={state.errorKind ?? "server"} titleAs="h1" onRetry={() => window.location.reload()} /></div>
     : hidePage ? null : children}</SessionContext.Provider>;
 }
 
@@ -170,18 +171,18 @@ export function useSession(): Session {
   return session;
 }
 
-type Loaded = { ok: true; account: Account | null } | { ok: false };
+type Loaded = { ok: true; account: Account | null } | { ok: false; errorKind: ErrorKind };
 
 async function loadAccount(): Promise<Loaded> {
   try {
     return { ok: true, account: await fetchSession(api) };
-  } catch {
-    return { ok: false };
+  } catch (error) {
+    return { ok: false, errorKind: isApiError(error) ? errorKindFromStatus(error.status) : "server" };
   }
 }
 
 function nextState(previous: SessionState, loaded: Loaded): SessionState {
-  if (!loaded.ok) return { status: "error", account: previous.account };
+  if (!loaded.ok) return { status: "error", account: previous.account, errorKind: loaded.errorKind };
   return loaded.account ? { status: "signed-in", account: loaded.account } : { status: "signed-out", account: null };
 }
 
