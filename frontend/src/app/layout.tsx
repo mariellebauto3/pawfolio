@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { routeRedirect } from "@/lib/auth/redirects";
 import { Atkinson_Hyperlegible_Next, Zilla_Slab } from "next/font/google";
 import { renderAccount } from "@/lib/auth/render-account";
 import { SessionProvider } from "@/providers/session-provider";
@@ -27,6 +30,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   // Loaded on the server so the shells render the right navigation for the role on the first paint, without a
   // flash of the wrong links. undefined (API unreachable) lets the browser try again.
   const lookup = await renderAccount();
+  const path = (await headers()).get("x-pawfolio-path");
+  if (lookup.ok && path) {
+    const target = routeRedirect(path, lookup.account);
+    if (target) redirect(target);
+  }
   const initialAccount = lookup.ok ? lookup.account : undefined;
 
   return (

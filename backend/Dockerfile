@@ -50,4 +50,7 @@ RUN mkdir -p \
 # Render exposes the service port through PORT
 EXPOSE 10000
 
-CMD ["sh", "-c", "php docker/check-runtime.php && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-10000}"]
+# Linux PHP workers prevent a slow database request from blocking every other request.
+ENV PHP_CLI_SERVER_WORKERS=4
+
+CMD ["sh", "-c", "php docker/check-runtime.php && php artisan migrate --force && php artisan serve --no-reload --host=0.0.0.0 --port=${PORT:-10000}"]
