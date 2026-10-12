@@ -54,3 +54,17 @@ the actual exception; performance changes do not prove those errors are fixed.
 Run the relevant feature tests with `php vendor/bin/phpunit`. Tests use isolated
 in-memory SQLite, not the cloud database. Run PostgreSQL diagnostics read-only
 when validating deployment-specific query behavior.
+
+## Navigation and backend concurrency
+
+The frontend proxy no longer makes an extra `/auth/me` request before rendering.
+Server guards use the request-scoped session lookup instead. The Render Docker
+image sets `PHP_CLI_SERVER_WORKERS=4` and starts Artisan with `--no-reload`, which
+Laravel requires to enable multiple PHP workers. This reduces request queuing
+behind slow database calls. Adjust worker count to the host memory limit.
+This setting works in the Linux container; PHP workers are unsupported on Windows.
+
+Deploy both the frontend and backend to apply these changes. Validate signed-in
+navigation and concurrent requests after deployment. An authenticated session
+failure still requires the Vercel/Render logs for its underlying API exception or
+timeout; anonymous health probes cannot reproduce a user's authenticated request.

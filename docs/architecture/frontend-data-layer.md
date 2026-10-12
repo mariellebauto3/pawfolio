@@ -111,10 +111,14 @@ Pass `{ skipAuthRedirect: true }` where these are expected (e.g. the sign-in for
 
 ## `proxy.ts` (optimistic redirects)
 
-Before a page renders: signed out → `/sign-in?next=…`, not Active → `/account-status`, not an admin → away from
-`/admin`. Route areas come from `src/constants/routes.ts`. If the API is down or slow (over 2 s), the request goes
-through. The proxy is a convenience, never the access check (SEC-FE-06). `?next=` values are only followed if
-`safeNextPath()` accepts them (SEC-FE-07).
+The proxy checks session cookie presence without calling Laravel. Visitors without
+one are redirected to sign-in for protected routes. For requests that continue, it
+overwrites the internal `x-pawfolio-path` request header with the actual URL.
+The root layout uses that path and the request-scoped `renderAccount()` lookup to
+check role and status and redirect disallowed accounts. Existing page/layout
+guards share the same lookup; Laravel independently authorizes every API request.
+A failed session check remains a failure, never a signed-out account, and the
+session provider offers a retry screen if browser verification also fails.
 
 ## Mock mode
 

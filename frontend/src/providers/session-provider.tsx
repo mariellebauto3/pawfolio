@@ -8,6 +8,7 @@ import { fetchSession } from "@/lib/auth/session";
 import { announceSessionChange, onSessionChangeElsewhere, sessionChange } from "@/lib/auth/session-sync";
 import type { Account } from "@/types/account";
 import type { AccountStatus, Role } from "@/types/statuses";
+import { ErrorState } from "@/components/feedback/error-state";
 
 /** `error`: the session couldn't be checked (API down, offline) — not the same as signed out. */
 export type SessionStatus = "loading" | "signed-in" | "signed-out" | "error";
@@ -158,7 +159,9 @@ export function SessionProvider({ children, initialAccount }: Props) {
     };
   }, [state, refresh, pauseSessionChecks]);
 
-  return <SessionContext.Provider value={session}>{hidePage ? null : children}</SessionContext.Provider>;
+  return <SessionContext.Provider value={session}>{protectedPage && state.status === "error"
+    ? <div className="flex flex-1 items-center justify-center px-gutter py-12"><ErrorState kind="network" titleAs="h1" onRetry={() => window.location.reload()} /></div>
+    : hidePage ? null : children}</SessionContext.Provider>;
 }
 
 export function useSession(): Session {
