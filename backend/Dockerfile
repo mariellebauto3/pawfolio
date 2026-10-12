@@ -40,6 +40,8 @@ RUN php docker/check-runtime.php \
 
 # Prepare Laravel writable directories
 RUN mkdir -p \
+    storage/app/public \
+    storage/app/private \
     storage/framework/cache \
     storage/framework/sessions \
     storage/framework/views \
@@ -53,4 +55,6 @@ EXPOSE 10000
 # Linux PHP workers prevent a slow database request from blocking every other request.
 ENV PHP_CLI_SERVER_WORKERS=4
 
-CMD ["sh", "-c", "php docker/check-runtime.php && php artisan migrate --force && php artisan serve --no-reload --host=0.0.0.0 --port=${PORT:-10000}"]
+# A persistent disk mounted at storage/app is available only at runtime.
+# Create its directories and expose only public uploads, never private documents.
+CMD ["sh", "-c", "php docker/check-runtime.php && mkdir -p storage/app/public storage/app/private && php artisan storage:link --force && php artisan migrate --force && php artisan serve --no-reload --host=0.0.0.0 --port=${PORT:-10000}"]
