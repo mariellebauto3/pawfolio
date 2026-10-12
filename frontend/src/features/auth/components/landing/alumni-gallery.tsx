@@ -2,10 +2,10 @@
 
 import { type CSSProperties, type KeyboardEvent, useId, useRef, useState } from "react";
 import { ApiImage } from "@/components/ui/api-image";
+import { ImagePlaceholder } from "@/components/ui/image-placeholder";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils/cn";
 import type { RecentlyHiredPet } from "../../types/recently-hired";
-import { PawMark } from "./landing-illustrations";
 
 const HIRED_MONTH = new Intl.DateTimeFormat("en-PH", { month: "long", year: "numeric", timeZone: "Asia/Manila" });
 
@@ -55,10 +55,10 @@ export function AlumniGallery({ pets }: Props) {
         const isActive = i === active;
         const tilt = isActive ? 0 : i < active ? TILT_DEG : -TILT_DEG;
         const month = HIRED_MONTH.format(new Date(pet.hired_at));
-        // A pet without a photo, or one whose photo can't be loaded after a second try, shows the paw instead.
+        // A bundled illustration keeps the gallery visible if a remote image is temporarily unavailable.
         const paw = (
           <span aria-hidden="true" className="absolute inset-0 grid place-items-center bg-sky-soft">
-            <PawMark className="w-1/4 max-w-24 fill-blue-200" />
+            <ImagePlaceholder alt="" />
           </span>
         );
         return (

@@ -6,7 +6,13 @@ import type { NextConfig } from "next";
 const apiUrl = new URL(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
 const isLocalApi = ["localhost", "127.0.0.1", "[::1]"].includes(apiUrl.hostname);
 // Public bucket base URL only; credentials and private buckets stay on the backend.
-const publicStorageUrl = process.env.NEXT_PUBLIC_STORAGE_URL;
+// The existing production API uses this public bucket. Keep its exact path allowed even when an older Vercel
+// deployment has not set NEXT_PUBLIC_STORAGE_URL; a supplied URL still selects a different environment's bucket.
+const publicStorageUrl = process.env.NEXT_PUBLIC_STORAGE_URL || (
+  apiUrl.hostname === "pawfolio-api.onrender.com"
+    ? "https://wlqpmacbeirpoeibavgb.supabase.co/storage/v1/object/public/pawfolio-public"
+    : undefined
+);
 const storagePattern = publicStorageUrl
   ? new URL(`${publicStorageUrl.replace(/\/+$/, "")}/**`)
   : null;

@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils/cn";
 import { ApiImage } from "./api-image";
-import { Icon } from "./icon";
+import { ImagePlaceholder } from "./image-placeholder";
 
 type Ratio = "pet" | "cover" | "square";
 
@@ -26,17 +26,10 @@ type Props = {
 };
 
 // Photo frame with a fixed ratio, so the layout doesn't jump while the image loads. Without `src`, or when the
-// picture can't be loaded, a placeholder that still says what it is. Remote hosts must be allowed in next.config
+// picture can't be loaded, a bundled illustration keeps the frame visible. Remote hosts must be allowed in next.config
 // `images.remotePatterns`.
 export function Photo({ alt, src, ratio = "pet", sizes = "100vw", preload, rounded = true, className }: Props) {
-  const placeholder = (
-    <div role="img" aria-label={alt} className="flex size-full flex-col items-center justify-center gap-2 p-3">
-      <Icon name="paw" className="size-8 text-ink-subtle" />
-      <span aria-hidden="true" className="text-center text-sm text-ink-muted">
-        {alt}
-      </span>
-    </div>
-  );
+  const placeholder = <ImagePlaceholder alt={`Illustration; photo unavailable: ${alt}`} cover={ratio === "cover"} sizes={sizes} />;
 
   return (
     <div className={cn("relative overflow-hidden bg-surface-sunken", rounded && "rounded-card", RATIOS[ratio], className)}>
