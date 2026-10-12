@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { PhotoViewer } from "@/components/overlays/photo-viewer";
 import { ApiImage } from "@/components/ui/api-image";
-import { Icon } from "@/components/ui/icon";
+import { ImagePlaceholder } from "@/components/ui/image-placeholder";
 import { cn } from "@/lib/utils/cn";
 import type { PostPhoto } from "@/types/post";
 
@@ -59,7 +59,7 @@ export function PostPhotos({ author, photos, sizes = "(min-width: 1024px) 552px,
                 // The button already names the photo; the tile keeps its place in the frame.
                 fallback={
                   <span aria-hidden="true" className="grid size-full place-items-center">
-                    <Icon name="paw" className="size-8 text-ink-subtle" />
+                    <ImagePlaceholder alt="" />
                   </span>
                 }
               />
