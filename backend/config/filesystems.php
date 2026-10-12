@@ -1,5 +1,43 @@
 <?php
 
+$uploadStorage = env('UPLOAD_STORAGE', 'local');
+if (! in_array($uploadStorage, ['local', 'supabase'], true)) {
+    throw new RuntimeException('UPLOAD_STORAGE must be local or supabase.');
+}
+$supabase = $uploadStorage === 'supabase';
+$publicBucket = env('SUPABASE_PUBLIC_BUCKET', 'pawfolio-public');
+$privateBucket = env('SUPABASE_PRIVATE_BUCKET', 'pawfolio-private');
+$supabaseUrl = rtrim((string) env('SUPABASE_URL', ''), '/');
+if ($supabase) {
+    foreach (['SUPABASE_URL', 'SUPABASE_S3_ENDPOINT', 'SUPABASE_S3_REGION', 'SUPABASE_S3_ACCESS_KEY_ID', 'SUPABASE_S3_SECRET_ACCESS_KEY'] as $name) {
+        if (! is_string(env($name)) || trim(env($name)) === '') {
+            throw new RuntimeException("{$name} is required when UPLOAD_STORAGE=supabase.");
+        }
+    }
+    if ($publicBucket === $privateBucket || ! $publicBucket || ! $privateBucket) {
+        throw new RuntimeException('Supabase public and private uploads require two distinct bucket names.');
+    }
+    foreach ([$supabaseUrl, env('SUPABASE_S3_ENDPOINT')] as $url) {
+        $parts = parse_url($url);
+        if (! $parts || ($parts['scheme'] ?? '') !== 'https' || empty($parts['host']) || isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) {
+            throw new RuntimeException('Supabase storage URLs must use HTTPS without credentials, query or fragment.');
+        }
+    }
+}
+$cloudDisk = [
+    'driver' => 's3',
+    'key' => env('SUPABASE_S3_ACCESS_KEY_ID'),
+    'secret' => env('SUPABASE_S3_SECRET_ACCESS_KEY'),
+    'region' => env('SUPABASE_S3_REGION'),
+    'endpoint' => env('SUPABASE_S3_ENDPOINT'),
+    'use_path_style_endpoint' => true,
+    // Avoid optional AWS checksum encodings on the S3-compatible endpoint.
+    'request_checksum_calculation' => 'when_required',
+    'response_checksum_validation' => 'when_required',
+    'throw' => true,
+    'report' => false,
+];
+
 return [
 
     /*
@@ -30,7 +68,8 @@ return [
 
     'disks' => [
 
-        'local' => [
+        // Preserve disk names used by existing upload and permission-checked download flows.
+        'local' => $supabase ? [...$cloudDisk, 'bucket' => $privateBucket] : [
             'driver' => 'local',
             'root' => storage_path('app/private'),
             'serve' => true,
@@ -38,7 +77,12 @@ return [
             'report' => false,
         ],
 
-        'public' => [
+        // Supabase bucket settings control public access; S3 ACLs do not.
+        'public' => $supabase ? [
+            ...$cloudDisk,
+            'bucket' => $publicBucket,
+            'url' => $supabaseUrl.'/storage/v1/object/public/'.$publicBucket,
+        ] : [
             'driver' => 'local',
             'root' => storage_path('app/public'),
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
@@ -73,7 +117,7 @@ return [
     |
     */
 
-    'links' => [
+    'links' => $supabase ? [] : [
         public_path('storage') => storage_path('app/public'),
     ],
 

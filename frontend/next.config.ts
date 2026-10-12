@@ -5,6 +5,14 @@ import type { NextConfig } from "next";
 // storage path is the one allowed. The default matches src/config/env.ts.
 const apiUrl = new URL(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
 const isLocalApi = ["localhost", "127.0.0.1", "[::1]"].includes(apiUrl.hostname);
+// Public bucket base URL only; credentials and private buckets stay on the backend.
+const publicStorageUrl = process.env.NEXT_PUBLIC_STORAGE_URL;
+const storagePattern = publicStorageUrl
+  ? new URL(`${publicStorageUrl.replace(/\/+$/, "")}/**`)
+  : null;
+if (storagePattern && (storagePattern.protocol !== "https:" || storagePattern.username || storagePattern.password || storagePattern.search || storagePattern.hash)) {
+  throw new Error("NEXT_PUBLIC_STORAGE_URL must be a public HTTPS bucket URL without credentials, query or fragment.");
+}
 
 const nextConfig: NextConfig = {
   // Keep Sanctum cookies on the frontend host so browser calls and server page guards share one session.
@@ -20,7 +28,7 @@ const nextConfig: NextConfig = {
   // badge covered them. Bottom right has nothing under it.
   devIndicators: { position: "bottom-right" },
   images: {
-    remotePatterns: [new URL("/storage/**", apiUrl)],
+    remotePatterns: [new URL("/storage/**", apiUrl), ...(storagePattern ? [storagePattern] : [])],
     // The image optimizer refuses to fetch from an address on this machine unless told to. That is only ever the
     // API in local development; a hosted API has a public address and leaves this off.
     dangerouslyAllowLocalIP: isLocalApi,

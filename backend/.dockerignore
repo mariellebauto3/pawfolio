@@ -7,6 +7,7 @@ node_modules
 storage/logs/*
 storage/app/private/*
 storage/app/public/*
+public/storage
 storage/framework/cache/data/*
 storage/framework/sessions/*
 storage/framework/views/*
