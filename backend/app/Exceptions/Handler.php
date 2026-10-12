@@ -124,7 +124,11 @@ class Handler extends ExceptionHandler
         try {
             Log::error('Unhandled API exception', [
                 'exception' => $e::class,
-                'message' => $e->getMessage(),
+                // Exception messages can contain SQL bindings or personal data.
+                'method' => $request->method(),
+                'route' => $request->route()?->uri(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
         } catch (Throwable) {
             // Ignore logging failures during error rendering.

@@ -20,6 +20,7 @@ use App\Http\Resources\PaginatedResource;
 use App\Http\Resources\Profiles\HomeProfileResource;
 use App\Http\Resources\Profiles\PetResource;
 use App\Http\Resources\ResponseResource;
+use App\Models\Adoption;
 use App\Models\AdoptionRequest;
 use App\Models\Bookmark;
 use App\Models\HomeProfile;
@@ -583,9 +584,14 @@ class DiscoveryController extends Controller
             ->where('status', PetStatus::AdoptedHired->value)
             ->whereHas('user', fn ($u) => $u->where('status', AccountStatus::Active->value))
             ->whereHas('publishedAdoption')
+            ->orderByDesc(Adoption::query()
+                ->select('adopted_at')
+                ->whereColumn('pet_id', 'pets.id')
+                ->whereNotNull('adopted_at')
+                ->whereNull('link_removed_at')
+                ->limit(1))
+            ->limit(8)
             ->get()
-            ->sortByDesc(fn (Pet $pet) => $pet->publishedAdoption?->adopted_at?->getTimestamp() ?? 0)
-            ->take(8)
             ->values();
 
         $items = $pets->map(function (Pet $pet): array {

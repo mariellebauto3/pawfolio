@@ -130,7 +130,9 @@ class User extends Authenticatable
     public function avatarUrl(): ?string
     {
         return match ($this->getRole()) {
-            Role::Pet => ($first = $this->pet?->photos()->orderBy('sort_order')->first())
+            Role::Pet => ($first = $this->pet?->relationLoaded('photos')
+                ? $this->pet->photos->sortBy('sort_order')->first()
+                : $this->pet?->photos()->orderBy('sort_order')->first())
                 ? Storage::disk('public')->url($first->file_path)
                 : null,
             Role::Human => $this->homeProfile?->profile_photo_path

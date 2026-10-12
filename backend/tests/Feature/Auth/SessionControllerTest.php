@@ -5,10 +5,13 @@ namespace Tests\Feature\Auth;
 use App\Actions\Auth\SignIn;
 use App\Enums\AccountStatus;
 use App\Enums\Role;
+use App\Models\Pet;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Session\TokenMismatchException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class SessionControllerTest extends TestCase
@@ -16,6 +19,24 @@ class SessionControllerTest extends TestCase
     use RefreshDatabase;
 
     protected SignIn $signIn;
+
+    public function test_loaded_avatar_photos_do_not_require_another_database_query(): void
+    {
+        $user = User::factory()->pet()->active()->create();
+        $pet = Pet::factory()->for($user)->create();
+        $pet->photos()->create(['file_path' => 'pets/second.jpg', 'sort_order' => 2]);
+        $pet->photos()->create(['file_path' => 'pets/first.jpg', 'sort_order' => 1]);
+        $user->load('pet.photos');
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        try {
+            $this->assertSame(Storage::disk('public')->url('pets/first.jpg'), $user->avatarUrl());
+            $this->assertSame([], DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+        }
+    }
 
     protected function setUp(): void
     {
