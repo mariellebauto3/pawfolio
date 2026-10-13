@@ -20,17 +20,19 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ErrorResource;
 use App\Http\Resources\Profiles\PetResource;
 use App\Http\Resources\ResponseResource;
+use App\Models\Pet;
 use App\Models\PetPhoto;
 use App\Models\PetVetRecord;
 use App\Models\Post;
+use App\Models\VerificationDocument;
 use App\Services\ActivityLogs\ActivityLogger;
 use App\Services\Matching\MatchScoreCalculator;
 use App\Services\Uploads\FileUploadService;
+use App\Support\ProfileAnswers;
 use App\Support\Provinces;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -53,7 +55,7 @@ class PetResumeController extends Controller
     public function show(Request $request)
     {
         $user = $request->user();
-        $pet = $user->pet;
+        $pet = $user->pet()->withCount(['profileViews', 'bookmarks'])->first();
 
         if (! $pet) {
             return ErrorResource::notFound('Pet profile not found.')->toResponse($request);
@@ -97,7 +99,8 @@ class PetResumeController extends Controller
             'special_needs.*' => ['required', 'string', Rule::in(array_map(fn ($c) => $c->value, PetSpecialNeed::cases()))],
         ]);
 
-        DB::transaction(function () use ($pet, $validated, $user, $request): void {
+        $pet = DB::transaction(function () use ($pet, $validated, $user, $request): Pet {
+            $pet = Pet::whereKey($pet->id)->withCount(['profileViews', 'bookmarks'])->lockForUpdate()->firstOrFail();
             $scalarFields = [
                 'sex', 'size', 'currently_at', 'city', 'province',
                 'bio', 'energy_level', 'good_with_kids', 'good_with_dogs', 'good_with_cats',
@@ -112,29 +115,16 @@ class PetResumeController extends Controller
             $pet->save();
 
             if (array_key_exists('temperament_tags', $validated)) {
-                $pet->temperamentTags()->delete();
                 $tags = array_values(array_unique(array_map('trim', $validated['temperament_tags'])));
-                foreach ($tags as $tag) {
-                    if ($tag !== '') {
-                        $pet->temperamentTags()->create(['tag' => $tag]);
-                    }
-                }
+                ProfileAnswers::replace($pet, 'temperamentTags', 'tag', array_values(array_filter($tags, fn ($tag) => $tag !== '')));
             }
 
             if (array_key_exists('skills', $validated)) {
-                $pet->skills()->delete();
-                $skills = array_values(array_unique($validated['skills']));
-                foreach ($skills as $skill) {
-                    $pet->skills()->create(['skill' => $skill]);
-                }
+                ProfileAnswers::replace($pet, 'skills', 'skill', $validated['skills']);
             }
 
             if (array_key_exists('special_needs', $validated)) {
-                $pet->specialNeeds()->delete();
-                $needs = array_values(array_unique($validated['special_needs']));
-                foreach ($needs as $need) {
-                    $pet->specialNeeds()->create(['need' => $need]);
-                }
+                ProfileAnswers::replace($pet, 'specialNeeds', 'need', $validated['special_needs']);
             }
 
             ActivityLogger::log(
@@ -144,10 +134,11 @@ class PetResumeController extends Controller
                 subject: $pet,
                 userAgent: $request->userAgent(),
             );
-        });
+            $this->matcher->recalculateForPet($pet, sourceLocked: true);
 
-        $pet->refresh();
-        $this->matcher->recalculateForPet($pet);
+            return $pet;
+        }, 3);
+        $user->setRelation('pet', $pet);
 
         return ResponseResource::make(
             (new PetResource($pet))->forOwner()->toArray($request),
@@ -181,32 +172,49 @@ class PetResumeController extends Controller
 
         $isPrimary = $request->boolean('is_primary');
 
-        DB::transaction(function () use ($pet, $stored, $request, $isPrimary, $user): void {
-            if ($isPrimary) {
-                $pet->photos()->increment('sort_order');
-                $sortOrder = 1;
-            } else {
-                $maxOrder = (int) $pet->photos()->max('sort_order');
-                $sortOrder = $maxOrder + 1;
-            }
+        try {
+            $pet = DB::transaction(function () use ($pet, $stored, $request, $isPrimary, $user): Pet {
+                $pet = $this->lockedPet($pet);
+                $photos = $pet->photos()->get();
+                if ($photos->count() >= self::MAX_PHOTOS) {
+                    throw ValidationException::withMessages(['photo' => ['You can upload up to 10 photos.']]);
+                }
+                if ($isPrimary) {
+                    $pet->photos()->increment('sort_order');
+                    foreach ($photos as $photo) {
+                        $photo->sort_order++;
+                    }
+                    $sortOrder = 1;
+                } else {
+                    $maxOrder = (int) $photos->max('sort_order');
+                    $sortOrder = $maxOrder + 1;
+                }
 
-            $pet->photos()->create([
-                'file_path' => $stored['file_path'],
-                'caption' => $request->filled('caption') ? trim($request->string('caption')->toString()) : null,
-                'sort_order' => $sortOrder,
-            ]);
+                $photo = $pet->photos()->create([
+                    'file_path' => $stored['file_path'],
+                    'caption' => $request->filled('caption') ? trim($request->string('caption')->toString()) : null,
+                    'sort_order' => $sortOrder,
+                ]);
 
-            ActivityLogger::log(
-                type: ActivityLogType::Profile,
-                action: 'pet_photo_added',
-                actor: $user,
-                subject: $pet,
-                userAgent: $request->userAgent(),
-            );
-        });
+                ActivityLogger::log(
+                    type: ActivityLogType::Profile,
+                    action: 'pet_photo_added',
+                    actor: $user,
+                    subject: $pet,
+                    userAgent: $request->userAgent(),
+                );
+                $pet->setRelation('photos', $photos->push($photo)->sortBy('sort_order')->values());
+
+                return $pet;
+            }, 3);
+        } catch (\Throwable $exception) {
+            $this->uploads->cleanupFiles('public', [$stored['file_path']]);
+            throw $exception;
+        }
+        $user->setRelation('pet', $pet);
 
         return ResponseResource::created(
-            (new PetResource($pet->fresh()))->forOwner()->toArray($request),
+            (new PetResource($pet))->forOwner()->toArray($request),
         );
     }
 
@@ -224,26 +232,30 @@ class PetResumeController extends Controller
             'photo_ids.*' => ['required', 'integer'],
         ]);
 
-        $ownedPhotos = $pet->photos()->get()->keyBy('id');
-        foreach ($validated['photo_ids'] as $id) {
-            if (! $ownedPhotos->has((int) $id)) {
-                return ErrorResource::notFound('Photo not found.')->toResponse($request);
-            }
-        }
-
-        DB::transaction(function () use ($validated, $ownedPhotos): void {
-            $order = 1;
+        $result = DB::transaction(function () use ($pet, $validated, $request) {
+            $pet = $this->lockedPet($pet);
+            $ownedPhotos = $pet->photos()->get()->keyBy('id');
             foreach ($validated['photo_ids'] as $id) {
-                $photo = $ownedPhotos->get((int) $id);
-                if ($photo) {
-                    $photo->sort_order = $order++;
-                    $photo->save();
+                if (! $ownedPhotos->has((int) $id)) {
+                    return ErrorResource::notFound('Photo not found.')->toResponse($request);
                 }
             }
-        });
+
+            $orders = [];
+            foreach ($validated['photo_ids'] as $index => $id) {
+                $orders[(int) $id] = $index + 1;
+            }
+            $this->writePhotoOrder($pet, $orders);
+
+            return $pet;
+        }, 3);
+        if (! $result instanceof Pet) {
+            return $result;
+        }
+        $user->setRelation('pet', $result);
 
         return ResponseResource::make(
-            (new PetResource($pet->fresh()))->forOwner()->toArray($request),
+            (new PetResource($result))->forOwner()->toArray($request),
         );
     }
 
@@ -256,27 +268,42 @@ class PetResumeController extends Controller
             return ErrorResource::notFound('Photo not found.')->toResponse($request);
         }
 
-        $currentCount = $pet->photos()->count();
-        $minAllowed = $pet->getStatusEnum() === PetStatus::Draft ? 1 : 3;
+        $result = DB::transaction(function () use ($pet, $photo, $request) {
+            $pet = $this->lockedPet($pet);
+            $photos = $pet->photos()->get();
+            if (! $photos->contains('id', $photo->id)) {
+                return ErrorResource::notFound('Photo not found.')->toResponse($request);
+            }
+            $currentCount = $photos->count();
+            $minAllowed = $pet->getStatusEnum() === PetStatus::Draft ? 1 : 3;
 
-        if ($currentCount <= $minAllowed) {
-            return ErrorResource::conflict(
-                "A pet resume must keep at least {$minAllowed} photo(s).",
-                'minimum_photos_required',
-            )->toResponse($request);
+            if ($currentCount <= $minAllowed) {
+                return ErrorResource::conflict(
+                    "A pet resume must keep at least {$minAllowed} photo(s).",
+                    'minimum_photos_required',
+                )->toResponse($request);
+            }
+
+            $photo->delete();
+
+            // Resequence sort_order 1..N.
+            $remaining = $photos->reject(fn ($item) => $item->id === $photo->id)->values();
+            $orders = [];
+            foreach ($remaining as $index => $item) {
+                $orders[$item->id] = $index + 1;
+            }
+            $this->writePhotoOrder($pet, $orders);
+
+            return $pet;
+        }, 3);
+        if (! $result instanceof Pet) {
+            return $result;
         }
-
-        $photo->delete();
-
-        // Resequence sort_order 1..N.
-        $remaining = $pet->photos()->orderBy('sort_order')->get();
-        foreach ($remaining as $index => $item) {
-            $item->sort_order = $index + 1;
-            $item->save();
-        }
+        $this->uploads->deleteUnreferencedPublicFile($photo->file_path);
+        $user->setRelation('pet', $result);
 
         return ResponseResource::make(
-            (new PetResource($pet->fresh()))->forOwner()->toArray($request),
+            (new PetResource($result))->forOwner()->toArray($request),
         );
     }
 
@@ -296,12 +323,26 @@ class PetResumeController extends Controller
         /** @var UploadedFile $file */
         $file = $request->file('cover_photo');
         $stored = $this->uploads->storePublicPhoto($file, 'pets/covers', 'cover_photo');
+        $oldPath = null;
 
-        $pet->cover_photo_path = $stored['file_path'];
-        $pet->save();
+        try {
+            $pet = DB::transaction(function () use ($pet, $stored, &$oldPath): Pet {
+                $pet = $this->lockedPet($pet);
+                $oldPath = $pet->cover_photo_path;
+                $pet->cover_photo_path = $stored['file_path'];
+                $pet->save();
+
+                return $pet;
+            }, 3);
+        } catch (\Throwable $exception) {
+            $this->uploads->cleanupFiles('public', [$stored['file_path']]);
+            throw $exception;
+        }
+        $user->setRelation('pet', $pet);
+        $this->uploads->deleteUnreferencedPublicFile($oldPath);
 
         return ResponseResource::make(
-            (new PetResource($pet->fresh()))->forOwner()->toArray($request),
+            (new PetResource($pet))->forOwner()->toArray($request),
         );
     }
 
@@ -328,14 +369,28 @@ class PetResumeController extends Controller
         $file = $request->file('vet_record');
         $stored = $this->uploads->storePrivateDocument($file, 'pets/vet-records', 'vet_record');
 
-        $pet->vetRecords()->create([
-            'file_path' => $stored['file_path'],
-            'mime_type' => $stored['mime_type'],
-            'size_bytes' => $stored['size_bytes'],
-        ]);
+        try {
+            $pet = DB::transaction(function () use ($pet, $stored): Pet {
+                $pet = $this->lockedPet($pet);
+                if ($pet->vetRecords()->count() >= self::MAX_VET_RECORDS) {
+                    throw ValidationException::withMessages(['vet_record' => ['You can upload up to 5 vet records.']]);
+                }
+                $pet->vetRecords()->create([
+                    'file_path' => $stored['file_path'],
+                    'mime_type' => $stored['mime_type'],
+                    'size_bytes' => $stored['size_bytes'],
+                ]);
+
+                return $pet;
+            }, 3);
+        } catch (\Throwable $exception) {
+            $this->uploads->cleanupPrivateFiles([$stored['file_path']]);
+            throw $exception;
+        }
+        $user->setRelation('pet', $pet);
 
         return ResponseResource::created(
-            (new PetResource($pet->fresh()))->forOwner()->toArray($request),
+            (new PetResource($pet))->forOwner()->toArray($request),
         );
     }
 
@@ -348,12 +403,46 @@ class PetResumeController extends Controller
             return ErrorResource::notFound('Vet record not found.')->toResponse($request);
         }
 
-        Storage::disk('local')->delete($record->file_path);
-        $record->delete();
+        $pet = DB::transaction(function () use ($pet, $record): Pet {
+            $pet = $this->lockedPet($pet);
+            $pet->vetRecords()->whereKey($record->id)->delete();
+
+            return $pet;
+        }, 3);
+        // Registration vet files can also be verification documents; keep shared files.
+        if (! VerificationDocument::where('file_path', $record->file_path)->exists()
+            && ! PetVetRecord::where('file_path', $record->file_path)->exists()) {
+            $this->uploads->cleanupPrivateFiles([$record->file_path]);
+        }
+        $user->setRelation('pet', $pet);
 
         return ResponseResource::make(
-            (new PetResource($pet->fresh()))->forOwner()->toArray($request),
+            (new PetResource($pet))->forOwner()->toArray($request),
         );
+    }
+
+    private function lockedPet(Pet $pet): Pet
+    {
+        return Pet::whereKey($pet->id)->withCount(['profileViews', 'bookmarks'])->lockForUpdate()->firstOrFail();
+    }
+
+    private function writePhotoOrder(Pet $pet, array $orders): void
+    {
+        if ($orders === []) {
+            return;
+        }
+        $cases = [];
+        $bindings = [];
+        foreach ($orders as $id => $position) {
+            $cases[] = 'WHEN ? THEN ?';
+            $bindings[] = (int) $id;
+            $bindings[] = $position;
+        }
+        $bindings[] = now()->toDateTimeString();
+        $bindings[] = $pet->id;
+        array_push($bindings, ...array_keys($orders));
+        DB::update('UPDATE pet_photos SET sort_order = CASE id '.implode(' ', $cases).' ELSE sort_order END, updated_at = ? WHERE pet_id = ? AND id IN ('.implode(',', array_fill(0, count($orders), '?')).')', $bindings);
+        $pet->unsetRelation('photos');
     }
 
     public function publish(Request $request)
@@ -365,18 +454,19 @@ class PetResumeController extends Controller
             return ErrorResource::notFound('Pet profile not found.')->toResponse($request);
         }
 
-        $completeness = PetResource::checkCompleteness($pet);
-        if (! $completeness['is_complete']) {
-            throw ValidationException::withMessages([
-                'resume' => $completeness['missing'],
-            ]);
-        }
+        $result = DB::transaction(function () use ($pet, $user, $request) {
+            $pet = $this->lockedPet($pet);
+            $completeness = PetResource::checkCompleteness($pet);
+            if (! $completeness['is_complete']) {
+                throw ValidationException::withMessages([
+                    'resume' => $completeness['missing'],
+                ]);
+            }
 
-        if ($pet->getStatusEnum() === PetStatus::AdoptedHired) {
-            return ErrorResource::conflict('An adopted pet cannot be republished.', 'already_adopted')->toResponse($request);
-        }
+            if ($pet->getStatusEnum() === PetStatus::AdoptedHired) {
+                return ErrorResource::conflict('An adopted pet cannot be republished.', 'already_adopted')->toResponse($request);
+            }
 
-        DB::transaction(function () use ($pet, $user, $request): void {
             $beforeStatus = $pet->getStatusEnum()->value;
             $wasDraft = $pet->getStatusEnum() === PetStatus::Draft;
 
@@ -401,7 +491,7 @@ class PetResumeController extends Controller
                     $post->body = "I'm officially #LookingForAHome! Check out my resume to see if we're a match.";
                     $post->save();
 
-                    $firstPhoto = $pet->photos()->orderBy('sort_order')->first();
+                    $firstPhoto = $pet->photos->first();
                     if ($firstPhoto) {
                         $post->photos()->create([
                             'file_path' => $firstPhoto->file_path,
@@ -421,13 +511,17 @@ class PetResumeController extends Controller
                     userAgent: $request->userAgent(),
                 );
             }
-        });
+            $this->matcher->recalculateForPet($pet, sourceLocked: true);
 
-        $pet->refresh();
-        $this->matcher->recalculateForPet($pet);
+            return $pet;
+        }, 3);
+        if (! $result instanceof Pet) {
+            return $result;
+        }
+        $user->setRelation('pet', $result);
 
         return ResponseResource::make(
-            (new PetResource($pet))->forOwner()->toArray($request),
+            (new PetResource($result))->forOwner()->toArray($request),
         );
     }
 }

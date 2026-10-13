@@ -50,7 +50,7 @@ class MeetAndGreetController extends Controller
             return $this->notFound($request);
         }
 
-        return DB::transaction(function () use ($found, $user, $request) {
+        return $this->changeAndAnswer($request, 201, function () use ($found, $user, $request) {
             $ar = $this->locked($found, ['pet', 'homeProfile.user', 'activeMeetAndGreet']);
 
             if ($ar->getStatus() !== AdoptionRequestStatus::Approved) {
@@ -91,7 +91,7 @@ class MeetAndGreetController extends Controller
                 userAgent: $request->userAgent(),
             );
 
-            return $this->answer($ar, $request, 201);
+            return $ar;
         });
     }
 
@@ -104,7 +104,7 @@ class MeetAndGreetController extends Controller
             return $this->notFound($request);
         }
 
-        return DB::transaction(function () use ($found, $user, $request) {
+        return $this->changeAndAnswer($request, 200, function () use ($found, $user, $request) {
             $ar = $this->locked($found, ['pet.user', 'homeProfile', 'activeMeetAndGreet.slot']);
 
             $mg = $ar->activeMeetAndGreet;
@@ -164,7 +164,7 @@ class MeetAndGreetController extends Controller
                 userAgent: $request->userAgent(),
             );
 
-            return $this->answer($ar, $request);
+            return $ar;
         });
     }
 
@@ -180,7 +180,7 @@ class MeetAndGreetController extends Controller
             return $this->notFound($request);
         }
 
-        return DB::transaction(function () use ($found, $user, $request) {
+        return $this->changeAndAnswer($request, 200, function () use ($found, $user, $request) {
             $ar = $this->locked($found, ['pet.user', 'homeProfile', 'activeMeetAndGreet']);
 
             $mg = $ar->activeMeetAndGreet;
@@ -216,7 +216,7 @@ class MeetAndGreetController extends Controller
                 userAgent: $request->userAgent(),
             );
 
-            return $this->answer($ar, $request);
+            return $ar;
         });
     }
 
@@ -240,7 +240,7 @@ class MeetAndGreetController extends Controller
         /** @var ChooseMeetGreetSlotRequest $chosen */
         $chosen = app(ChooseMeetGreetSlotRequest::class);
 
-        return DB::transaction(function () use ($found, $chosen, $user, $request) {
+        return $this->changeAndAnswer($request, 200, function () use ($found, $chosen, $user, $request) {
             $ar = $this->locked($found, ['pet', 'homeProfile.user', 'activeMeetAndGreet']);
 
             $current = $ar->activeMeetAndGreet;
@@ -276,7 +276,7 @@ class MeetAndGreetController extends Controller
                 userAgent: $request->userAgent(),
             );
 
-            return $this->answer($ar, $request);
+            return $ar;
         });
     }
 
@@ -289,7 +289,7 @@ class MeetAndGreetController extends Controller
             return $this->notFound($request);
         }
 
-        return DB::transaction(function () use ($found, $user, $request) {
+        return $this->changeAndAnswer($request, 200, function () use ($found, $user, $request) {
             $ar = $this->locked($found, ['pet.user', 'homeProfile.user', 'activeMeetAndGreet']);
 
             $mg = $ar->activeMeetAndGreet;
@@ -323,7 +323,7 @@ class MeetAndGreetController extends Controller
                 userAgent: $request->userAgent(),
             );
 
-            return $this->answer($ar, $request);
+            return $ar;
         });
     }
 
@@ -339,7 +339,7 @@ class MeetAndGreetController extends Controller
             return $this->notFound($request);
         }
 
-        return DB::transaction(function () use ($found, $user, $request) {
+        return $this->changeAndAnswer($request, 200, function () use ($found, $user, $request) {
             $ar = $this->locked($found, ['pet.user', 'homeProfile', 'activeMeetAndGreet.slot', 'latestMeetAndGreet.slot']);
 
             if (! $ar->meetingHasPassed()) {
@@ -376,7 +376,7 @@ class MeetAndGreetController extends Controller
                 userAgent: $request->userAgent(),
             );
 
-            return $this->answer($ar, $request);
+            return $ar;
         });
     }
 
@@ -443,6 +443,9 @@ class MeetAndGreetController extends Controller
         $mg->booked_at = now();
         $mg->save();
 
+        $mg->setRelation('slot', $slot)->setRelation('proposedSlot', null)->setRelation('endedBy', null);
+        $ar->setRelation('activeMeetAndGreet', $mg)->setRelation('latestMeetAndGreet', $mg);
+
         return $mg;
     }
 
@@ -492,11 +495,22 @@ class MeetAndGreetController extends Controller
     /** The request as it stands now, with its Meet & Greet, the open slots and the contact details it unlocks. */
     private function answer(AdoptionRequest $ar, Request $request, int $status = 200)
     {
-        $data = (new AdoptionRequestResource($ar->fresh(['pet.photos', 'homeProfile.householdMembers'])))
+        if ($ar->relationLoaded('activeMeetAndGreet') && $ar->activeMeetAndGreet && ! $ar->activeMeetAndGreet->isActive()) {
+            $ar->setRelation('activeMeetAndGreet', null);
+        }
+        $data = (new AdoptionRequestResource($ar->loadMissing(['pet.photos', 'homeProfile.householdMembers'])))
             ->withDetails()
             ->toArray($request);
 
         return ($status === 201 ? ResponseResource::created($data) : ResponseResource::make($data))->toResponse($request);
+    }
+
+    private function changeAndAnswer(Request $request, int $status, callable $change)
+    {
+        $result = DB::transaction($change, 3);
+
+        // Response loading and serialization need not hold scheduling locks.
+        return $result instanceof AdoptionRequest ? $this->answer($result, $request, $status) : $result;
     }
 
     private function notifyMeetAndGreet(User $recipient, string $type, string $title, string $body, AdoptionRequest $ar): void

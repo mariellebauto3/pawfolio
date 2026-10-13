@@ -45,6 +45,14 @@ class HomeProfilePolicy
             return false;
         }
 
+        // Feed pages supply these indexed EXISTS checks with the author query.
+        // The viewer marker prevents reusing a result computed for another pet.
+        if ((int) $home->getAttribute('visibility_viewer_pet_id') === $pet->id
+            && array_key_exists('viewer_has_request', $home->getAttributes())
+            && array_key_exists('viewer_has_invite', $home->getAttributes())) {
+            return (bool) $home->getAttribute('viewer_has_request') || (bool) $home->getAttribute('viewer_has_invite');
+        }
+
         return AdoptionRequest::query()->where('pet_id', $pet->id)->where('home_profile_id', $home->id)->exists()
             || Invite::query()->where('pet_id', $pet->id)->where('home_profile_id', $home->id)->exists();
     }

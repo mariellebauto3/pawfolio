@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Uploads;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -31,14 +32,37 @@ class FileUploadService
 
     public function cleanupPrivateFiles(array $paths): void
     {
+        $this->cleanupFiles('local', $paths);
+    }
+
+    public function cleanupFiles(string $disk, array $paths): void
+    {
         foreach ($paths as $path) {
             try {
-                if (! Storage::disk('local')->delete($path)) {
-                    throw new \RuntimeException('Registration upload cleanup failed: '.$path);
+                if (! Storage::disk($disk)->delete($path)) {
+                    throw new \RuntimeException('Upload cleanup failed: '.$path);
                 }
             } catch (\Throwable $exception) {
                 report($exception);
             }
+        }
+    }
+
+    public function deleteUnreferencedPublicFile(?string $path): void
+    {
+        if (! $path || str_starts_with($path, 'defaults/')) {
+            return;
+        }
+        try {
+            $references = DB::table('pet_photos')->select('id')->where('file_path', $path);
+            foreach ([['post_photos', 'file_path'], ['pets', 'cover_photo_path'], ['home_profiles', 'profile_photo_path'], ['home_profiles', 'cover_photo_path']] as [$table, $column]) {
+                $references->unionAll(DB::table($table)->select('id')->where($column, $path));
+            }
+            if (! $references->exists()) {
+                $this->cleanupFiles('public', [$path]);
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
         }
     }
 
