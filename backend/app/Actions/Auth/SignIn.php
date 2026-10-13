@@ -38,21 +38,40 @@ class SignIn
             throw new ThrottleRequestsException(headers: ['Retry-After' => max(1, $until - time())]);
         }
 
-        $user = User::whereRaw('LOWER(email) = ?', [$normalized])->first();
-
-        if (! $user || ! Hash::check($password, $user->password)) {
-            $tries = (int) $this->cache->get("$key:tries", 0) + 1;
-            $this->cache->put("$key:tries", $tries, self::LOCKOUT_SECONDS);
-            if ($tries >= self::MAX_ATTEMPTS) {
-                $this->cache->put("$key:until", time() + self::LOCKOUT_SECONDS, self::LOCKOUT_SECONDS);
+        $user = User::whereRaw('LOWER(email) = ?', [$normalized])
+            ->first(['id', 'name', 'email', 'password', 'role', 'status', 'remember_token']);
+        // A valid bcrypt hash at the production default cost; unknown accounts
+        // perform the same password verification work without creating a hash.
+        $dummyHash = '$2y$12$rIk0EBy.pUHusrTjk9YuI.fNfzEiqs9cT4AEkFMjbKF4tHHHEKObu';
+        $dummyHash = substr_replace($dummyHash, sprintf('%02d', (int) config('hashing.bcrypt.rounds', 12)), 4, 2);
+        $valid = $user ? Hash::check($password, $user->password) : password_verify($password, $dummyHash);
+        $lock = $this->cache->lock("$key:lock", 30);
+        if (! $lock->get()) {
+            throw new ThrottleRequestsException(headers: ['Retry-After' => 1]);
+        }
+        try {
+            $until = (int) $this->cache->get("$key:until", 0);
+            if ($until > time()) {
+                throw new ThrottleRequestsException(headers: ['Retry-After' => max(1, $until - time())]);
             }
-            $this->log($request, $user, 'sign_in_failed');
 
+            if (! $user || ! $valid) {
+                $tries = (int) $this->cache->get("$key:tries", 0) + 1;
+                $this->cache->put("$key:tries", $tries, self::LOCKOUT_SECONDS);
+                if ($tries >= self::MAX_ATTEMPTS) {
+                    $this->cache->put("$key:until", time() + self::LOCKOUT_SECONDS, self::LOCKOUT_SECONDS);
+                }
+            } else {
+                $this->cache->forget("$key:tries");
+                $this->cache->forget("$key:until");
+            }
+        } finally {
+            $lock->release();
+        }
+        if (! $user || ! $valid) {
+            $this->log($request, $user, 'sign_in_failed');
             throw ValidationException::withMessages(['email' => [self::BAD_CREDENTIALS]]);
         }
-
-        $this->cache->forget("$key:tries");
-        $this->cache->forget("$key:until");
 
         // Deactivated accounts are told only after the right password, so email probing learns nothing (SEC-AUTH-03).
         if ($user->getStatus() === AccountStatus::Deactivated) {

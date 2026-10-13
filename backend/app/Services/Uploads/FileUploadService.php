@@ -25,6 +25,41 @@ class FileUploadService
 
     public const MAX_DIMENSION = 1920;
 
+    public const MAX_SOURCE_DIMENSION = 12000;
+
+    public const MAX_SOURCE_PIXELS = 16000000;
+
+    public function cleanupPrivateFiles(array $paths): void
+    {
+        foreach ($paths as $path) {
+            try {
+                if (! Storage::disk('local')->delete($path)) {
+                    throw new \RuntimeException('Registration upload cleanup failed: '.$path);
+                }
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
+    }
+
+    private function write(string $disk, string $path, string $contents): void
+    {
+        try {
+            if (! Storage::disk($disk)->put($path, $contents)) {
+                throw new \RuntimeException('Unable to store uploaded file.');
+            }
+        } catch (\Throwable $exception) {
+            try {
+                if (! Storage::disk($disk)->delete($path)) {
+                    throw new \RuntimeException('Failed upload cleanup: '.$path);
+                }
+            } catch (\Throwable $cleanupException) {
+                report($cleanupException);
+            }
+            throw $exception;
+        }
+    }
+
     public const PHOTO_MIMES = [
         'image/jpeg' => 'jpg',
         'image/png' => 'png',
@@ -70,7 +105,7 @@ class FileUploadService
         $encoded = $this->reencodeImage($file, $mime, $field);
         $path = trim($directory, '/').'/'.Str::uuid()->toString().'.'.self::PHOTO_MIMES[$mime];
 
-        Storage::disk($disk)->put($path, $encoded);
+        $this->write($disk, $path, $encoded);
 
         return [
             'file_path' => $path,
@@ -98,7 +133,7 @@ class FileUploadService
                 throw ValidationException::withMessages([$field => ['Upload a JPG, PNG or PDF file.']]);
             }
             $this->assertNoDangerousScriptPayload($contents, $field, 'Upload a JPG, PNG or PDF file.');
-            Storage::disk('local')->put($path, $contents);
+            $this->write('local', $path, $contents);
 
             return [
                 'file_path' => $path,
@@ -108,7 +143,7 @@ class FileUploadService
         }
 
         $encoded = $this->reencodeImage($file, $mime, $field, 'Upload a JPG, PNG or PDF file.');
-        Storage::disk('local')->put($path, $encoded);
+        $this->write('local', $path, $encoded);
 
         return [
             'file_path' => $path,
@@ -182,6 +217,10 @@ class FileUploadService
         }
 
         [$width, $height] = $imageInfo;
+        if ($width > self::MAX_SOURCE_DIMENSION || $height > self::MAX_SOURCE_DIMENSION
+            || $width * $height > self::MAX_SOURCE_PIXELS) {
+            throw ValidationException::withMessages([$field => ['Image dimensions are too large. Use an image of at most 16 megapixels and 12000 pixels per side.']]);
+        }
 
         $src = match ($mime) {
             'image/jpeg' => @imagecreatefromjpeg($realPath),
@@ -206,15 +245,22 @@ class FileUploadService
             }
         }
 
-        $dst = imagecreatetruecolor($targetWidth, $targetHeight);
-        if ($mime === 'image/png') {
+        // Re-encoding alone strips metadata. Avoid allocating and copying a
+        // second full-size bitmap when the input already fits the output size.
+        $dst = $targetWidth === $width && $targetHeight === $height
+            ? $src : imagecreatetruecolor($targetWidth, $targetHeight);
+        if ($mime === 'image/png' && $dst !== $src) {
             imagealphablending($dst, false);
             imagesavealpha($dst, true);
             $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
             imagefilledrectangle($dst, 0, 0, $targetWidth, $targetHeight, $transparent);
         }
 
-        imagecopyresampled($dst, $src, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+        if ($dst !== $src) {
+            imagecopyresampled($dst, $src, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+        } elseif ($mime === 'image/png') {
+            imagesavealpha($dst, true);
+        }
 
         ob_start();
         if ($mime === 'image/jpeg') {
@@ -225,7 +271,9 @@ class FileUploadService
         $encoded = (string) ob_get_clean();
 
         imagedestroy($src);
-        imagedestroy($dst);
+        if ($dst !== $src) {
+            imagedestroy($dst);
+        }
 
         if ($encoded === '') {
             throw ValidationException::withMessages([$field => [$errorMessage]]);

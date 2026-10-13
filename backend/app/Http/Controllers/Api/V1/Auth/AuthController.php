@@ -61,7 +61,7 @@ class AuthController extends Controller
             $request->boolean('remember'),
         );
 
-        return new AuthenticatedUserResource($user->load($user->isPet() ? ['pet'] : ($user->isHuman() ? ['homeProfile'] : [])));
+        return new AuthenticatedUserResource($user->loadAuthProfile());
     }
 
     public function signOut(Request $request): Response
@@ -79,7 +79,7 @@ class AuthController extends Controller
     public function me(Request $request): AuthenticatedUserResource
     {
         $user = $request->user();
-        $user->load($user->isPet() ? ['pet'] : ($user->isHuman() ? ['homeProfile'] : []));
+        $user->loadAuthProfile();
 
         return new AuthenticatedUserResource($user);
     }
@@ -89,8 +89,9 @@ class AuthController extends Controller
         $email = strtolower(trim($request->string('email')->toString()));
         $startedAt = hrtime(true);
 
-        if (User::whereRaw('LOWER(email) = ?', [$email])->exists()) {
-            Password::broker()->sendResetLink(['email' => $email]);
+        $storedEmail = User::whereRaw('LOWER(email) = ?', [$email])->value('email');
+        if ($storedEmail !== null) {
+            Password::broker()->sendResetLink(['email' => $storedEmail]);
         } else {
             Hash::make('pawfolio-password-reset-timing-equalizer');
         }

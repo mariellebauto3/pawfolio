@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         mbstring \
         bcmath \
         pcntl \
+        opcache \
         zip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -55,6 +56,10 @@ EXPOSE 10000
 # Linux PHP workers prevent a slow database request from blocking every other request.
 ENV PHP_CLI_SERVER_WORKERS=4
 
+# The existing CLI server handles many requests per worker. Cache compiled PHP
+# for the lifetime of each worker; deployed source is immutable.
+RUN printf 'opcache.enable=1\nopcache.enable_cli=1\nopcache.validate_timestamps=0\nopcache.memory_consumption=128\n' > /usr/local/etc/php/conf.d/pawfolio-opcache.ini
+
 # A persistent disk mounted at storage/app is available only at runtime.
 # Create its directories and expose only public uploads, never private documents.
-CMD ["sh", "-c", "php docker/check-runtime.php && mkdir -p storage/app/public storage/app/private && php artisan storage:link --force && php artisan migrate --force && php artisan serve --no-reload --host=0.0.0.0 --port=${PORT:-10000}"]
+CMD ["sh", "-c", "php docker/check-runtime.php && mkdir -p storage/app/public storage/app/private && php artisan config:cache && php artisan route:cache && php artisan view:cache && php artisan storage:link --force && php artisan migrate --force && php artisan serve --no-reload --host=0.0.0.0 --port=${PORT:-10000}"]

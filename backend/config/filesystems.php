@@ -34,6 +34,9 @@ $cloudDisk = [
     // Avoid optional AWS checksum encodings on the S3-compatible endpoint.
     'request_checksum_calculation' => 'when_required',
     'response_checksum_validation' => 'when_required',
+    // Bound synchronous storage work; avoid occupying a worker indefinitely.
+    'http' => ['connect_timeout' => 3, 'timeout' => 15],
+    'retries' => 1,
     'throw' => true,
     'report' => false,
 ];

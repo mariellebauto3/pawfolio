@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Auth;
 
+use App\Rules\UniqueEmail;
 use App\Support\PasswordRules;
 use App\Support\Provinces;
 use Closure;
@@ -39,7 +40,7 @@ class SignUpPetRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'string', 'email', 'max:255', new UniqueEmail],
             'password' => PasswordRules::rules(),
             'name' => ['required', 'string', 'max:50'],
             'species' => ['required', 'string', Rule::in(['dog', 'cat', 'other'])],

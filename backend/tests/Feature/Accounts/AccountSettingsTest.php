@@ -40,7 +40,7 @@ class AccountSettingsTest extends TestCase
         parent::setUp();
         Storage::fake('local');
         // The breached-password check asks api.pwnedpasswords.com; no test talks to the internet.
-        Http::fake(['api.pwnedpasswords.com/range/*' => Http::response('')]);
+        Http::fake(['api.pwnedpasswords.com/range/*' => Http::response(str_repeat('0', 35).':0')]);
 
         $this->mochi = User::factory()->pet()->active()->create(['name' => 'Mochi', 'password' => Hash::make(self::PASSWORD)]);
         Pet::factory()->for($this->mochi)->lookingForAHome()->create([

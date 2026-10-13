@@ -104,6 +104,17 @@ class User extends Authenticatable
         return $this->getStatus() === AccountStatus::Deactivated;
     }
 
+    public function loadAuthProfile(): static
+    {
+        if ($this->isPet()) {
+            $this->loadMissing('pet:id,user_id,name');
+        } elseif ($this->isHuman()) {
+            $this->loadMissing('homeProfile:id,user_id,full_name,profile_photo_path');
+        }
+
+        return $this;
+    }
+
     public function displayName(): string
     {
         return match ($this->getRole()) {
@@ -132,7 +143,7 @@ class User extends Authenticatable
         return match ($this->getRole()) {
             Role::Pet => ($first = $this->pet?->relationLoaded('photos')
                 ? $this->pet->photos->sortBy('sort_order')->first()
-                : $this->pet?->photos()->orderBy('sort_order')->first())
+                : $this->pet?->photos()->select('file_path')->orderBy('sort_order')->first())
                 ? Storage::disk('public')->url($first->file_path)
                 : null,
             Role::Human => $this->homeProfile?->profile_photo_path

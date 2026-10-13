@@ -26,7 +26,7 @@ class ResetPasswordRequest extends FormRequest
             'token' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
             // SEC-AUTH-03 (AU-06): 8+ characters with a letter and a number, and not a known breached password.
-            'password' => ['required', 'string', 'max:255', 'confirmed', Password::min(8)->letters()->numbers()->uncompromised()],
+            'password' => ['bail', 'required', 'string', 'max:255', 'confirmed', Password::min(8)->letters()->numbers()->uncompromised()],
         ];
     }
 

@@ -4,6 +4,9 @@ use App\Models\User;
 
 return [
 
+    // Production lockouts must be shared across workers and application instances.
+    'lockout_store' => env('AUTH_LOCKOUT_STORE', 'database'),
+
     /*
     |--------------------------------------------------------------------------
     | Authentication Defaults
@@ -63,7 +66,7 @@ return [
 
     'providers' => [
         'users' => [
-            'driver' => 'eloquent',
+            'driver' => 'case-insensitive-eloquent',
             'model' => env('AUTH_MODEL', User::class),
         ],
 

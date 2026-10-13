@@ -2,12 +2,17 @@
 
 namespace App\Providers;
 
+use App\Actions\Auth\SignIn;
 use App\Exceptions\Handler;
 use App\Models\User;
+use App\Services\Auth\BreachedPasswordVerifier;
+use App\Services\Auth\CaseInsensitiveUserProvider;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Contracts\Validation\UncompromisedVerifier;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -18,7 +23,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(UncompromisedVerifier::class, BreachedPasswordVerifier::class);
+        $this->app->bind(SignIn::class, function ($app) {
+            $store = $app->environment('production') ? config('auth.lockout_store') : config('cache.default');
+            if ($app->environment('production')
+                && ! in_array(config("cache.stores.$store.driver"), ['database', 'redis', 'memcached', 'dynamodb'], true)) {
+                throw new \RuntimeException('AUTH_LOCKOUT_STORE must support shared atomic locks in production.');
+            }
+
+            return new SignIn($app['cache']->store($store));
+        });
     }
 
     /**
@@ -26,6 +40,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Auth::provider('case-insensitive-eloquent', fn ($app, array $config) => new CaseInsensitiveUserProvider($app['hash'], $config['model']));
         $this->configureRateLimiting();
         $this->configurePasswordResetLinks();
 
