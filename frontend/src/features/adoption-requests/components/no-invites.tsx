@@ -12,12 +12,12 @@ export function NoInvites() {
       title="No invites right now"
       description="When a human invites you to apply, you’ll find it here. You don’t have to wait for one: you can apply to any home that is Open to Adopt."
       action={
-        <Link href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
+        <Link prefetch={false} href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
           See Homes for You
         </Link>
       }
       secondaryAction={
-        <Link href={ROUTES.browse} className={buttonClasses()}>
+        <Link prefetch={false} href={ROUTES.browse} className={buttonClasses()}>
           Browse homes
         </Link>
       }

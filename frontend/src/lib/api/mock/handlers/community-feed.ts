@@ -4,6 +4,8 @@ import { PETS } from "@/lib/api/mock/fixtures/pets";
 import { type MockContext, type MockResult, type MockRoute, fail, ok, paginate, route, validationFailed } from "@/lib/api/mock/router";
 import type { Account } from "@/types/account";
 import type { PostType } from "@/types/post";
+import { savedPetCount } from "./bookmarks";
+import { activeInviteCount } from "./invites";
 
 // The community feed in mock mode (docs/api/community-reports-and-admin.md, "Community Feed"): the LoFi's posts,
 // written by the fixtures' pets and homes, with the same answers as the API. What is posted, liked, commented or
@@ -195,6 +197,20 @@ function toggleReaction(target: { post_id: number } | { comment_id: number }, { 
   return ok({ reacted: mine < 0, reactions_count: REACTIONS.filter((reaction) => reaction[key] === id).length });
 }
 
+function homeSummary(account: Account) {
+  if (account.role === "pet") {
+    const pet = PETS.find((candidate) => candidate.id === account.profile_id);
+    return pet ? { name: pet.name, avatar_url: pet.photos[0]?.url ?? null, city: pet.city, breed: pet.breed,
+      approximate_age_months: pet.approximate_age_months, pet_status: pet.status, views_count: pet.views_count,
+      bookmarks_count: pet.bookmarks_count, invites_count: activeInviteCount(pet.id), story_pets: [] } : null;
+  }
+  if (account.role !== "human") return null;
+  const home = HOME_PROFILES.find((candidate) => candidate.id === account.profile_id);
+  return home ? { name: home.full_name, avatar_url: home.profile_photo_url, city: home.city, home_type: home.home_type,
+    is_open_to_adopt: home.is_open_to_adopt, is_furparent: home.is_furparent, views_count: 0, saved_pets_count: savedPetCount(account),
+    story_pets: home.adopted_pets.map(({ pet, adopted_at }) => ({ id: pet.id, name: pet.name, adopted_at })) } : null;
+}
+
 export const communityFeedRoutes: MockRoute[] = [
   route("GET", "/feed", ({ query, account }) => {
     let posts = POSTS.filter((post) => !post.deleted).sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id);
@@ -203,12 +219,33 @@ export const communityFeedRoutes: MockRoute[] = [
       const types = query.type.split(",");
       posts = posts.filter((post) => types.includes(post.type));
     }
+    const firstBatch = !query.cursor;
+    const home = query.include_home && firstBatch && account ? homeSummary(account) : null;
+    if (query.pagination === "cursor") {
+      if (query.cursor) {
+        try {
+          const cursor = JSON.parse(atob(String(query.cursor))) as { id: number; created_at: string; _pointsToNextItems: boolean };
+          if (!Number.isInteger(cursor.id) || !cursor.created_at || cursor._pointsToNextItems !== true) throw new Error("Invalid cursor");
+          posts = posts.filter((post) => post.created_at < cursor.created_at || (post.created_at === cursor.created_at && post.id < cursor.id));
+        } catch {
+          return validationFailed({ cursor: "Choose a valid feed cursor." });
+        }
+      }
+      const perPage = Math.min(50, Math.max(1, Number(query.per_page ?? 10)));
+      const batch = posts.slice(0, perPage);
+      const last = batch.at(-1);
+      const hasMore = posts.length > perPage;
+      const nextCursor = hasMore && last ? btoa(JSON.stringify({ created_at: last.created_at, id: last.id, _pointsToNextItems: true })) : null;
+      return { status: 200, body: { data: batch.map((post) => postResource(post, account)), meta: {
+        per_page: perPage, has_more: hasMore, next_cursor: nextCursor, announcements: firstBatch ? ANNOUNCEMENTS : [], home,
+      }, links: {} } };
+    }
     const page = paginate(
       posts.map((post) => postResource(post, account)),
       query,
       "/api/v1/feed",
     );
-    return { status: 200, body: { ...page, meta: { ...page.meta, announcements: ANNOUNCEMENTS } } };
+    return { status: 200, body: { ...page, meta: { ...page.meta, announcements: ANNOUNCEMENTS, home } } };
   }),
 
   route("GET", "/posts/:postId", ({ params, account }) => {

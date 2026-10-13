@@ -21,7 +21,7 @@ type Props = {
 export function RequestDetailLayout({ header, panel, children, aside }: Props) {
   return (
     <div className="flex flex-col gap-4">
-      <Link href={ROUTES.requests} className="inline-flex min-h-11 items-center gap-1 self-start text-sm font-bold text-primary hover:underline md:min-h-0">
+      <Link prefetch={false} href={ROUTES.requests} className="inline-flex min-h-11 items-center gap-1 self-start text-sm font-bold text-primary hover:underline md:min-h-0">
         <Icon name="chevron-left" className="size-4 shrink-0" />
         All requests
       </Link>

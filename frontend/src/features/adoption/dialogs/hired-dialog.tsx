@@ -24,10 +24,10 @@ export function HiredDialog({ open, onClose, pet, home }: Props) {
       title="You got Hired!"
       footer={
         <>
-          <Link href={ROUTES.me} className={buttonClasses()}>
+          <Link prefetch={false} href={ROUTES.me} className={buttonClasses()}>
             View my alumni profile
           </Link>
-          <Link href={ROUTES.memberHome} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={ROUTES.memberHome} className={buttonClasses({ variant: "primary" })}>
             Post an update
           </Link>
         </>

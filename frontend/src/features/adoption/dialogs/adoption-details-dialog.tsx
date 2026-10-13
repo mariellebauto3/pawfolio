@@ -61,7 +61,7 @@ function Record({ record }: { record: AdoptionRecord }) {
       )}
 
       {/* Stories are written on the community feed (FD-04). */}
-      <Link href={ADOPTION_STORY_PATH} className={buttonClasses({ size: "sm", className: "self-start" })}>
+      <Link prefetch={false} href={ADOPTION_STORY_PATH} className={buttonClasses({ size: "sm", className: "self-start" })}>
         Write an adoption story
       </Link>
     </>
@@ -108,7 +108,7 @@ export function AdoptionDetailsDialog({ open, onClose, adoptionId, petName, onRe
       footer={
         <>
           {record && !onRecord && (
-            <Link href={requestPath(record.adoption_request_id)} className={buttonClasses()}>
+            <Link prefetch={false} href={requestPath(record.adoption_request_id)} className={buttonClasses()}>
               Open request record
             </Link>
           )}

@@ -28,7 +28,7 @@ export function HomeLink({ href, className, onNavigate, children }: Props) {
   }
 
   return (
-    <Link href={href} onClick={onClick} className={className}>
+    <Link prefetch={false} href={href} onClick={onClick} className={className}>
       {children}
     </Link>
   );

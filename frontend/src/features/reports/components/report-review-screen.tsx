@@ -82,7 +82,7 @@ function ReportedContent({ report }: Props) {
             : `Members reported ${name}’s account: how it behaves, not one post or comment.`}
         </p>
         {profilePath ? (
-          <Link href={profilePath} className={buttonClasses({ size: "sm", className: "self-start" })}>
+          <Link prefetch={false} href={profilePath} className={buttonClasses({ size: "sm", className: "self-start" })}>
             View public profile
           </Link>
         ) : (
@@ -150,7 +150,7 @@ export function ReportReviewScreen({ report }: Props) {
   return (
     <>
       <nav aria-label="Reports" className="mb-4 text-sm">
-        <Link href={report.status === "open" ? ROUTES.adminReports : `${ROUTES.adminReports}?tab=resolved`} className={BACK_LINK}>
+        <Link prefetch={false} href={report.status === "open" ? ROUTES.adminReports : `${ROUTES.adminReports}?tab=resolved`} className={BACK_LINK}>
           <Icon name="chevron-left" className="size-4 shrink-0" />
           {report.status === "open" ? "Reports" : "Resolved reports"}
         </Link>
@@ -203,7 +203,7 @@ export function ReportReviewScreen({ report }: Props) {
                     </>
                   )}
                 </dl>
-                <Link href={adminAccountPath(account.id)} className={buttonClasses({ size: "sm", className: "self-start" })}>
+                <Link prefetch={false} href={adminAccountPath(account.id)} className={buttonClasses({ size: "sm", className: "self-start" })}>
                   Open account
                 </Link>
               </div>

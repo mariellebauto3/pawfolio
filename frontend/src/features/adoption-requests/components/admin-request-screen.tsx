@@ -54,7 +54,7 @@ function Party({ name, photo, kind, email, accountId, accountStatus, badge }: Pa
         </span>
       </div>
       {accountId !== null && (
-        <Link href={adminAccountPath(accountId)} className={buttonClasses({ size: "sm", className: "shrink-0" })}>
+        <Link prefetch={false} href={adminAccountPath(accountId)} className={buttonClasses({ size: "sm", className: "shrink-0" })}>
           Account<span className="sr-only">: {name}</span>
         </Link>
       )}
@@ -76,7 +76,7 @@ export function AdminRequestScreen({ request }: Props) {
   return (
     <div className="flex flex-col gap-4">
       <nav aria-label="Requests" className="text-sm">
-        <Link href={request.is_overdue ? `${ROUTES.adminRequests}?tab=overdue` : ROUTES.adminRequests} className={BACK_LINK}>
+        <Link prefetch={false} href={request.is_overdue ? `${ROUTES.adminRequests}?tab=overdue` : ROUTES.adminRequests} className={BACK_LINK}>
           <Icon name="chevron-left" className="size-4 shrink-0" />
           {request.is_overdue ? "Overdue decisions" : "Requests & Meet & Greets"}
         </Link>
@@ -103,7 +103,7 @@ export function AdminRequestScreen({ request }: Props) {
             )}
             <div className="flex flex-wrap gap-3">
               {reminder.can_send && reminder.waiting_on && <SendReminderButton requestId={request.id} recipientName={reminderSideName(reminder.waiting_on, request)} />}
-              <Link href={adminResolvePath(pet.id, request.id)} className={buttonClasses({ size: "sm", variant: "primary" })}>
+              <Link prefetch={false} href={adminResolvePath(pet.id, request.id)} className={buttonClasses({ size: "sm", variant: "primary" })}>
                 Resolve issue
               </Link>
             </div>

@@ -24,10 +24,10 @@ export function FurparentDialog({ open, onClose, pet, home }: Props) {
       title="You’re a Furparent!"
       footer={
         <>
-          <Link href={petPath(pet.id)} className={buttonClasses()}>
+          <Link prefetch={false} href={petPath(pet.id)} className={buttonClasses()}>
             View {pet.name}’s alumni profile
           </Link>
-          <Link href={ADOPTION_STORY_PATH} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={ADOPTION_STORY_PATH} className={buttonClasses({ variant: "primary" })}>
             Share your adoption story
           </Link>
         </>

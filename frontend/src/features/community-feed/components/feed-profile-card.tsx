@@ -35,7 +35,7 @@ export function FeedProfileCard({ name, avatarUrl, line, badges, stats = [], sho
       <div aria-hidden="true" className="h-14 bg-sky" />
       <div className="flex flex-col items-center gap-2 px-4 pb-4 text-center">
         <Avatar name={name} src={avatarUrl ?? undefined} alt="" size="lg" className="-mt-7 border-2 border-surface" />
-        <Link href={ROUTES.me} className="font-display text-xl font-bold text-ink no-underline wrap-break-word hover:text-primary hover:underline">
+        <Link prefetch={false} href={ROUTES.me} className="font-display text-xl font-bold text-ink no-underline wrap-break-word hover:text-primary hover:underline">
           {name}
         </Link>
         {line && <p className="text-sm text-ink-muted">{line}</p>}

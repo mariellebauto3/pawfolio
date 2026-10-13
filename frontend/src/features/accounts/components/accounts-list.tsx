@@ -32,7 +32,7 @@ const name: TableColumn<AccountSummary> = {
       <Avatar name={account.display_name} src={account.avatar_url ?? undefined} alt="" size="sm" />
       <span className="flex min-w-0 flex-col">
         {/* Also a link: on phones the View button is a sideways scroll away. */}
-        <Link href={adminAccountPath(account.id)} className="underline hover:text-primary">
+        <Link prefetch={false} href={adminAccountPath(account.id)} className="underline hover:text-primary">
           {account.display_name}
         </Link>
         {account.caretaker_name && <span className="text-sm font-normal text-ink-muted">Caretaker: {account.caretaker_name}</span>}
@@ -51,7 +51,7 @@ const view: TableColumn<AccountSummary> = {
   headerHidden: true,
   align: "end",
   cell: (account) => (
-    <Link href={adminAccountPath(account.id)} className={buttonClasses({ size: "sm" })}>
+    <Link prefetch={false} href={adminAccountPath(account.id)} className={buttonClasses({ size: "sm" })}>
       View<span className="sr-only"> {account.display_name}</span>
     </Link>
   ),
@@ -74,11 +74,11 @@ const viewOrResolve: TableColumn<AccountSummary> = {
   align: "end",
   cell: (account) => (
     <span className="flex items-center justify-end gap-2">
-      <Link href={adminAccountPath(account.id)} className={buttonClasses({ size: "sm" })}>
+      <Link prefetch={false} href={adminAccountPath(account.id)} className={buttonClasses({ size: "sm" })}>
         View<span className="sr-only"> {account.display_name}</span>
       </Link>
       {account.pet && (
-        <Link href={adminResolvePath(account.pet.id)} className={buttonClasses({ size: "sm", variant: "tertiary" })}>
+        <Link prefetch={false} href={adminResolvePath(account.pet.id)} className={buttonClasses({ size: "sm", variant: "tertiary" })}>
           Resolve issue<span className="sr-only"> for {account.display_name}</span>
         </Link>
       )}
@@ -131,7 +131,7 @@ export function AccountsList({ accounts, filters, searchParams }: Props) {
       title="No accounts match these filters"
       description="Check the spelling, search by a pet's name, a human's name or an email, or take the status filter off."
       action={
-        <Link href={clear} className={buttonClasses()}>
+        <Link prefetch={false} href={clear} className={buttonClasses()}>
           Clear filters
         </Link>
       }
@@ -150,7 +150,7 @@ export function AccountsList({ accounts, filters, searchParams }: Props) {
         <p role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
           {summary(accounts.meta.total, filters)}
           {filtered && (
-            <Link href={clear} className="font-bold text-primary underline hover:text-primary-hover">
+            <Link prefetch={false} href={clear} className="font-bold text-primary underline hover:text-primary-hover">
               Clear filters
             </Link>
           )}

@@ -33,7 +33,7 @@ export function PastMeetings({ meetings, total }: Props) {
         {meetings.map((meeting) => (
           <li key={meeting.id} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-col gap-0.5">
-              <Link href={requestPath(meeting.adoption_request_id)} className="self-start font-bold wrap-break-word text-primary hover:underline">
+              <Link prefetch={false} href={requestPath(meeting.adoption_request_id)} className="self-start font-bold wrap-break-word text-primary hover:underline">
                 {meeting.pet_name}
               </Link>
               <span className="text-sm wrap-break-word text-ink-muted">

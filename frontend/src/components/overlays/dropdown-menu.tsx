@@ -276,7 +276,7 @@ function MenuItemControl({ item, onDone }: ItemProps) {
 
   if (item.href && !item.disabled) {
     return (
-      <Link href={item.href} role="menuitem" tabIndex={-1} className={classes} onPointerMove={follow} onClick={() => onDone(false)}>
+      <Link prefetch={false} href={item.href} role="menuitem" tabIndex={-1} className={classes} onPointerMove={follow} onClick={() => onDone(false)}>
         {content}
       </Link>
     );

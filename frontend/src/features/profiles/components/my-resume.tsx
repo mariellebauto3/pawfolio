@@ -37,7 +37,7 @@ export function MyResume({ pet, posts, similar }: Props) {
             icon="pencil"
             title="Your resume is a Draft"
             actions={
-              <Link href={resumeEditPath(firstOpenStep(completeness) + 1)} className={buttonClasses({ variant: "primary", size: "sm" })}>
+              <Link prefetch={false} href={resumeEditPath(firstOpenStep(completeness) + 1)} className={buttonClasses({ variant: "primary", size: "sm" })}>
                 Continue editing
               </Link>
             }
@@ -57,10 +57,10 @@ export function MyResume({ pet, posts, similar }: Props) {
       }
       actions={
         <>
-          <Link href={ROUTES.resumeEdit} className={buttonClasses({ variant: draft ? "secondary" : "primary" })}>
+          <Link prefetch={false} href={ROUTES.resumeEdit} className={buttonClasses({ variant: draft ? "secondary" : "primary" })}>
             Edit resume
           </Link>
-          <Link href={ROUTES.stats} className={buttonClasses({ variant: "secondary" })}>
+          <Link prefetch={false} href={ROUTES.stats} className={buttonClasses({ variant: "secondary" })}>
             View stats
           </Link>
           {/* A Draft has no public page to share yet. */}
@@ -91,7 +91,7 @@ export function MyResume({ pet, posts, similar }: Props) {
                 ))}
               </ul>
             )}
-            <Link href={ROUTES.memberHome} className="text-sm font-bold text-primary underline-offset-4 hover:underline">
+            <Link prefetch={false} href={ROUTES.memberHome} className="text-sm font-bold text-primary underline-offset-4 hover:underline">
               See all posts
             </Link>
           </Card>
@@ -107,7 +107,7 @@ export function MyResume({ pet, posts, similar }: Props) {
                   <li key={other.id} className="flex items-center gap-3">
                     <Avatar name={other.name} src={other.photos[0]?.url} alt="" size="md" />
                     <span className="flex min-w-0 flex-col">
-                      <Link href={petPath(other.id)} className="truncate font-bold underline-offset-4 hover:underline">
+                      <Link prefetch={false} href={petPath(other.id)} className="truncate font-bold underline-offset-4 hover:underline">
                         {other.name}
                       </Link>
                       <span className="truncate text-sm text-ink-muted">{other.breed}</span>

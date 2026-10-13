@@ -82,7 +82,7 @@ export function PetFinder({ search, matches, failed = false }: Props) {
                     <span className="text-sm wrap-break-word text-ink-muted">{[pet.city, pet.caretaker_name && `Caretaker: ${pet.caretaker_name}`].filter(Boolean).join(", ") || "Pet"}</span>
                   </div>
                   {pet.status && <StatusBadge status={PET_STATUS_NAMES[pet.status]} className="hidden sm:inline-flex" />}
-                  <Link href={adminResolvePath(pet.id)} className={buttonClasses({ size: "sm", className: "shrink-0" })}>
+                  <Link prefetch={false} href={adminResolvePath(pet.id)} className={buttonClasses({ size: "sm", className: "shrink-0" })}>
                     Choose<span className="sr-only"> {pet.name}</span>
                   </Link>
                 </li>
@@ -97,11 +97,11 @@ export function PetFinder({ search, matches, failed = false }: Props) {
 
       <p className="text-sm text-ink-muted">
         Most issues start somewhere else: open one from an{" "}
-        <Link href={`${ROUTES.adminRequests}?tab=overdue`} className={TEXT_LINK}>
+        <Link prefetch={false} href={`${ROUTES.adminRequests}?tab=overdue`} className={TEXT_LINK}>
           overdue request
         </Link>{" "}
         or from the{" "}
-        <Link href={`${ROUTES.adminAccounts}?tab=alumni`} className={TEXT_LINK}>
+        <Link prefetch={false} href={`${ROUTES.adminAccounts}?tab=alumni`} className={TEXT_LINK}>
           Alumni tab
         </Link>
         , and the pet and its request are filled in for you.

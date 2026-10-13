@@ -38,6 +38,10 @@ const newestFirst = (a: Bookmark, b: Bookmark) => b.created_at.localeCompare(a.c
 /** A pet anyone may open: published. Every fixture pet's account is Active. */
 const visiblePet = (petId: number | null) => PETS.find((pet) => pet.id === petId && pet.status !== "draft");
 
+export function savedPetCount(account: Account | null): number {
+  return BOOKMARKS.filter((bookmark) => bookmark.user_id === account?.id && visiblePet(bookmark.pet_id)).length;
+}
+
 /** A home this pet may open: Open to Adopt, or one it already has a request with (HomeProfilePolicy). */
 function visibleHome(homeProfileId: number | null, petId: number | null) {
   const home = HOME_PROFILES.find((h) => h.id === homeProfileId);

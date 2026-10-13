@@ -104,7 +104,7 @@ export function SendRequestForm({ home, pet, openRequests, recipient }: Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-narrow flex-col">
-      <Link href={homeProfilePath(home.id)} className="mb-4 inline-flex min-h-11 items-center gap-1 self-start text-sm font-bold text-primary hover:underline md:min-h-0">
+      <Link prefetch={false} href={homeProfilePath(home.id)} className="mb-4 inline-flex min-h-11 items-center gap-1 self-start text-sm font-bold text-primary hover:underline md:min-h-0">
         <Icon name="chevron-left" className="size-4 shrink-0" />
         Back to {home.full_name}’s Home Profile
       </Link>
@@ -179,7 +179,7 @@ export function SendRequestForm({ home, pet, openRequests, recipient }: Props) {
               announce
               action={
                 problem.action && (
-                  <Link href={problem.action.href} className="text-sm font-bold underline">
+                  <Link prefetch={false} href={problem.action.href} className="text-sm font-bold underline">
                     {problem.action.label}
                   </Link>
                 )
@@ -190,7 +190,7 @@ export function SendRequestForm({ home, pet, openRequests, recipient }: Props) {
           )}
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-            <Link href={homeProfilePath(home.id)} className={buttonClasses()}>
+            <Link prefetch={false} href={homeProfilePath(home.id)} className={buttonClasses()}>
               Cancel
             </Link>
             <Button type="submit" variant="primary" loading={busy} loadingLabel="Sending your request">

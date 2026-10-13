@@ -51,7 +51,7 @@ export function SettingsScreen({ settings }: Props) {
             </dl>
             <div className="flex flex-wrap gap-3">
               <PasswordCardActions />
-              <Link href={ROUTES.activity} className={buttonClasses({ variant: "tertiary", size: "sm" })}>
+              <Link prefetch={false} href={ROUTES.activity} className={buttonClasses({ variant: "tertiary", size: "sm" })}>
                 See sign-in activity
               </Link>
             </div>

@@ -109,7 +109,7 @@ export function FeedPost({ post, when, viewerId, variant = "feed", onPatch, onEd
               <ActionLabel icon="message-circle">Comment</ActionLabel>
             </button>
           ) : (
-            <Link href={`${postPath(post.id)}#comments`} className={ACTION}>
+            <Link prefetch={false} href={`${postPath(post.id)}#comments`} className={ACTION}>
               <ActionLabel icon="message-circle">Comment</ActionLabel>
               <span className="sr-only">{mine ? " on your post" : ` on ${name}’s post`}</span>
             </Link>

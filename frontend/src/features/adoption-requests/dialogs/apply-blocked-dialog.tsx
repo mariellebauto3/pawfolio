@@ -32,7 +32,7 @@ export function ApplyBlockedDialog({ open, onClose, blocker, homeName }: Props) 
       footer={
         <>
           <Button onClick={onClose}>Not now</Button>
-          <Link href={wayOut.href} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={wayOut.href} className={buttonClasses({ variant: "primary" })}>
             {wayOut.label}
           </Link>
         </>

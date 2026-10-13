@@ -39,6 +39,43 @@ afterEach(() => {
 });
 
 describe("keeping the unread count current", () => {
+  it("refreshes after a completed write even when an older count request is still in flight", async () => {
+    let release!: (response: Awaited<ReturnType<Transport>>) => void;
+    let counts = 0;
+    const transport: Transport = async ({ path }) => {
+      if (path === "/notifications/unread-count") {
+        counts++;
+        if (counts === 1) return new Promise((resolve) => { release = resolve; });
+        return { status: 200, body: { data: { unread_count: 0 } }, retryAfter: null };
+      }
+      return { status: 200, body: { data: {} }, retryAfter: null };
+    };
+    const store = createAlertsStore(createApiClient(transport));
+    store.start();
+    store.markRead("a");
+    await settle();
+    release({ status: 200, body: { data: { unread_count: 1 } }, retryAfter: null });
+    await settle();
+    expect(store.getSnapshot().unreadCount).toBe(0);
+    expect(counts).toBe(2);
+    store.stop();
+  });
+
+  it("shares a slow count request across focus events and poll ticks", async () => {
+    const api = fakeApi([row("a")]);
+    let release!: () => void;
+    api.state.hold = new Promise<void>((resolve) => { release = resolve; });
+    const store = createAlertsStore(api.client);
+    store.start();
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 2);
+    store.poke();
+    expect(api.counts()).toBe(1);
+    release();
+    await settle();
+    expect(store.getSnapshot().unreadCount).toBe(1);
+    store.stop();
+  });
+
   it("counts when it starts, then every minute", async () => {
     const api = fakeApi([row("a"), row("b"), row("c", true)]);
     const store = createAlertsStore(api.client);

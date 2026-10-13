@@ -51,7 +51,7 @@ export function MatchesNotReady({ reason, setup, continueHref }: Props) {
           action={
             <div className="flex flex-col items-center gap-5">
               {setup && <SetupChecklist steps={setup} />}
-              <Link href={continueHref} className={buttonClasses({ variant: "primary" })}>
+              <Link prefetch={false} href={continueHref} className={buttonClasses({ variant: "primary" })}>
                 Take the lifestyle quiz
               </Link>
             </div>
@@ -69,12 +69,12 @@ export function MatchesNotReady({ reason, setup, continueHref }: Props) {
           title="You’ve been Hired"
           description="Homes for You is for pets that are still looking for a home. Your resume is an alumni profile now, linked to your Furparent."
           action={
-            <Link href={ROUTES.me} className={buttonClasses({ variant: "primary" })}>
+            <Link prefetch={false} href={ROUTES.me} className={buttonClasses({ variant: "primary" })}>
               View my profile
             </Link>
           }
           secondaryAction={
-            <Link href={ROUTES.memberHome} className={buttonClasses()}>
+            <Link prefetch={false} href={ROUTES.memberHome} className={buttonClasses()}>
               Back to the feed
             </Link>
           }
@@ -90,7 +90,7 @@ export function MatchesNotReady({ reason, setup, continueHref }: Props) {
         title="Finish your resume to see Homes for You"
         description="Your resume is still a Draft. Homes for You compares it with each human’s Home Profile, so it starts once the resume is published."
         action={
-          <Link href={continueHref} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={continueHref} className={buttonClasses({ variant: "primary" })}>
             Continue resume
           </Link>
         }

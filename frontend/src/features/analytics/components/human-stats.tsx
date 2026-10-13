@@ -27,7 +27,7 @@ export function HumanStats({ stats }: Props) {
           value={tiles.matches.total}
           note={
             tiles.matches.total > 0 ? (
-              <Link href={ROUTES.matches} className={NOTE_LINK}>
+              <Link prefetch={false} href={ROUTES.matches} className={NOTE_LINK}>
                 {tiles.matches.strong} at 80% or more
               </Link>
             ) : (
@@ -40,7 +40,7 @@ export function HumanStats({ stats }: Props) {
           value={tiles.bookmarks.total}
           note={
             tiles.bookmarks.total > 0 ? (
-              <Link href={ROUTES.bookmarks} className={NOTE_LINK}>
+              <Link prefetch={false} href={ROUTES.bookmarks} className={NOTE_LINK}>
                 See bookmarks
               </Link>
             ) : (
@@ -53,7 +53,7 @@ export function HumanStats({ stats }: Props) {
           value={tiles.requests.total}
           note={
             tiles.requests.need_action > 0 ? (
-              <Link href={ROUTES.requests} className={NOTE_LINK}>
+              <Link prefetch={false} href={ROUTES.requests} className={NOTE_LINK}>
                 {tiles.requests.need_action} waiting on you
               </Link>
             ) : (
@@ -77,7 +77,7 @@ export function HumanStats({ stats }: Props) {
               title="No matches yet"
               description="Matches come from your lifestyle quiz. It takes a few minutes."
               action={
-                <Link href={ROUTES.homeProfileEdit} className={buttonClasses({ variant: "primary" })}>
+                <Link prefetch={false} href={ROUTES.homeProfileEdit} className={buttonClasses({ variant: "primary" })}>
                   Take the lifestyle quiz
                 </Link>
               }

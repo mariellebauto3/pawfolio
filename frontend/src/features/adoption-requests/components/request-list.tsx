@@ -39,7 +39,7 @@ function RequestRow({ request, name, photo, facts, badge }: RowProps) {
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h2 className="text-lg wrap-break-word">
             {/* The link covers the row, so the whole of it opens the request. */}
-            <Link href={requestPath(request.id)} className="after:absolute after:inset-0 after:rounded-card hover:text-primary">
+            <Link prefetch={false} href={requestPath(request.id)} className="after:absolute after:inset-0 after:rounded-card hover:text-primary">
               {name}
             </Link>
           </h2>
@@ -67,12 +67,12 @@ export function RequestList({ tab, requests }: ListProps) {
         title="No open requests"
         description="When you apply to a home, you can follow the request here: from Sent to the Meet & Greet and the decision."
         action={
-          <Link href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
             See Homes for You
           </Link>
         }
         secondaryAction={
-          <Link href={ROUTES.browse} className={buttonClasses()}>
+          <Link prefetch={false} href={ROUTES.browse} className={buttonClasses()}>
             Browse homes
           </Link>
         }
@@ -133,7 +133,7 @@ export function InboxList({ tab, requests }: InboxProps) {
         {...NOTHING[tab]}
         action={
           tab === "new" && (
-            <Link href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
+            <Link prefetch={false} href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
               See Pets for You
             </Link>
           )

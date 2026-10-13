@@ -10,6 +10,13 @@ and adoption stories.
 
 ## Folders
 
+Home reads 10 recent posts with cursor pagination, then loads the next 10 when the bottom sentinel approaches
+the viewport. An explicit Show more/Try again button remains available. Single-flight requests, opaque cursors,
+ID deduplication and cancellation on unmount prevent overlapping loads and duplicate posts. A failed batch stops
+automatic loading until retry. Post photos load lazily in fixed frames; composer/delete dialogs load on demand.
+The first batch includes small profile cards/counts; three lightweight suggestions stream separately. Opening
+Home does not fetch full profile, invites, bookmarks, or other module pages.
+
 | Folder | Holds |
 | --- | --- |
 | `components/` | Feature-specific UI pieces used by this module's screens (cards, panels, lists). |

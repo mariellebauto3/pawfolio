@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/feedback/alert";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { Avatar } from "@/components/ui/avatar";
@@ -13,10 +13,9 @@ import { formatTimeAgo } from "@/lib/utils/format-date";
 import { useToast } from "@/providers/toast-provider";
 import type { Post } from "@/types/post";
 import { getFeed } from "../api/feed";
-import { DeletePostDialog } from "../dialogs/delete-post-dialog";
-import { PostDialog } from "../dialogs/post-dialog";
 import type { FeedPage, FeedViewer, StoryPet } from "../types/feed";
 import { FeedPost } from "./feed-post";
+import { appendFeedPosts } from "../hooks/feed-pagination";
 
 type Props = {
   /** The first page, as the server read it. */
@@ -33,6 +32,8 @@ type Props = {
 type Open = { kind: "post" } | { kind: "story" } | { kind: "edit"; post: Post } | { kind: "delete"; post: Post } | null;
 
 const UNKNOWN_PROBLEM = "We couldn't load more posts. Check your connection and try again.";
+const PostDialog = lazy(() => import("../dialogs/post-dialog").then((module) => ({ default: module.PostDialog })));
+const DeletePostDialog = lazy(() => import("../dialogs/delete-post-dialog").then((module) => ({ default: module.DeletePostDialog })));
 
 // FD-01 and FD-02, the community feed: the composer, then one list of everyone's posts, newest first, with more of
 // it a press away. What the viewer posts, edits or deletes shows here once the API has taken it. Pets are spoken to
@@ -40,8 +41,8 @@ const UNKNOWN_PROBLEM = "We couldn't load more posts. Check your connection and 
 export function Feed({ initial, viewer, storyPets, compose, renderedAt }: Props) {
   const toast = useToast();
   const [posts, setPosts] = useState(initial.posts);
-  const [page, setPage] = useState(initial.page);
-  const [lastPage, setLastPage] = useState(initial.lastPage);
+  const [nextCursor, setNextCursor] = useState(initial.nextCursor ?? null);
+  const [hasMore, setHasMore] = useState(initial.hasMore ?? false);
   const [loading, setLoading] = useState(false);
   const [loadProblem, setLoadProblem] = useState<string | null>(null);
   const canTellStory = viewer.role === "human" && storyPets.length > 0;
@@ -49,6 +50,11 @@ export function Feed({ initial, viewer, storyPets, compose, renderedAt }: Props)
   const [now, setNow] = useState(() => new Date(renderedAt));
   const composer = useRef<HTMLButtonElement>(null);
   const focusComposerOnClose = useRef(false);
+  const sentinel = useRef<HTMLDivElement>(null);
+  const inFlight = useRef<AbortController | null>(null);
+  const loadedCursors = useRef(new Set<string>());
+
+  useEffect(() => () => { inFlight.current?.abort(); }, []);
 
   // The address that opened the story form has done its job: a reload shouldn't open it again. Only the address
   // changes; nothing is asked of the server for it.
@@ -64,23 +70,38 @@ export function Feed({ initial, viewer, storyPets, compose, renderedAt }: Props)
     composer.current?.focus({ preventScroll: true });
   }, [open]);
 
-  async function loadMore() {
-    if (loading) return;
+  const loadMore = useCallback(async () => {
+    if (inFlight.current || !hasMore || !nextCursor || loadedCursors.current.has(nextCursor)) return;
+    const controller = new AbortController();
+    inFlight.current = controller;
     setLoading(true);
     setLoadProblem(null);
     try {
-      const next = await getFeed(api, { page: page + 1 });
+      const next = await getFeed(api, { pagination: "cursor", cursor: nextCursor, signal: controller.signal });
+      if (controller.signal.aborted) return;
+      loadedCursors.current.add(nextCursor);
       setNow(new Date());
-      // Posts made since the first page was read push older ones down a page: one already on screen isn't shown twice.
-      setPosts((shown) => [...shown, ...next.posts.filter((post) => !shown.some((other) => other.id === post.id))]);
-      setPage(next.page);
-      setLastPage(next.lastPage);
+      // Preserve optimistic edits/likes and discard any IDs already on screen.
+      setPosts((shown) => appendFeedPosts(shown, next.posts));
+      setNextCursor(next.nextCursor ?? null);
+      setHasMore(Boolean(next.hasMore && next.nextCursor && !loadedCursors.current.has(next.nextCursor)));
     } catch (problem) {
+      if (controller.signal.aborted) return;
       setLoadProblem(isApiError(problem) ? problem.message : UNKNOWN_PROBLEM);
     } finally {
-      setLoading(false);
+      if (inFlight.current === controller) inFlight.current = null;
+      if (!controller.signal.aborted) setLoading(false);
     }
-  }
+  }, [hasMore, nextCursor]);
+
+  useEffect(() => {
+    if (!hasMore || loading || loadProblem || !sentinel.current || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+    }, { rootMargin: "400px 0px" });
+    observer.observe(sentinel.current);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadProblem, loadMore]);
 
   function handlePosted(post: Post, said: string) {
     setNow(new Date());
@@ -163,17 +184,19 @@ export function Feed({ initial, viewer, storyPets, compose, renderedAt }: Props)
               {loadProblem}
             </Alert>
           )}
-          {page < lastPage ? (
+          {hasMore ? (
+            <div ref={sentinel} className="flex justify-center py-2" aria-busy={loading}>
             <Button className="self-center" loading={loading} loadingLabel="Loading more posts" onClick={() => void loadMore()}>
               {loadProblem ? "Try again" : "Show more posts"}
             </Button>
+            </div>
           ) : (
             <p className="py-2 text-center text-sm text-ink-muted">You’re all caught up.</p>
           )}
         </>
       )}
 
-      <PostDialog
+      {open && open.kind !== "delete" && <Suspense fallback={<p role="status">Loading post form…</p>}><PostDialog
         open={open?.kind === "post" || open?.kind === "story" || open?.kind === "edit"}
         onClose={() => setOpen(null)}
         mode={open?.kind === "edit" ? "edit" : open?.kind === "story" ? "story" : "post"}
@@ -181,9 +204,11 @@ export function Feed({ initial, viewer, storyPets, compose, renderedAt }: Props)
         pets={storyPets}
         post={open?.kind === "edit" ? open.post : undefined}
         onDone={(post) => (open?.kind === "edit" ? handleSaved(post) : handlePosted(post, open?.kind === "story" ? "Story posted." : "Posted."))}
-      />
+      /></Suspense>}
 
-      <DeletePostDialog post={open?.kind === "delete" ? open.post : null} onClose={() => setOpen(null)} onDeleted={handleDeleted} />
+      {open?.kind === "delete" && <Suspense fallback={<p role="status">Loading post options…</p>}>
+        <DeletePostDialog post={open.post} onClose={() => setOpen(null)} onDeleted={handleDeleted} />
+      </Suspense>}
     </div>
   );
 }

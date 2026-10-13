@@ -45,7 +45,7 @@ export function CommentItem({ comment, when, onLike, onReply, onDelete, onReport
         <div className="rounded-card bg-surface-sunken px-3 py-2">
           <p className="flex flex-wrap items-baseline justify-between gap-x-3">
             {profilePath ? (
-              <Link href={profilePath} className="text-sm font-bold text-ink no-underline wrap-break-word hover:text-primary hover:underline">
+              <Link prefetch={false} href={profilePath} className="text-sm font-bold text-ink no-underline wrap-break-word hover:text-primary hover:underline">
                 {author.display_name}
               </Link>
             ) : (

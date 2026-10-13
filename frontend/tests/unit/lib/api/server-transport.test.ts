@@ -11,6 +11,42 @@ describe("server transport", () => {
     return { client: createApiClient(transport), fetch };
   }
 
+  it("shares duplicate GETs within a render, clears them after writes and isolates cookie contexts", async () => {
+    const first = setup("pawfolio-session=first");
+    const second = setup("pawfolio-session=second");
+    await Promise.all([first.client.get("/feed"), first.client.get("/feed")]);
+    expect(first.fetch).toHaveBeenCalledOnce();
+    await first.client.get("/feed");
+    expect(first.fetch).toHaveBeenCalledOnce();
+    await second.client.get("/feed");
+    expect(second.fetch).toHaveBeenCalledOnce();
+    expect(new Headers(second.fetch.mock.calls[0][1]?.headers).get("Cookie")).toBe("pawfolio-session=second");
+    await first.client.post("/posts", { body: "Hello" });
+    await first.client.get("/feed");
+    expect(first.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retain failed GET responses", async () => {
+    const api = setup(null);
+    api.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ message: "Unavailable" }), { status: 503 }));
+    await expect(api.client.get("/feed")).rejects.toMatchObject({ status: 503 });
+    await api.client.get("/feed");
+    expect(api.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not let a failed read from before a write evict a newer successful read", async () => {
+    const api = setup(null);
+    let release!: (response: Response) => void;
+    api.fetch.mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+    const stale = api.client.get("/feed").catch(() => null);
+    await api.client.post("/posts", { body: "New post" });
+    await api.client.get("/feed");
+    release(new Response(JSON.stringify({ message: "Unavailable" }), { status: 503 }));
+    await stale;
+    await api.client.get("/feed");
+    expect(api.fetch).toHaveBeenCalledTimes(3);
+  });
+
   it("forwards the visitor's cookies and our origin so Sanctum sees a first-party call", async () => {
     const { client, fetch } = setup("pawfolio-session=abc; XSRF-TOKEN=tok%3D");
     await client.get("/auth/me");

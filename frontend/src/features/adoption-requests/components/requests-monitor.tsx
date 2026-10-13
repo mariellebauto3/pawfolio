@@ -35,7 +35,7 @@ const who: TableColumn<MonitoredRequest> = {
   cell: (request) => (
     <span className="flex min-w-0 flex-col">
       {/* Also a link: on phones the View button is a sideways scroll away. */}
-      <Link href={adminRequestPath(request.id)} className="underline hover:text-primary">
+      <Link prefetch={false} href={adminRequestPath(request.id)} className="underline hover:text-primary">
         {between(request)}
       </Link>
       <span className="text-sm font-normal text-ink-muted">Request #{request.id}</span>
@@ -87,7 +87,7 @@ const view: TableColumn<MonitoredRequest> = {
   headerHidden: true,
   align: "end",
   cell: (request) => (
-    <Link href={adminRequestPath(request.id)} className={buttonClasses({ size: "sm" })}>
+    <Link prefetch={false} href={adminRequestPath(request.id)} className={buttonClasses({ size: "sm" })}>
       View<span className="sr-only">: {between(request)}</span>
     </Link>
   ),
@@ -101,10 +101,10 @@ const viewOrResolve: TableColumn<MonitoredRequest> = {
   align: "end",
   cell: (request) => (
     <span className="flex items-center justify-end gap-2">
-      <Link href={adminRequestPath(request.id)} className={buttonClasses({ size: "sm" })}>
+      <Link prefetch={false} href={adminRequestPath(request.id)} className={buttonClasses({ size: "sm" })}>
         View<span className="sr-only">: {between(request)}</span>
       </Link>
-      <Link href={adminResolvePath(request.pet.id, request.id)} className={buttonClasses({ size: "sm", variant: "tertiary" })}>
+      <Link prefetch={false} href={adminResolvePath(request.pet.id, request.id)} className={buttonClasses({ size: "sm", variant: "tertiary" })}>
         Resolve<span className="sr-only">: {between(request)}</span>
       </Link>
     </span>
@@ -145,7 +145,7 @@ export function RequestsMonitor({ requests, filters, overdueCount, searchParams 
       title="No requests match these filters"
       description="Check the spelling, search by the pet’s or the human’s name, or take the status filter off."
       action={
-        <Link href={clear} className={buttonClasses()}>
+        <Link prefetch={false} href={clear} className={buttonClasses()}>
           Clear filters
         </Link>
       }
@@ -160,7 +160,7 @@ export function RequestsMonitor({ requests, filters, overdueCount, searchParams 
         <p role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
           {summary(requests.meta.total, filters)}
           {filtered && (
-            <Link href={clear} className="font-bold text-primary underline hover:text-primary-hover">
+            <Link prefetch={false} href={clear} className="font-bold text-primary underline hover:text-primary-hover">
               Clear filters
             </Link>
           )}

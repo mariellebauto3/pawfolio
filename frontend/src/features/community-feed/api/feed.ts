@@ -4,9 +4,12 @@ import { isRecord, isText, readPage, unexpected } from "@/lib/api/readers";
 import type { ApiResource } from "@/types/api";
 import type { PetSummary } from "@/types/pet";
 import { POST_TYPES, type Post, type PostAuthor, type PostComment, type PostPhoto, type PostReply, type PostType } from "@/types/post";
-import { ROLES, type Role } from "@/types/statuses";
+import { PET_STATUSES, ROLES, type Role, type PetStatus } from "@/types/statuses";
+import type { HomeType } from "@/types/home-profile";
+import { HOME_TYPE_LABELS } from "@/constants/home-profiles";
+import { homeProfilePath, petPath } from "@/constants/routes";
 import { FEED_PAGE_SIZE } from "../schemas/posts";
-import type { Announcement, FeedPage, NewPost, NewStory, PostDetail, PostEdit, ReactionState } from "../types/feed";
+import type { Announcement, FeedHome, FeedPage, FeedSuggestion, NewPost, NewStory, PostDetail, PostEdit, ReactionState } from "../types/feed";
 
 // Community feed calls (docs/api/community-reports-and-admin.md, FD-01…FD-07, FR14, FR17, FR29). The two reads work
 // from Server Components with `getServerApi()`; every write runs in the browser, where the CSRF token is. Who is
@@ -114,16 +117,72 @@ type FeedOptions = {
   /** Only this account's posts, for "More from…" on a post's page. */
   authorId?: number;
   signal?: AbortSignal;
+  pagination?: "cursor";
+  cursor?: string | null;
+  includeHome?: boolean;
 };
+
+function readHome(value: unknown): FeedHome | null {
+  if (!isRecord(value) || !isText(value.name)) return null;
+  return {
+    name: value.name,
+    avatar_url: textOrNull(value.avatar_url),
+    city: textOrNull(value.city),
+    breed: textOrNull(value.breed),
+    approximate_age_months: typeof value.approximate_age_months === "number" ? value.approximate_age_months : null,
+    pet_status: (PET_STATUSES as readonly unknown[]).includes(value.pet_status) ? value.pet_status as PetStatus : undefined,
+    home_type: typeof value.home_type === "string" && Object.hasOwn(HOME_TYPE_LABELS, value.home_type) ? value.home_type as HomeType : null,
+    is_open_to_adopt: value.is_open_to_adopt === true,
+    is_furparent: value.is_furparent === true,
+    views_count: countOf(value.views_count),
+    bookmarks_count: countOf(value.bookmarks_count),
+    invites_count: countOf(value.invites_count),
+    saved_pets_count: countOf(value.saved_pets_count),
+    story_pets: Array.isArray(value.story_pets) ? value.story_pets.flatMap((pet) =>
+      isRecord(pet) && isId(pet.id) && isText(pet.name)
+        ? [{ id: pet.id, name: pet.name, adoptedAt: isDate(pet.adopted_at) ? pet.adopted_at : null }] : []) : [],
+  };
+}
+
+/** Only the three cards displayed on Home, with no full profiles or match breakdowns. */
+export async function getFeedSuggestions(client: ApiClient, role: "pet" | "human"): Promise<{ items: FeedSuggestion[]; reason: string | null }> {
+  const response = readPage(await client.get<unknown>("/matches", { query: { summary: 1, per_page: 3 } }), isRecord, FEED_PROBLEM);
+  const meta: Record<string, unknown> = response.meta;
+  return {
+    reason: typeof meta.reason === "string" ? meta.reason : null,
+    items: response.data.flatMap((row) => {
+      const profile = row.profile;
+      if (!isRecord(profile) || !isId(profile.id) || !isText(profile.name) || typeof row.score !== "number") return [];
+      return [{ id: profile.id, name: profile.name, place: textOrNull(profile.city) ?? "", photoUrl: textOrNull(profile.avatar_url),
+        href: role === "pet" ? homeProfilePath(profile.id) : petPath(profile.id), score: row.score }];
+    }),
+  };
+}
 
 /**
  * One page of the feed, newest first: For Hire posts, pet updates, human posts, Hired posts and adoption stories
  * together (FD-01, FD-02). Posts of accounts that aren't Active, removed posts and deleted posts are left out by
  * the API.
  */
-export async function getFeed(client: ApiClient, { page = 1, perPage = FEED_PAGE_SIZE, authorId, signal }: FeedOptions = {}): Promise<FeedPage> {
-  const query = { page: page > 1 ? page : undefined, per_page: perPage, author_user_id: authorId };
-  const answered = readPage(await client.get<unknown>("/feed", { query, signal }), isRecord, FEED_PROBLEM);
+export async function getFeed(client: ApiClient, { page = 1, perPage = FEED_PAGE_SIZE, authorId, signal, pagination, cursor, includeHome }: FeedOptions = {}): Promise<FeedPage> {
+  const query = { page: page > 1 ? page : undefined, per_page: perPage, author_user_id: authorId,
+    ...(pagination ? { pagination, cursor: cursor ?? undefined } : {}), ...(includeHome ? { include_home: 1 } : {}) };
+  const response = await client.get<unknown>("/feed", { query, signal });
+  if (pagination === "cursor") {
+    if (!isRecord(response) || !Array.isArray(response.data) || !isRecord(response.meta)
+      || typeof response.meta.has_more !== "boolean"
+      || !(response.meta.next_cursor === null || isText(response.meta.next_cursor))
+      || (response.meta.has_more && !response.meta.next_cursor)) throw unexpected(FEED_PROBLEM);
+    return {
+      posts: response.data.flatMap((row) => toPost(row) ?? []),
+      page: 1, lastPage: 1, total: 0,
+      nextCursor: response.meta.next_cursor as string | null,
+      hasMore: response.meta.has_more,
+      announcements: readAnnouncements(response.meta.announcements),
+      home: readHome(response.meta.home),
+    };
+  }
+  const answered = readPage(response, isRecord, FEED_PROBLEM);
   const meta: Record<string, unknown> = answered.meta;
   return {
     posts: answered.data.flatMap((row) => toPost(row) ?? []),

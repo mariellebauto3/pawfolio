@@ -125,12 +125,12 @@ export function PetRequestPanel({ request, meet, adopted }: Props) {
           {open && <WithdrawRequestButton request={{ id: request.id, status: request.status, home_profile: request.home_profile }} />}
           {request.status === "adopted" &&
             (adopted ?? (
-              <Link href={ROUTES.me} className={buttonClasses({ variant: "primary" })}>
+              <Link prefetch={false} href={ROUTES.me} className={buttonClasses({ variant: "primary" })}>
                 View my alumni profile
               </Link>
             ))}
           {!open && request.status !== "adopted" && (
-            <Link href={ROUTES.matches} className={buttonClasses({ className: "self-start" })}>
+            <Link prefetch={false} href={ROUTES.matches} className={buttonClasses({ className: "self-start" })}>
               Find other homes
             </Link>
           )}

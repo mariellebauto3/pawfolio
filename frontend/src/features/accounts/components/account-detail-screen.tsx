@@ -44,7 +44,7 @@ function Verification({ account }: Props) {
         <dd>{documents.length > 0 ? documents.join(", ") : "None"}</dd>
       </dl>
       {/* The files themselves are opened on the review page, from memory (SEC-PRIV-01, SEC-FE-09). */}
-      <Link href={adminVerificationReviewPath(account.id)} className={buttonClasses({ size: "sm", className: "self-start" })}>
+      <Link prefetch={false} href={adminVerificationReviewPath(account.id)} className={buttonClasses({ size: "sm", className: "self-start" })}>
         Open verification review
       </Link>
     </div>
@@ -66,7 +66,7 @@ export function AccountDetailScreen({ account }: Props) {
   return (
     <>
       <nav aria-label="Accounts" className="mb-4 text-sm">
-        <Link href={ROUTES.adminAccounts} className={BACK_LINK}>
+        <Link prefetch={false} href={ROUTES.adminAccounts} className={BACK_LINK}>
           <Icon name="chevron-left" className="size-4 shrink-0" />
           Accounts
         </Link>
@@ -92,7 +92,7 @@ export function AccountDetailScreen({ account }: Props) {
         actions={
           <>
             {profilePath && (
-              <Link href={profilePath} className={buttonClasses({ size: "sm" })}>
+              <Link prefetch={false} href={profilePath} className={buttonClasses({ size: "sm" })}>
                 View public profile
               </Link>
             )}
@@ -116,7 +116,7 @@ export function AccountDetailScreen({ account }: Props) {
                 {account.requests.map((request) => (
                   <li key={request.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 first:pt-0 last:pb-0">
                     <span className="wrap-break-word">
-                      <Link href={adminRequestPath(request.id)} className={TEXT_LINK}>
+                      <Link prefetch={false} href={adminRequestPath(request.id)} className={TEXT_LINK}>
                         {request.pet_name ?? "A pet"} to {request.home_name ?? "a home"}
                       </Link>
                       <span className="text-ink-muted">
@@ -151,7 +151,7 @@ export function AccountDetailScreen({ account }: Props) {
                 <ul className="flex flex-col gap-2">
                   {reports.latest.map((report) => (
                     <li key={report.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <Link href={adminReportPath(report.id)} className={TEXT_LINK}>
+                      <Link prefetch={false} href={adminReportPath(report.id)} className={TEXT_LINK}>
                         {TARGET_LABELS[report.target_type]}, <time dateTime={report.created_at}>{formatDate(report.created_at)}</time>
                       </Link>
                       <StatusBadge status={REPORT_STATUS_LABELS[report.status]} />
@@ -178,7 +178,7 @@ export function AccountDetailScreen({ account }: Props) {
               ) : (
                 <p className="text-ink-muted">Nothing logged yet.</p>
               )}
-              <Link href={ROUTES.adminActivityLogs} className={`${TEXT_LINK} self-start`}>
+              <Link prefetch={false} href={ROUTES.adminActivityLogs} className={`${TEXT_LINK} self-start`}>
                 Full activity log
               </Link>
             </div>

@@ -20,12 +20,12 @@ export function NoBookmarks({ kind }: Props) {
           : "Press Bookmark on any Home Profile to keep it here for later."
       }
       action={
-        <Link href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
+        <Link prefetch={false} href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
           {kind === "pets" ? "See Pets for You" : "See Homes for You"}
         </Link>
       }
       secondaryAction={
-        <Link href={ROUTES.browse} className={buttonClasses()}>
+        <Link prefetch={false} href={ROUTES.browse} className={buttonClasses()}>
           {kind === "pets" ? "Browse pets" : "Browse homes"}
         </Link>
       }

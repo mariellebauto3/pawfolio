@@ -7,6 +7,7 @@ import {
   deleteComment,
   deletePost,
   getFeed,
+  getFeedSuggestions,
   getPost,
   toPost,
   toggleCommentReaction,
@@ -77,7 +78,7 @@ describe("the feed (FD-01, FD-02)", () => {
     await getFeed(client, { page: 3 });
     expect(calls.map((call) => call.query)).toEqual([
       { page: undefined, per_page: 4, author_user_id: 9 },
-      { page: 3, per_page: 20, author_user_id: undefined },
+      { page: 3, per_page: 10, author_user_id: undefined },
     ]);
     expect((await getFeed(as("pet"), { authorId: 2 })).posts.map((post) => post.id)).toEqual([5]);
   });
@@ -92,6 +93,39 @@ describe("the feed (FD-01, FD-02)", () => {
     expect((await failure(() => getFeed(as("signed-out")))).kind).toBe("unauthenticated");
     expect((await failure(() => getFeed(as("pet-pending")))).kind).toBe("account_not_active");
     expect((await failure(() => createPost(as("pet-suspended"), { body: "Hello", photos: [] }))).kind).toBe("account_not_active");
+  });
+});
+
+describe("cursor feed batches", () => {
+  it("uses ten-post batches, passes opaque cursors and requests home cards only initially", async () => {
+    const { client, calls } = answering({ data: [POST], meta: { has_more: true, next_cursor: "opaque", announcements: [] } });
+    const first = await getFeed(client, { pagination: "cursor", includeHome: true });
+    expect(first).toMatchObject({ posts: [POST], hasMore: true, nextCursor: "opaque" });
+    await getFeed(client, { pagination: "cursor", cursor: first.nextCursor });
+    expect(calls[0].query).toMatchObject({ pagination: "cursor", per_page: 10, include_home: 1 });
+    expect(calls[1].query).toMatchObject({ pagination: "cursor", cursor: "opaque", per_page: 10 });
+    expect(calls[1].query).not.toHaveProperty("include_home");
+  });
+
+  it("ends pagination without totals and rejects a continuation without a cursor", async () => {
+    const ended = await getFeed(answering({ data: [], meta: { has_more: false, next_cursor: null } }).client, { pagination: "cursor" });
+    expect(ended).toMatchObject({ hasMore: false, nextCursor: null });
+    await expect(getFeed(answering({ data: [], meta: { has_more: true, next_cursor: null } }).client, { pagination: "cursor" })).rejects.toMatchObject({ kind: "server" });
+  });
+
+  it.each(["pet", "human"] as const)("reads the %s home summary and lightweight suggestions in mock mode", async (role) => {
+    const feed = await getFeed(as(role), { pagination: "cursor", includeHome: true });
+    expect(feed.home?.name).toBeTruthy();
+    expect(feed.posts.length).toBeLessThanOrEqual(10);
+    const suggestions = await getFeedSuggestions(as(role), role);
+    expect(suggestions.items.length).toBeLessThanOrEqual(3);
+    expect(suggestions.items[0]?.href).toMatch(role === "pet" ? /^\/homes\// : /^\/pets\//);
+  });
+
+  it("requests only three summary suggestions without loading a module list", async () => {
+    const { client, calls } = answering({ data: [{ score: 90, profile: { id: 3, name: "Home", city: "Pasig", avatar_url: null } }], meta: META });
+    expect((await getFeedSuggestions(client, "pet")).items).toEqual([{ id: 3, name: "Home", place: "Pasig", href: "/homes/3", photoUrl: null, score: 90 }]);
+    expect(calls).toEqual([{ method: "GET", path: "/matches", body: undefined, query: { summary: 1, per_page: 3 } }]);
   });
 });
 

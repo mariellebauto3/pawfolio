@@ -74,7 +74,7 @@ async function MyRequests({ params }: { params: SearchParams }) {
               {totals.open} of {MAX_OPEN_REQUESTS} open
               {totals.inProcess > 0 && ` · ${totals.inProcess} in process`}
             </Badge>
-            <Link href={ROUTES.matches} className={buttonClasses({ variant: "primary", size: "sm" })}>
+            <Link prefetch={false} href={ROUTES.matches} className={buttonClasses({ variant: "primary", size: "sm" })}>
               Find homes
             </Link>
           </>
@@ -121,7 +121,7 @@ async function Inbox({ params }: { params: SearchParams }) {
         title={TITLES.human}
         description="Requests pets sent to you. You receive requests while Open to Adopt is on."
         actions={
-          <Link href={ROUTES.availability} className={buttonClasses({ size: "sm" })}>
+          <Link prefetch={false} href={ROUTES.availability} className={buttonClasses({ size: "sm" })}>
             Manage availability
           </Link>
         }

@@ -17,7 +17,7 @@ type Props = {
 // would refuse.
 export function ApplyUnavailable({ home, reason }: Props) {
   const back = (
-    <Link href={homeProfilePath(home.id)} className={buttonClasses()}>
+    <Link prefetch={false} href={homeProfilePath(home.id)} className={buttonClasses()}>
       Back to the Home Profile
     </Link>
   );
@@ -30,7 +30,7 @@ export function ApplyUnavailable({ home, reason }: Props) {
         title={`${home.full_name} isn’t taking requests right now`}
         description="This home turned Open to Adopt off. If it turns it back on, you can apply then."
         action={
-          <Link href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
             See Homes for You
           </Link>
         }
@@ -56,7 +56,7 @@ export function ApplyUnavailable({ home, reason }: Props) {
       <ApplyBlockedDetails blocker={reason} homeName={home.full_name} />
       <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
         {back}
-        <Link href={wayOut.href} className={buttonClasses({ variant: "primary" })}>
+        <Link prefetch={false} href={wayOut.href} className={buttonClasses({ variant: "primary" })}>
           {wayOut.label}
         </Link>
       </div>

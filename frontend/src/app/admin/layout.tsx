@@ -2,11 +2,17 @@ import { redirect } from "next/navigation";
 import { ROUTES } from "@/constants/routes";
 import { routeRedirect } from "@/lib/auth/redirects";
 import { renderAccount } from "@/lib/auth/render-account";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+import { AdminSidebar } from "@/components/navigation/admin-sidebar";
 import { AdminShell } from "@/components/layout/admin-shell";
 import { getAdminSidebarCounts } from "@/features/accounts/api/admin-sidebar";
 import { AdminSectionSeen } from "@/features/accounts/components/admin-section-seen";
 import { getServerApi } from "@/lib/api/server";
+
+async function SidebarCounts() {
+  const counts = await getAdminSidebarCounts(await getServerApi()).catch(() => ({}));
+  return <AdminSidebar counts={counts} />;
+}
 
 // Laravel checks the admin role independently on every admin API.
 export default async function AdminLayout({ children }: { children: ReactNode }) {
@@ -19,10 +25,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   // each since this admin last opened it. A layout isn't rendered again on navigation, so `AdminSectionSeen` loads
   // it again once a section was opened, and a screen that changes a queue calls router.refresh(). If the API can't
   // say, the sidebar shows no counts rather than breaking every page.
-  const counts = await getAdminSidebarCounts(await getServerApi()).catch(() => ({}));
-
   return (
-    <AdminShell counts={counts}>
+    <AdminShell sidebar={<Suspense fallback={<AdminSidebar />}><SidebarCounts /></Suspense>}>
       {children}
       <AdminSectionSeen />
     </AdminShell>

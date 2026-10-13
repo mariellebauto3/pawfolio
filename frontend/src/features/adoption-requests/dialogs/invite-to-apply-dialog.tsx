@@ -138,7 +138,7 @@ function InviteToApplyDialogContent({ onClose, pet, score, onSent }: Props) {
           announce
           action={
             notOpen && (
-              <Link href={ROUTES.me} className="text-sm font-bold underline">
+              <Link prefetch={false} href={ROUTES.me} className="text-sm font-bold underline">
                 Go to your Home Profile
               </Link>
             )

@@ -60,7 +60,7 @@ export function UpcomingSlots({ slots }: Props) {
               </SlotLine>
 
               {booking ? (
-                <Link
+                <Link prefetch={false}
                   href={requestPath(booking.adoption_request_id)}
                   className={buttonClasses({ variant: waiting ? "primary" : "secondary", size: "sm", className: "self-start sm:self-center" })}
                 >

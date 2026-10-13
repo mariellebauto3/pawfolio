@@ -33,7 +33,7 @@ export default async function EditResumePage({ searchParams }: Props) {
         title="Edit resume"
         description="Details marked Locked were verified by an admin. Everything else goes live when you save."
         actions={
-          <Link href={ROUTES.me} className={buttonClasses({ variant: "tertiary", size: "sm" })}>
+          <Link prefetch={false} href={ROUTES.me} className={buttonClasses({ variant: "tertiary", size: "sm" })}>
             Preview resume
           </Link>
         }

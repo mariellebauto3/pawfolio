@@ -66,7 +66,7 @@ export default async function PetPage({ params }: Props) {
         adoption ? (
           <>
             <AdoptionDetailsButton adoptionId={adoption.adoption_id} petName={pet.name} variant="primary" />
-            <Link href={ADOPTION_STORY_PATH} className={buttonClasses()}>
+            <Link prefetch={false} href={ADOPTION_STORY_PATH} className={buttonClasses()}>
               Write an adoption story
             </Link>
             {report}

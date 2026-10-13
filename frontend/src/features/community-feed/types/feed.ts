@@ -1,5 +1,7 @@
 import type { IsoDateTime } from "@/types/api";
 import type { Post, PostComment } from "@/types/post";
+import type { HomeType } from "@/types/home-profile";
+import type { PetStatus } from "@/types/statuses";
 
 // What the feed endpoints answer and take (docs/api/community-reports-and-admin.md, "Community Feed"). The post
 // itself is a shared type (`@/types/post`), since the post card is a shared component.
@@ -20,6 +22,36 @@ export type FeedPage = {
   lastPage: number;
   total: number;
   announcements: Announcement[];
+  /** Cursor batches do not count the entire feed. Numbered pages remain available to profile widgets. */
+  nextCursor?: string | null;
+  hasMore?: boolean;
+  home?: FeedHome | null;
+};
+
+export type FeedHome = {
+  name: string;
+  avatar_url: string | null;
+  city: string | null;
+  breed?: string | null;
+  approximate_age_months?: number | null;
+  pet_status?: PetStatus;
+  home_type?: HomeType | null;
+  is_open_to_adopt: boolean;
+  is_furparent: boolean;
+  views_count: number;
+  bookmarks_count: number;
+  invites_count: number;
+  saved_pets_count: number;
+  story_pets: StoryPet[];
+};
+
+export type FeedSuggestion = {
+  id: number;
+  name: string;
+  place: string;
+  href: string;
+  photoUrl: string | null;
+  score: number;
 };
 
 /** `GET /posts/{id}`: the post with its comments, oldest first, each with its replies. */

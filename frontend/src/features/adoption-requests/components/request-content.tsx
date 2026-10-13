@@ -46,7 +46,7 @@ export function RequestAttachments({ request, resumeHref, children }: AttachedPr
     <Card title="Attached automatically">
       <ul className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <li>
-          <Link
+          <Link prefetch={false}
             href={resumeHref}
             className="flex min-h-11 items-center gap-3 rounded-control border border-line px-3 py-2 font-bold transition-colors duration-200 hover:border-primary hover:text-primary"
           >

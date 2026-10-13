@@ -41,10 +41,10 @@ export function HomeProfileSaved({ home, onChange, matches }: Props) {
         </div>
 
         <div className="flex flex-wrap justify-center gap-3">
-          <Link href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
             See Pets for You
           </Link>
-          <Link href={ROUTES.me} className={buttonClasses({ variant: "secondary" })}>
+          <Link prefetch={false} href={ROUTES.me} className={buttonClasses({ variant: "secondary" })}>
             View my profile
           </Link>
         </div>

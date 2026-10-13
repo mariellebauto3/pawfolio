@@ -173,7 +173,14 @@ export function useSession(): Session {
 
 type Loaded = { ok: true; account: Account | null } | { ok: false; errorKind: ErrorKind };
 
-async function loadAccount(): Promise<Loaded> {
+let pendingAccount: Promise<Loaded> | null = null;
+
+function loadAccount(): Promise<Loaded> {
+  pendingAccount ??= readAccount().finally(() => { pendingAccount = null; });
+  return pendingAccount;
+}
+
+async function readAccount(): Promise<Loaded> {
   try {
     return { ok: true, account: await fetchSession(api) };
   } catch (error) {

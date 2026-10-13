@@ -133,7 +133,7 @@ function NavTabs({ placement, items, pathname, counts, alerts, loading }: TabsPr
         const count = item.id === "requests" || item.id === "alerts" ? counts[item.id] : undefined;
         return (
           <li key={item.id} className={itemClasses}>
-            <Link
+            <Link prefetch={false}
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(TAB_CLASSES[placement], active && ACTIVE_CLASSES[placement])}

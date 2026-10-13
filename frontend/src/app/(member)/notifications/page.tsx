@@ -104,7 +104,7 @@ export default async function NotificationsPage({ searchParams }: Props) {
           // One row at every width: the header would otherwise stack the two under a long description.
           <div className="flex items-center gap-1">
             <MarkAllReadButton />
-            <Link href={ROUTES.settings} className={buttonClasses({ variant: "tertiary", size: "sm" })}>
+            <Link prefetch={false} href={ROUTES.settings} className={buttonClasses({ variant: "tertiary", size: "sm" })}>
               Settings
             </Link>
           </div>

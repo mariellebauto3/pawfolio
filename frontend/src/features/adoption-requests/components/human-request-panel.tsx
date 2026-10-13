@@ -113,13 +113,13 @@ export function HumanRequestPanel({ request, meet, adopted }: Props) {
 
           {request.status === "sent" && <AnswerRequestButtons request={{ id: request.id, petName: pet }} />}
           {request.status === "approved" && !meet && (
-            <Link href={ROUTES.availability} className={buttonClasses({ size: "sm", className: "self-start" })}>
+            <Link prefetch={false} href={ROUTES.availability} className={buttonClasses({ size: "sm", className: "self-start" })}>
               Manage availability
             </Link>
           )}
           {request.status === "adopted" &&
             (adopted ?? (
-              <Link href={petPath(request.pet.id)} className={buttonClasses({ variant: "primary" })}>
+              <Link prefetch={false} href={petPath(request.pet.id)} className={buttonClasses({ variant: "primary" })}>
                 View {pet}’s alumni profile
               </Link>
             ))}

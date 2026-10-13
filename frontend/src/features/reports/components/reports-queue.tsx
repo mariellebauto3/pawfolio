@@ -36,7 +36,7 @@ const reported: TableColumn<ReportSummary> = {
   cell: (report) => (
     <span className="flex min-w-0 flex-col">
       {/* Also a link: on phones the Review button is a sideways scroll away. */}
-      <Link href={adminReportPath(report.id)} className="underline hover:text-primary">
+      <Link prefetch={false} href={adminReportPath(report.id)} className="underline hover:text-primary">
         {reportedItemName(report)}
       </Link>
       <span className="text-sm font-normal text-ink-muted">
@@ -72,7 +72,7 @@ const open = (label: string): TableColumn<ReportSummary> => ({
   headerHidden: true,
   align: "end",
   cell: (report) => (
-    <Link href={adminReportPath(report.id)} className={buttonClasses({ size: "sm" })}>
+    <Link prefetch={false} href={adminReportPath(report.id)} className={buttonClasses({ size: "sm" })}>
       {label}
       <span className="sr-only">: {reportedItemName(report)}</span>
     </Link>

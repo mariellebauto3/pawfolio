@@ -3,17 +3,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { ROUTES } from "@/constants/routes";
 
-export type Suggestion = {
-  id: number;
-  name: string;
-  /** The city: all a card says about where someone lives (SEC-PRIV-03). */
-  place: string;
-  /** The pet's resume or the Home Profile. */
-  href: string;
-  photoUrl: string | null;
-  /** The viewer's match with it, 0 to 100. */
-  score: number;
-};
+import type { FeedSuggestion as Suggestion } from "../types/feed";
+export type { FeedSuggestion as Suggestion } from "../types/feed";
 
 type Props = {
   /** What the list holds: a human is matched with pets, a pet with homes. */
@@ -36,7 +27,7 @@ export function FeedSuggestionsCard({ kind, suggestions, notReady }: Props) {
     return (
       <Card title={title} titleAs="h2">
         <p className="text-sm text-ink-muted">{notReady.message}</p>
-        <Link href={notReady.href} className={`${SEE_ALL} self-start`}>
+        <Link prefetch={false} href={notReady.href} className={`${SEE_ALL} self-start`}>
           {notReady.action}
         </Link>
       </Card>
@@ -48,7 +39,7 @@ export function FeedSuggestionsCard({ kind, suggestions, notReady }: Props) {
       title={title}
       titleAs="h2"
       action={
-        <Link href={ROUTES.matches} className={SEE_ALL}>
+        <Link prefetch={false} href={ROUTES.matches} className={SEE_ALL}>
           See all
           <span className="sr-only"> {title}</span>
         </Link>
@@ -62,7 +53,7 @@ export function FeedSuggestionsCard({ kind, suggestions, notReady }: Props) {
             <li key={suggestion.id} className="flex items-center gap-3">
               <Avatar name={suggestion.name} src={suggestion.photoUrl ?? undefined} alt="" />
               <p className="flex min-w-0 flex-1 flex-col">
-                <Link href={suggestion.href} className="truncate font-bold text-ink no-underline hover:text-primary hover:underline">
+                <Link prefetch={false} href={suggestion.href} className="truncate font-bold text-ink no-underline hover:text-primary hover:underline">
                   {suggestion.name}
                 </Link>
                 <span className="truncate text-sm text-ink-muted">{suggestion.place}</span>
