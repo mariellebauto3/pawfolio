@@ -38,7 +38,7 @@ class ResetPasswordRequest extends FormRequest
             'password.min' => 'Use at least 8 characters.',
             'password.letters' => 'Include at least one letter.',
             'password.numbers' => 'Include at least one number.',
-            'password.uncompromised' => 'This password has appeared in a data leak. Choose a different one.',
+            'password.uncompromised' => "This password isn't safe to use. Please choose a different password.",
         ];
     }
 }

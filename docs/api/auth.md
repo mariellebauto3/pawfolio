@@ -93,7 +93,7 @@ The signed-in account. Used by `SessionProvider` and `proxy.ts`.
   its remember-me cookie stops working, so other devices are signed out (SEC-AUTH-07). Written to `activity_logs`.
 - **422** `errors.password` (SEC-AUTH-03), first failing rule:
   `"Use at least 8 characters."`, `"Include at least one letter."`, `"Include at least one number."`,
-  `"The passwords don't match."`, `"This password has appeared in a data leak. Choose a different one."`
+  `"The passwords don't match."`, `"This password isn't safe to use. Please choose a different password."`
   (checked against Have I Been Pwned by hash prefix; the password itself never leaves the server).
 - **422** `errors.token`: `"This reset link is invalid or has expired. Ask for a new one."` for a wrong, used or
   expired token, or an unknown email alike.

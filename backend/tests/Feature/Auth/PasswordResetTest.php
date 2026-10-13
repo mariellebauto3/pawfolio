@@ -156,6 +156,6 @@ class PasswordResetTest extends TestCase
         $this->postJson('/api/v1/auth/reset-password', [
             'token' => Password::createToken($user), 'email' => 'mochi@example.com',
             'password' => 'leaked1234', 'password_confirmation' => 'leaked1234',
-        ])->assertUnprocessable()->assertJsonPath('errors.password.0', 'This password has appeared in a data leak. Choose a different one.');
+        ])->assertUnprocessable()->assertJsonPath('errors.password.0', "This password isn't safe to use. Please choose a different password.");
     }
 }
