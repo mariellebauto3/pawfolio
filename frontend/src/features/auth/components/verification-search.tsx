@@ -1,6 +1,8 @@
 "use client";
 
 import Form from "next/form";
+import { SearchSuggestions } from "@/components/forms/search-suggestions";
+import { accountSuggestions } from "@/components/forms/read-search-suggestions";
 import { useId } from "react";
 import { CONTROL_CLASSES } from "@/components/forms/control-styles";
 import { Icon } from "@/components/ui/icon";
@@ -28,7 +30,8 @@ export function VerificationSearch({ search, role }: Props) {
       </label>
       <Icon name="search" className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-ink-muted" />
       {role && <input type="hidden" name={QUEUE_TAB_PARAM} value={role} />}
-      <input
+      <SearchSuggestions
+        endpoint="/admin/verifications" readSuggestions={accountSuggestions} searchParam="search" query={{ role }}
         // Remounted when the search changes from outside the box ("Clear search"), so it shows the new value.
         key={search ?? ""}
         id={inputId}

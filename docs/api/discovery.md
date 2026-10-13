@@ -30,10 +30,27 @@ those two files, the types (`frontend/src/features/discovery/types/discovery.ts`
 
 ## `GET /api/v1/public/recently-hired`
 
+The showcase reads current, published adoption records on each request. New hires replace the oldest featured
+pet automatically; no history is deleted. The landing-page API transport uses `cache: "no-store"`.
+
+Search bars debounce suggestions by 250 ms and cancel superseded requests. The existing `/search`,
+`/admin/accounts`, `/admin/adoption-requests`, and `/admin/verifications` endpoints accept optional
+`suggestions=1` to return bounded label-only data without pagination totals or unrelated relations. Existing
+responses remain unchanged without this flag. Admin filters and authorization still apply.
+
+Deployment: run the normal Laravel migrations, including `2026_10_13_000005_index_search_and_recent_adoptions`.
+PostgreSQL needs permission to enable `pg_trgm`; the migration adds GIN indexes on lowered searched columns and
+an index for latest published adoptions. SQLite uses the adoption index without requiring extensions.
+Trigram indexes accelerate contains matching, but one- and two-character patterns can still require scans;
+bounded suggestion queries avoid exact counts and full resource loading. See the
+[PostgreSQL index documentation](https://www.postgresql.org/docs/17/pgtrgm.html#PGTRGM-INDEX).
+Validate `EXPLAIN (ANALYZE, BUFFERS)` for representative short and long terms on production-sized PostgreSQL
+data before claiming a latency target; SQLite tests cannot verify PostgreSQL query plans.
+
 The "Recently Hired" strip on the landing page (`AU-01`).
 
 - **Who:** anyone, signed in or not. No session or CSRF token needed.
-- **200:** the most recently Hired pets, newest first, **at most 8**. It is a fixed showcase rather than a list to
+- **200:** the most recently Hired pets, newest first, **at most 4**. It is a fixed showcase rather than a list to
   page through, so it has no pagination; the cap of 8 does the job of SEC-API-05.
 
   ```json

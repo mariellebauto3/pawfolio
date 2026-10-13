@@ -35,6 +35,7 @@ const NOTHING: Answer = { key: "", items: [], total: 0, failed: false };
  * for a home and homes that are Open to Adopt can come back: the API lists nobody else (proposal §5).
  */
 export function useBrowseSuggestions(kind: BrowseKind, filters: BrowseFilters, typed: string): Suggestions {
+  const words = typed.trim().toLowerCase();
   const [answer, setAnswer] = useState<Answer>(NOTHING);
   // The filters as they are now, read when the request is made. The effect itself runs only for new words or a
   // new filter, not for every render that hands over an equal `filters` object.
@@ -43,17 +44,17 @@ export function useBrowseSuggestions(kind: BrowseKind, filters: BrowseFilters, t
     latest.current = filters;
   });
 
-  const key = typed === "" ? "" : `${kind}|${browsePanelKey(kind, filters)}|${typed}`;
+  const key = words === "" ? "" : `${kind}|${browsePanelKey(kind, filters)}|${words}`;
 
   useEffect(() => {
     if (key === "") return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      const asked = { ...latest.current, search: typed, page: 1 };
+      const asked = { ...latest.current, search: words, page: 1 };
       const request =
         kind === "pets"
-          ? suggestPets(api, asked, controller.signal).then((page) => ({ total: page.meta.total, items: rankByName(typed, page.data, (pet) => pet.name).map(petSuggestion) }))
-          : suggestHomes(api, asked, controller.signal).then((page) => ({ total: page.meta.total, items: rankByName(typed, page.data, (home) => home.full_name).map(homeSuggestion) }));
+          ? suggestPets(api, asked, controller.signal).then((page) => ({ total: page.meta.total, items: rankByName(words, page.data, (pet) => pet.name).map(petSuggestion) }))
+          : suggestHomes(api, asked, controller.signal).then((page) => ({ total: page.meta.total, items: rankByName(words, page.data, (home) => home.full_name).map(homeSuggestion) }));
 
       request
         .then(({ total, items }) => {
@@ -68,13 +69,13 @@ export function useBrowseSuggestions(kind: BrowseKind, filters: BrowseFilters, t
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [key, kind, typed]);
+  }, [key, kind, words]);
 
   if (key === "") return { status: "idle", items: [], total: 0 };
   // Until the answer for these words is in, the last answer's names that still hold them stand in: typing "pe"
   // after "p" keeps Pepper on screen and drops the names without "pe", instead of an empty list for a moment.
   if (answer.key !== key) {
-    const still = answer.items.filter((item) => item.name.toLowerCase().includes(typed.toLowerCase()));
+    const still = answer.items.filter((item) => item.name.toLowerCase().includes(words));
     return { status: "loading", items: still, total: still.length };
   }
   return { status: answer.failed ? "error" : "ready", items: answer.items, total: answer.total };

@@ -71,11 +71,22 @@ class AdminAdoptionController extends Controller
 
         $term = trim((string) ($filters['q'] ?? ''));
         if ($term !== '') {
-            $like = '%'.addcslashes($term, '%_\\').'%';
+            $like = '%'.addcslashes(mb_strtolower($term), '%_\\').'%';
             $query->where(function ($sub) use ($like): void {
-                $sub->whereHas('pet', fn ($p) => $p->where('name', 'like', $like))
-                    ->orWhereHas('homeProfile', fn ($h) => $h->where('full_name', 'like', $like));
+                $sub->whereHas('pet', fn ($p) => $p->whereRaw('LOWER(name) LIKE ?', [$like]))
+                    ->orWhereHas('homeProfile', fn ($h) => $h->whereRaw('LOWER(full_name) LIKE ?', [$like]));
             });
+        }
+
+        if ($request->boolean('suggestions')) {
+            return ResponseResource::collection($query->setEagerLoads([])
+                ->with(['pet:id,name', 'homeProfile:id,full_name'])
+                ->limit(6)->get(['id', 'pet_id', 'home_profile_id'])
+                ->map(fn (AdoptionRequest $ar): array => [
+                    'id' => $ar->id,
+                    'pet' => $ar->pet ? ['id' => $ar->pet->id, 'name' => $ar->pet->name] : null,
+                    'home_profile' => $ar->homeProfile ? ['id' => $ar->homeProfile->id, 'full_name' => $ar->homeProfile->full_name] : null,
+                ])->all());
         }
 
         $paginator = $query->paginate((int) ($filters['per_page'] ?? 20));

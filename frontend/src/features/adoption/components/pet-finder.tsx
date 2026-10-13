@@ -1,4 +1,8 @@
+"use client";
+
 import Form from "next/form";
+import { SearchSuggestions } from "@/components/forms/search-suggestions";
+import { petFinderSuggestions } from "@/components/forms/read-search-suggestions";
 import Link from "next/link";
 import { CONTROL_CLASSES } from "@/components/forms/control-styles";
 import { Avatar } from "@/components/ui/avatar";
@@ -36,7 +40,8 @@ export function PetFinder({ search, matches, failed = false }: Props) {
             Search pets by name or email
           </label>
           <Icon name="search" className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-ink-muted" />
-          <input
+          <SearchSuggestions
+            endpoint="/admin/accounts" readSuggestions={petFinderSuggestions} query={{ tab: "pet" }}
             key={search ?? ""}
             id={SEARCH_ID}
             name={RESOLVE_SEARCH_PARAM}

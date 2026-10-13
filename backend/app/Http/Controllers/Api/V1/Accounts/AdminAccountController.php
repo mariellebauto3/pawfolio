@@ -97,14 +97,25 @@ class AdminAccountController extends Controller
         if ($request->filled('q')) {
             $term = trim($request->string('q')->toString());
             if ($term !== '') {
-                $like = '%'.addcslashes($term, '%_\\').'%';
+                $like = '%'.addcslashes(mb_strtolower($term), '%_\\').'%';
                 $query->where(function ($sub) use ($like): void {
-                    $sub->where('name', 'like', $like)
-                        ->orWhere('email', 'like', $like)
-                        ->orWhereHas('pet', fn ($p) => $p->where('name', 'like', $like))
-                        ->orWhereHas('homeProfile', fn ($h) => $h->where('full_name', 'like', $like));
+                    $sub->whereRaw('LOWER(name) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(email) LIKE ?', [$like])
+                        ->orWhereHas('pet', fn ($p) => $p->whereRaw('LOWER(name) LIKE ?', [$like]))
+                        ->orWhereHas('homeProfile', fn ($h) => $h->whereRaw('LOWER(full_name) LIKE ?', [$like]));
                 });
             }
+        }
+
+        if ($request->boolean('suggestions')) {
+            return ResponseResource::collection($query->setEagerLoads([])
+                ->with(['pet:id,user_id,name', 'homeProfile:id,user_id,full_name'])
+                ->limit(6)->get(['id', 'name', 'role'])
+                ->map(fn (User $account): array => [
+                    'id' => $account->id,
+                    'display_name' => $account->displayName(),
+                    'pet' => $account->pet ? ['id' => $account->pet->id, 'name' => $account->pet->name] : null,
+                ])->all());
         }
 
         $paginator = $query->paginate($perPage);

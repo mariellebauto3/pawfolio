@@ -38,6 +38,16 @@ class AdminVerificationController extends Controller
 
     public function index(VerificationQueueRequest $request): ResponseResource
     {
+        if ($request->boolean('suggestions')) {
+            return ResponseResource::collection($this->queue->listing($request->role(), $request->search())
+                ->with(['user.pet:id,user_id,name', 'user.homeProfile:id,user_id,full_name'])
+                ->select(['id', 'user_id'])->limit(6)->get()
+                ->map(fn (VerificationSubmission $submission): array => [
+                    'account_id' => $submission->user_id,
+                    'display_name' => $submission->user?->displayName(),
+                ])->all());
+        }
+
         $paginator = $this->queue
             ->listing($request->role(), $request->search())
             ->with(['user.pet', 'user.homeProfile', 'documents'])

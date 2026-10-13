@@ -16,7 +16,7 @@ describe("fetchRecentlyHired (AU-01, docs/api/discovery.md)", () => {
     for (const persona of ["signed-out", "pet-suspended"]) {
       const pets = await fetchRecentlyHired(mockClient(persona));
       expect(pets.length).toBeGreaterThan(0);
-      expect(pets.length).toBeLessThanOrEqual(8);
+      expect(pets.length).toBeLessThanOrEqual(4);
     }
   });
 

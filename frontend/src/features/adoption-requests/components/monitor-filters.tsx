@@ -1,13 +1,15 @@
 "use client";
 
 import Form from "next/form";
+import { SearchSuggestions } from "@/components/forms/search-suggestions";
+import { requestSuggestions } from "@/components/forms/read-search-suggestions";
 import { useId } from "react";
 import { CONTROL_CLASSES } from "@/components/forms/control-styles";
 import { Select } from "@/components/forms/select";
 import { Icon } from "@/components/ui/icon";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/utils/cn";
-import { MONITOR_SEARCH_MAX, MONITOR_SEARCH_PARAM, MONITOR_STATUS_OPTIONS, MONITOR_STATUS_PARAM, MONITOR_TAB_PARAM, type MonitorFilters as Filters } from "../schemas/admin-requests";
+import { monitorTabForApi, MONITOR_SEARCH_MAX, MONITOR_SEARCH_PARAM, MONITOR_STATUS_OPTIONS, MONITOR_STATUS_PARAM, MONITOR_TAB_PARAM, type MonitorFilters as Filters } from "../schemas/admin-requests";
 
 type Props = {
   /** What the monitor is filtered by now, shown in the controls. */
@@ -30,7 +32,8 @@ export function MonitorFilters({ filters }: Props) {
           Search requests by the pet’s or the human’s name
         </label>
         <Icon name="search" className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-ink-muted" />
-        <input
+        <SearchSuggestions
+          endpoint="/admin/adoption-requests" readSuggestions={requestSuggestions} query={{ tab: monitorTabForApi(filters.tab), status: filters.status }}
           // Remounted when the search changes from outside the box ("Clear filters"), so it shows the new value.
           key={filters.search ?? ""}
           id={searchId}
