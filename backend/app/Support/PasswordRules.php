@@ -20,6 +20,7 @@ final class PasswordRules
         }
 
         return [
+            'bail',
             'required',
             'string',
             'max:255',

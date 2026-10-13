@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Auth;
 
 use App\Enums\IdType;
+use App\Rules\UniqueEmail;
 use App\Support\PasswordRules;
 use App\Support\Provinces;
 use Closure;
@@ -43,7 +44,7 @@ class SignUpHumanRequest extends FormRequest
         $idTypes = array_map(fn (IdType $case) => $case->value, IdType::cases());
 
         return [
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'string', 'email', 'max:255', new UniqueEmail],
             'password' => PasswordRules::rules(),
             'full_name' => ['required', 'string', 'max:120'],
             'birthdate' => [

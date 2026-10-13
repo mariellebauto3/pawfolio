@@ -16,10 +16,12 @@ use App\Models\VerificationSubmission;
 use App\Services\ActivityLogs\ActivityLogger;
 use App\Services\Uploads\FileUploadService;
 use App\Support\Provinces;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class SignUpHuman
 {
@@ -29,67 +31,80 @@ class SignUpHuman
 
     public function __invoke(SignUpHumanRequest $request): User
     {
+        $passwordHash = Hash::make($request->string('password')->toString());
         /** @var UploadedFile $validIdFile */
         $validIdFile = $request->file('valid_id');
         $storedValidId = $this->uploads->storePrivateDocument($validIdFile, 'verification/ids', 'valid_id');
 
-        $user = DB::transaction(function () use ($request, $storedValidId): User {
-            $user = new User;
-            $user->name = $request->string('full_name')->toString();
-            $user->email = mb_strtolower(trim($request->string('email')->toString()));
-            $user->password = Hash::make($request->string('password')->toString());
-            $user->role = Role::Human;
-            $user->status = AccountStatus::PendingVerification;
-            $user->terms_accepted_at = now();
-            $user->save();
+        try {
+            $user = DB::transaction(function () use ($request, $storedValidId, $passwordHash): User {
+                $user = new User;
+                $user->name = $request->string('full_name')->toString();
+                $user->email = mb_strtolower(trim($request->string('email')->toString()));
+                $user->password = $passwordHash;
+                $user->role = Role::Human;
+                $user->status = AccountStatus::PendingVerification;
+                $user->terms_accepted_at = now();
+                $user->save();
 
-            $homeProfile = new HomeProfile;
-            $homeProfile->user_id = $user->id;
-            $homeProfile->full_name = $request->string('full_name')->toString();
-            $homeProfile->birthdate = $request->string('birthdate')->toString();
-            $homeProfile->contact_number = Provinces::normalizeContactNumber(
-                $request->string('contact_number')->toString(),
-            );
-            $homeProfile->city = $request->string('city')->toString();
-            $homeProfile->province = $request->string('province')->toString();
-            $homeProfile->street_address = $request->string('street_address')->toString();
-            $homeProfile->is_open_to_adopt = false;
-            $homeProfile->save();
+                $homeProfile = new HomeProfile;
+                $homeProfile->user_id = $user->id;
+                $homeProfile->full_name = $request->string('full_name')->toString();
+                $homeProfile->birthdate = $request->string('birthdate')->toString();
+                $homeProfile->contact_number = Provinces::normalizeContactNumber(
+                    $request->string('contact_number')->toString(),
+                );
+                $homeProfile->city = $request->string('city')->toString();
+                $homeProfile->province = $request->string('province')->toString();
+                $homeProfile->street_address = $request->string('street_address')->toString();
+                $homeProfile->is_open_to_adopt = false;
+                $homeProfile->save();
 
-            $submission = new VerificationSubmission;
-            $submission->user_id = $user->id;
-            $submission->status = VerificationSubmissionStatus::Pending->value;
-            $submission->submitted_at = now();
-            $submission->save();
+                $submission = new VerificationSubmission;
+                $submission->user_id = $user->id;
+                $submission->status = VerificationSubmissionStatus::Pending->value;
+                $submission->submitted_at = now();
+                $submission->save();
 
-            $submission->documents()->create([
-                'document_type' => VerificationDocumentType::ValidId->value,
-                'id_type' => $request->string('id_type')->toString(),
-                'file_path' => $storedValidId['file_path'],
-                'mime_type' => $storedValidId['mime_type'],
-                'size_bytes' => $storedValidId['size_bytes'],
-            ]);
+                $submission->documents()->create([
+                    'document_type' => VerificationDocumentType::ValidId->value,
+                    'id_type' => $request->string('id_type')->toString(),
+                    'file_path' => $storedValidId['file_path'],
+                    'mime_type' => $storedValidId['mime_type'],
+                    'size_bytes' => $storedValidId['size_bytes'],
+                ]);
 
-            $user->createNotificationPreference();
+                $user->createNotificationPreference();
 
-            ActivityLogger::log(
-                type: ActivityLogType::Verification,
-                action: 'signed_up',
-                actor: $user,
-                subject: $user,
-                before: null,
-                after: AccountStatus::PendingVerification->value,
-                userAgent: $request->userAgent(),
-            );
+                ActivityLogger::log(
+                    type: ActivityLogType::Verification,
+                    action: 'signed_up',
+                    actor: $user,
+                    subject: $user,
+                    before: null,
+                    after: AccountStatus::PendingVerification->value,
+                    userAgent: $request->userAgent(),
+                );
 
-            return $user;
-        });
+                $user->setRelation('homeProfile', $homeProfile);
+
+                return $user;
+            });
+        } catch (\Throwable $exception) {
+            $this->uploads->cleanupPrivateFiles([$storedValidId['file_path']]);
+            if ($exception instanceof UniqueConstraintViolationException) {
+                throw ValidationException::withMessages([
+                    'email' => ['An account with this email already exists. Sign in, or use a different email.'],
+                ]);
+            }
+            throw $exception;
+        }
 
         Auth::guard('web')->login($user);
         if ($request->hasSession()) {
             $request->session()->regenerate();
         }
 
-        return $user->load(['pet', 'homeProfile']);
+        return $user;
     }
 }

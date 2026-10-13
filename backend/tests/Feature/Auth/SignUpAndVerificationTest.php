@@ -25,7 +25,7 @@ class SignUpAndVerificationTest extends TestCase
         parent::setUp();
         Storage::fake('public');
         Storage::fake('local');
-        Http::fake(['api.pwnedpasswords.com/range/*' => Http::response('')]);
+        Http::fake(['api.pwnedpasswords.com/range/*' => Http::response(str_repeat('0', 35).':0')]);
     }
 
     public function test_pet_sign_up_creates_pending_account_draft_pet_and_private_id_document(): void

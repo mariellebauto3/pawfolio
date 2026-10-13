@@ -31,7 +31,7 @@ class AdminVerificationTest extends TestCase
         parent::setUp();
         Storage::fake('public');
         Storage::fake('local');
-        Http::fake(['api.pwnedpasswords.com/range/*' => Http::response('')]);
+        Http::fake(['api.pwnedpasswords.com/range/*' => Http::response(str_repeat('0', 35).':0')]);
     }
 
     public function test_only_active_admins_reach_the_endpoints(): void

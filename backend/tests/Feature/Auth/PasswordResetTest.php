@@ -31,7 +31,7 @@ class PasswordResetTest extends TestCase
         // leaked password, "leaked1234"; every other password is unknown to it.
         $leaked = strtoupper(sha1('leaked1234'));
         Http::fake(['api.pwnedpasswords.com/range/*' => fn ($request) => Http::response(
-            str_ends_with($request->url(), substr($leaked, 0, 5)) ? substr($leaked, 5).':4200' : '',
+            str_ends_with($request->url(), substr($leaked, 0, 5)) ? substr($leaked, 5).':4200' : str_repeat('0', 35).':0',
         )]);
     }
 
