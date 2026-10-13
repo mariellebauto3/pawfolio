@@ -17,6 +17,9 @@ return [
 
     'default' => env('CACHE_STORE', 'database'),
 
+    // Optional read caching must not move security counters to a fail-open store.
+    'limiter' => env('RATE_LIMIT_STORE', env('CACHE_STORE', 'database')),
+
     /*
     |--------------------------------------------------------------------------
     | Cache Stores

@@ -55,6 +55,11 @@ class MemberStats
         $requests = AdoptionRequest::query()->where('pet_id', $pet->id);
         $invites = Invite::query()->where('pet_id', $pet->id);
 
+        $viewCounts = $this->recentCounts($views, $recent);
+        $bookmarkCounts = $this->recentCounts($bookmarks, $recent);
+        $requestCounts = (clone $requests)->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $inviteCounts = (clone $invites)->selectRaw('count(*) as total, count(CASE WHEN dismissed_at IS NULL THEN 1 END) as live')->first();
+
         $bySource = (clone $views)->selectRaw('source, count(*) as total')->groupBy('source')->pluck('total', 'source');
         $viewsBySource = [];
         foreach (ProfileViewSource::cases() as $source) {
@@ -67,10 +72,10 @@ class MemberStats
             'role' => 'pet',
             'pet_status' => $pet->getStatusEnum()->value,
             'tiles' => [
-                'views' => ['total' => (clone $views)->count(), 'this_week' => (clone $views)->where('created_at', '>=', $recent)->count()],
-                'bookmarks' => ['total' => (clone $bookmarks)->count(), 'this_week' => (clone $bookmarks)->where('created_at', '>=', $recent)->count()],
-                'requests' => ['total' => (clone $requests)->count(), 'open' => (clone $requests)->open()->count()],
-                'invites' => ['total' => (clone $invites)->count(), 'live' => (clone $invites)->active()->count()],
+                'views' => $viewCounts,
+                'bookmarks' => $bookmarkCounts,
+                'requests' => ['total' => (int) $requestCounts->sum(), 'open' => (int) $requestCounts->only(AdoptionRequest::OPEN_STATUSES)->sum()],
+                'invites' => ['total' => (int) $inviteCounts->total, 'live' => (int) $inviteCounts->live],
             ],
             'views_over_time' => $this->viewsPerDay($pet),
             'views_by_source' => $viewsBySource,
@@ -89,8 +94,7 @@ class MemberStats
             ->whereHas('pet', fn (Builder $pet) => $pet
                 ->where('status', PetStatus::LookingForAHome->value)
                 ->whereHas('user', fn (Builder $owner) => $owner->where('status', AccountStatus::Active->value)))
-            ->pluck('score')
-            ->map(fn ($score) => (int) $score);
+            ->selectRaw('score, count(*) as total')->groupBy('score')->pluck('total', 'score');
 
         $requests = AdoptionRequest::query()->where('home_profile_id', $home->id);
         $byStatus = (clone $requests)->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
@@ -113,7 +117,7 @@ class MemberStats
             'role' => 'human',
             'has_completed_quiz' => $home->hasCompletedQuiz(),
             'tiles' => [
-                'matches' => ['total' => $scores->count(), 'strong' => $scores->filter(fn (int $score) => $score >= self::STRONG_MATCH)->count()],
+                'matches' => ['total' => (int) $scores->sum(), 'strong' => (int) $scores->filter(fn ($count, $score) => $score >= self::STRONG_MATCH)->sum()],
                 'bookmarks' => ['total' => Bookmark::query()->where('user_id', $user->id)->whereNotNull('pet_id')->count()],
                 'requests' => ['total' => array_sum($outcomes), 'need_action' => $needAction],
                 'adopted' => [
@@ -125,7 +129,7 @@ class MemberStats
             'match_score_distribution' => array_map(fn (array $band) => [
                 'from' => $band[0],
                 'to' => $band[1],
-                'count' => $scores->filter(fn (int $score) => $score >= $band[0] && $score <= $band[1])->count(),
+                'count' => (int) $scores->filter(fn ($count, $score) => $score >= $band[0] && $score <= $band[1])->sum(),
             ], self::SCORE_BANDS),
             'request_outcomes' => $outcomes,
         ];
@@ -142,11 +146,17 @@ class MemberStats
         $today = Carbon::now(PhilippineTime::TIME_ZONE)->startOfDay();
         $first = $today->copy()->subDays(self::VIEW_DAYS - 1);
 
-        $perDay = ProfileView::query()
+        $query = ProfileView::query()
             ->where('pet_id', $pet->id)
-            ->where('created_at', '>=', $first->copy()->utc())
-            ->pluck('created_at')
-            ->countBy(fn ($at) => Carbon::parse($at)->setTimezone(PhilippineTime::TIME_ZONE)->format('Y-m-d'));
+            ->where('created_at', '>=', $first->copy()->utc());
+
+        // Laravel stores naive UTC timestamps. Convert to Manila before grouping.
+        // Keep the existing portable behavior for other local database drivers.
+        $perDay = $query->getConnection()->getDriverName() === 'pgsql'
+            ? $query->selectRaw("DATE(created_at + INTERVAL '8 hours') as day, count(*) as total")
+                ->groupByRaw("DATE(created_at + INTERVAL '8 hours')")->pluck('total', 'day')
+            : $query->pluck('created_at')
+                ->countBy(fn ($at) => Carbon::parse($at)->setTimezone(PhilippineTime::TIME_ZONE)->format('Y-m-d'));
 
         $days = [];
         for ($day = $first->copy(); $day->lte($today); $day->addDay()) {
@@ -155,5 +165,12 @@ class MemberStats
         }
 
         return $days;
+    }
+
+    private function recentCounts(Builder $query, Carbon $recent): array
+    {
+        $counts = (clone $query)->selectRaw('count(*) as total, count(CASE WHEN created_at >= ? THEN 1 END) as this_week', [$recent])->first();
+
+        return ['total' => (int) $counts->total, 'this_week' => (int) $counts->this_week];
     }
 }
