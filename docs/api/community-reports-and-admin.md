@@ -87,10 +87,21 @@ Newest first. Posts of accounts that aren't Active, removed posts and deleted po
 | --- | --- |
 | `author_user_id` | Only this account's posts ("More from…" on `FD-05`, "Latest activity" on `PR-01`) |
 | `type` | One or more types, comma-separated |
-| `page`, `per_page` | default 20, at most 50 |
+| `page`, `per_page` | default 10, at most 50; numbered pagination remains available to profile/post widgets |
+| `pagination=cursor` | Home feed: seek by `created_at DESC, id DESC`, without totals or offsets |
+| `cursor` | Opaque `next_cursor` from the preceding batch; malformed cursors return 422 |
+| `include_home=1` | First batch only: small cards and counts for the session's own Pet/Human home |
 
 `meta` carries the usual page fields and **`announcements`**: the 3 latest published announcements for Everyone and
 for the reader's role, each `{ id, title, message, audience, published_at }`.
+
+Cursor responses carry `{ per_page, has_more, next_cursor, announcements, home }` in `meta`; `next_cursor` is null
+when no older posts remain. Announcements and the optional home summary are omitted from continuation batches
+(empty announcements, null home). Visibility, reaction/comment counts, type and author filters apply to every batch.
+The home summary contains the name/avatar/city, profile-view count, Pet status/breed/age/bookmark/invite counts or
+Human home-type/Open-to-Adopt/Furparent/saved-pet count, plus the Human's adopted-pet choices for writing a story.
+It never carries contact details, documents, a full profile, invitations or bookmark cards. No caller-supplied
+account ID selects the summary: it always belongs to the authenticated session.
 
 #### `GET /api/v1/posts/{post}`
 

@@ -18,7 +18,7 @@ export function PeriodFilter({ tab, period }: Props) {
       {NOTIFICATION_PERIODS.map(({ id, label }) => {
         const selected = id === period;
         return (
-          <Link
+          <Link prefetch={false}
             key={id}
             href={notificationsHref(tab, 1, id)}
             aria-current={selected ? "true" : undefined}

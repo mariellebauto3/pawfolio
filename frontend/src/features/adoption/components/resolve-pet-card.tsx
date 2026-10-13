@@ -36,11 +36,11 @@ export function ResolvePetCard({ options, requestId }: Props) {
           </p>
           <p className="flex flex-wrap gap-x-4 text-sm">
             {pet.user_id !== null && (
-              <Link href={adminAccountPath(pet.user_id)} className={TEXT_LINK}>
+              <Link prefetch={false} href={adminAccountPath(pet.user_id)} className={TEXT_LINK}>
                 Open account
               </Link>
             )}
-            <Link href={ROUTES.adminResolve} className={TEXT_LINK}>
+            <Link prefetch={false} href={ROUTES.adminResolve} className={TEXT_LINK}>
               Choose another pet
             </Link>
           </p>

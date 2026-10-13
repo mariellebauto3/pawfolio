@@ -63,7 +63,7 @@ function PetRow({ pet }: { pet: Pet }) {
     <li className={ROW}>
       <Avatar name={pet.name} src={pet.photos[0]?.url} alt="" size="lg" />
       <div className="flex min-w-0 flex-1 basis-40 flex-col gap-1">
-        <Link href={petPath(pet.id)} className={NAME}>
+        <Link prefetch={false} href={petPath(pet.id)} className={NAME}>
           {pet.name}
         </Link>
         <span className="text-sm text-ink-muted">{facts.join(" · ")}</span>
@@ -71,7 +71,7 @@ function PetRow({ pet }: { pet: Pet }) {
           <StatusBadge status={PET_STATUS_NAMES[pet.status]} />
         </span>
       </div>
-      <Link href={petPath(pet.id)} className={buttonClasses({ size: "sm" })}>
+      <Link prefetch={false} href={petPath(pet.id)} className={buttonClasses({ size: "sm" })}>
         View resume<span className="sr-only"> of {pet.name}</span>
       </Link>
     </li>
@@ -84,7 +84,7 @@ function HomeRow({ home }: { home: HomeProfile }) {
     <li className={ROW}>
       <Avatar name={home.full_name} src={home.profile_photo_url ?? undefined} alt="" size="lg" />
       <div className="flex min-w-0 flex-1 basis-40 flex-col gap-1">
-        <Link href={homeProfilePath(home.id)} className={NAME}>
+        <Link prefetch={false} href={homeProfilePath(home.id)} className={NAME}>
           {home.full_name}
         </Link>
         <span className="text-sm text-ink-muted">{facts.join(" · ")}</span>
@@ -95,7 +95,7 @@ function HomeRow({ home }: { home: HomeProfile }) {
           </span>
         )}
       </div>
-      <Link href={homeProfilePath(home.id)} className={buttonClasses({ size: "sm" })}>
+      <Link prefetch={false} href={homeProfilePath(home.id)} className={buttonClasses({ size: "sm" })}>
         View profile<span className="sr-only"> of {home.full_name}</span>
       </Link>
     </li>
@@ -108,7 +108,7 @@ function PostRow({ post }: { post: SearchPost }) {
   return (
     <li className={ROW}>
       <div className="flex min-w-0 flex-1 basis-40 flex-col gap-1">
-        <Link href={postPath(post.id)} className={`${NAME} line-clamp-2`}>
+        <Link prefetch={false} href={postPath(post.id)} className={`${NAME} line-clamp-2`}>
           {text[0] ?? "Post"}
         </Link>
         {text[1] && <span className="line-clamp-2 text-sm">{text[1]}</span>}
@@ -146,13 +146,13 @@ export function SearchResults({ results, role }: Props) {
           description="Check the spelling, or try a broader word such as a species (“dog”), a breed (“aspin”) or a city."
           action={
             role !== "admin" && (
-              <Link href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
+              <Link prefetch={false} href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
                 {role === "pet" ? "See Homes for You" : "See Pets for You"}
               </Link>
             )
           }
           secondaryAction={
-            <Link href={ROUTES.browse} className={buttonClasses()}>
+            <Link prefetch={false} href={ROUTES.browse} className={buttonClasses()}>
               Browse all
             </Link>
           }
@@ -178,7 +178,7 @@ export function SearchResults({ results, role }: Props) {
               total={totals[kind]}
               footer={
                 totals[kind] > rows[kind].length && (
-                  <Link href={searchHref(query, kind)} className="self-start text-sm font-bold text-primary underline hover:text-primary-hover">
+                  <Link prefetch={false} href={searchHref(query, kind)} className="self-start text-sm font-bold text-primary underline hover:text-primary-hover">
                     See all {totals[kind]} {KIND_LABELS[kind].toLowerCase()}
                   </Link>
                 )

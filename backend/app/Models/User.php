@@ -107,7 +107,9 @@ class User extends Authenticatable
     public function loadAuthProfile(): static
     {
         if ($this->isPet()) {
-            $this->loadMissing('pet:id,user_id,name');
+            $this->loadMissing(['pet' => fn ($pet) => $pet->select(['id', 'user_id', 'name'])
+                ->selectSub(PetPhoto::query()->select('file_path')->whereColumn('pet_photos.pet_id', 'pets.id')
+                    ->orderBy('sort_order')->orderBy('id')->limit(1), 'auth_avatar_path')]);
         } elseif ($this->isHuman()) {
             $this->loadMissing('homeProfile:id,user_id,full_name,profile_photo_path');
         }
@@ -140,6 +142,10 @@ class User extends Authenticatable
 
     public function avatarUrl(): ?string
     {
+        if ($this->isPet() && $this->pet && array_key_exists('auth_avatar_path', $this->pet->getAttributes())) {
+            return $this->pet->auth_avatar_path ? Storage::disk('public')->url($this->pet->auth_avatar_path) : null;
+        }
+
         return match ($this->getRole()) {
             Role::Pet => ($first = $this->pet?->relationLoaded('photos')
                 ? $this->pet->photos->sortBy('sort_order')->first()

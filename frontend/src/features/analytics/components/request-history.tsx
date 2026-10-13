@@ -32,7 +32,7 @@ export function RequestHistory({ role, requests, total }: Props) {
       wrap: true,
       // Also a link: on phones the Open button is a sideways scroll away.
       cell: (request) => (
-        <Link href={requestPath(request.id)} className="underline hover:text-primary">
+        <Link prefetch={false} href={requestPath(request.id)} className="underline hover:text-primary">
           {other(request)}
         </Link>
       ),
@@ -46,7 +46,7 @@ export function RequestHistory({ role, requests, total }: Props) {
       headerHidden: true,
       align: "end",
       cell: (request) => (
-        <Link href={requestPath(request.id)} className={buttonClasses({ size: "sm" })}>
+        <Link prefetch={false} href={requestPath(request.id)} className={buttonClasses({ size: "sm" })}>
           Open<span className="sr-only">: request {role === "pet" ? "to" : "from"} {other(request)}</span>
         </Link>
       ),
@@ -59,7 +59,7 @@ export function RequestHistory({ role, requests, total }: Props) {
       description={total > requests.length ? `The latest ${requests.length} of ${total}.` : undefined}
       action={
         total > requests.length ? (
-          <Link href={ROUTES.requests} className={buttonClasses({ size: "sm", variant: "tertiary" })}>
+          <Link prefetch={false} href={ROUTES.requests} className={buttonClasses({ size: "sm", variant: "tertiary" })}>
             See all requests
           </Link>
         ) : undefined
@@ -73,7 +73,7 @@ export function RequestHistory({ role, requests, total }: Props) {
           title="No requests yet"
           description="A request shows up here once you apply to a home."
           action={
-            <Link href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
+            <Link prefetch={false} href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
               See Homes for You
             </Link>
           }

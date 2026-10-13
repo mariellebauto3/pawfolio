@@ -51,6 +51,8 @@ export function PostPhotos({ author, photos, sizes = "(min-width: 1024px) 552px,
               className="absolute inset-0 cursor-zoom-in transition-opacity duration-200 ease-out hover:opacity-90 focus-visible:z-10 focus-visible:-outline-offset-4"
             >
               <ApiImage
+                loading="lazy"
+                decoding="async"
                 src={photo.src}
                 alt={photo.alt}
                 fill

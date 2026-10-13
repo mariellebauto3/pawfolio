@@ -12,7 +12,7 @@ export const COMMENT_BODY_MAX = 1000;
 export const MAX_POST_PHOTOS = 4;
 
 /** Posts on one page of the feed: the API's own default. */
-export const FEED_PAGE_SIZE = 20;
+export const FEED_PAGE_SIZE = 10;
 
 /** What the post dialog is open for: a new post (FD-03), a new adoption story (FD-04), or the words of an existing post. */
 export type PostFormMode = "post" | "story" | "edit";

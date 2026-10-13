@@ -44,7 +44,7 @@ export function MatchResults({ kind, view, page, bookmark }: Props) {
         title={`No ${filter.noun} among your matches`}
         description="This filter leaves nothing right now. Your other matches are still here."
         action={
-          <Link href={matchesHref({ ...view, show: "", page: 1 })} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={matchesHref({ ...view, show: "", page: 1 })} className={buttonClasses({ variant: "primary" })}>
             Show all {everything}
           </Link>
         }
@@ -55,12 +55,12 @@ export function MatchResults({ kind, view, page, bookmark }: Props) {
         title="No pets match your home yet"
         description="A pet shows up here once it passes your dealbreakers: a species you accept, in your province, and fine with the kids and pets at home. New resumes are checked as they are published."
         action={
-          <Link href={ROUTES.browse} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={ROUTES.browse} className={buttonClasses({ variant: "primary" })}>
             Browse all pets
           </Link>
         }
         secondaryAction={
-          <Link href={ROUTES.homeProfileEdit} className={buttonClasses()}>
+          <Link prefetch={false} href={ROUTES.homeProfileEdit} className={buttonClasses()}>
             Review your quiz answers
           </Link>
         }
@@ -71,7 +71,7 @@ export function MatchResults({ kind, view, page, bookmark }: Props) {
         title="No homes match you yet"
         description="A home shows up here once it is Open to Adopt in your province, accepts your species, and suits who you’re good with. New homes are checked as they open."
         action={
-          <Link href={ROUTES.browse} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={ROUTES.browse} className={buttonClasses({ variant: "primary" })}>
             Browse all homes
           </Link>
         }

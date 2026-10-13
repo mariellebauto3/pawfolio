@@ -21,7 +21,7 @@ export function SimilarPets({ pets }: Props) {
           <li key={pet.id} className="flex items-center gap-3">
             <Avatar name={pet.name} src={pet.photos[0]?.url} alt="" size="md" />
             <span className="flex min-w-0 flex-col">
-              <Link href={petPath(pet.id)} className="truncate font-bold underline-offset-4 hover:underline">
+              <Link prefetch={false} href={petPath(pet.id)} className="truncate font-bold underline-offset-4 hover:underline">
                 {pet.name}
               </Link>
               <span className="truncate text-sm text-ink-muted">

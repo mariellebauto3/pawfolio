@@ -91,7 +91,7 @@ async function AboutHome({ request }: { request: RequestDetail }) {
             <dt className="text-ink-muted">Other pets</dt>
             <dd>{otherPetsSummary(home)}</dd>
           </dl>
-          <Link href={homeProfilePath(home.id)} className={PROFILE_LINK}>
+          <Link prefetch={false} href={homeProfilePath(home.id)} className={PROFILE_LINK}>
             View Home Profile
           </Link>
         </>
@@ -135,7 +135,7 @@ async function AboutPet({ request }: { request: RequestDetail }) {
                 </div>
               ))}
           </dl>
-          <Link href={petPath(pet.id)} className={PROFILE_LINK}>
+          <Link prefetch={false} href={petPath(pet.id)} className={PROFILE_LINK}>
             View full resume
           </Link>
         </>
@@ -220,7 +220,7 @@ function HumanView({ request, meeting, adoption }: ViewProps) {
   const adopted = request.status === "adopted" && (
     <>
       <HandoverContact reader="human" contacts={meeting.contacts} petName={pet.name} />
-      <Link href={petPath(pet.id)} className={buttonClasses({ variant: "primary" })}>
+      <Link prefetch={false} href={petPath(pet.id)} className={buttonClasses({ variant: "primary" })}>
         View {pet.name}’s alumni profile
       </Link>
       {adoption && <AdoptionDetailsButton adoptionId={adoption.id} petName={pet.name} onRecord />}

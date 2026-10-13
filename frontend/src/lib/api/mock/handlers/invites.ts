@@ -19,6 +19,10 @@ const INVITES: Invite[] = [
   { id: 2, pet_id: 1, home_profile_id: 1, note: null, created_at: "2026-09-17T15:05:00.000000Z", dismissed_at: null },
 ];
 
+export function activeInviteCount(petId: number | null): number {
+  return INVITES.filter((invite) => invite.pet_id === petId && invite.dismissed_at === null).length;
+}
+
 const NOTE_MAX = 200;
 const COOLDOWN_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;

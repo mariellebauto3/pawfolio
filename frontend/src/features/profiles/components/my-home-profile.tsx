@@ -49,7 +49,7 @@ export function MyHomeProfile({ home: loaded, adoptionDetails }: Props) {
     quiz: {
       label: "Lifestyle quiz",
       action: (
-        <Link href={quizPath} className={buttonClasses({ variant: "tertiary", size: "sm" })}>
+        <Link prefetch={false} href={quizPath} className={buttonClasses({ variant: "tertiary", size: "sm" })}>
           Finish<span className="sr-only"> the lifestyle quiz</span>
         </Link>
       ),
@@ -57,7 +57,7 @@ export function MyHomeProfile({ home: loaded, adoptionDetails }: Props) {
     slots: {
       label: home.open_slots_count > 0 ? `Meet & Greet slots (${home.open_slots_count} open)` : "Meet & Greet slots",
       action: (
-        <Link href={ROUTES.availability} className={buttonClasses({ variant: "tertiary", size: "sm" })}>
+        <Link prefetch={false} href={ROUTES.availability} className={buttonClasses({ variant: "tertiary", size: "sm" })}>
           Add<span className="sr-only"> Meet &amp; Greet slots</span>
         </Link>
       ),
@@ -84,7 +84,7 @@ export function MyHomeProfile({ home: loaded, adoptionDetails }: Props) {
               icon="pencil"
               title="Your Home Profile isn’t finished"
               actions={
-                <Link href={quizPath} className={buttonClasses({ variant: "primary", size: "sm" })}>
+                <Link prefetch={false} href={quizPath} className={buttonClasses({ variant: "primary", size: "sm" })}>
                   Continue the quiz
                 </Link>
               }
@@ -95,7 +95,7 @@ export function MyHomeProfile({ home: loaded, adoptionDetails }: Props) {
         }
         actions={
           <>
-            <Link href={ROUTES.homeProfileEdit} className={buttonClasses({ variant: home.has_completed_quiz ? "primary" : "secondary" })}>
+            <Link prefetch={false} href={ROUTES.homeProfileEdit} className={buttonClasses({ variant: home.has_completed_quiz ? "primary" : "secondary" })}>
               Edit Home Profile &amp; quiz
             </Link>
             <Button onClick={editIntro}>Edit intro</Button>

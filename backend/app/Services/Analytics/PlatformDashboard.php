@@ -10,7 +10,6 @@ use App\Enums\MeetAndGreetStatus;
 use App\Enums\PetStatus;
 use App\Enums\ReportStatus;
 use App\Enums\Role;
-use App\Models\Adoption;
 use App\Models\AdoptionRequest;
 use App\Models\MeetAndGreet;
 use App\Models\Pet;
@@ -20,6 +19,10 @@ use App\Support\PhilippineTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * The platform's numbers for the admin dashboard (BE-25, AN-03, FR40): counts of accounts, pets, requests,
@@ -36,6 +39,45 @@ class PlatformDashboard
 
     /** "This week" for Meet & Greets: the 7 days ahead. */
     public const UPCOMING_DAYS = 7;
+
+    /** Revision-checked aggregates only. Never cache identities, authorization or user-specific queues. */
+    public function metrics(): array
+    {
+        $read = fn () => ['tiles' => $this->tiles(), 'trends' => $this->monthlyTrends()];
+        $store = config('performance.dashboard_cache_store');
+        if (! $store || DB::transactionLevel() > 0 || ! in_array(DB::getDriverName(), ['pgsql', 'sqlite'], true)) {
+            return $read();
+        }
+        $revision = DB::table('read_cache_versions')->where('name', 'admin-dashboard')->value('version');
+        if ($revision === null) {
+            return $read();
+        }
+        $ttl = max(1, (int) config('performance.dashboard_metrics_ttl', 15));
+        // The time bucket also expires clock-dependent counts, even without a database write.
+        $connection = config('database.connections.'.config('database.default'));
+        $databaseScope = hash('sha256', json_encode([$connection['host'] ?? null, $connection['database'] ?? null, $connection['username'] ?? null, config('app.key')]));
+        $key = 'admin:dashboard-metrics:v1:'.$databaseScope.':'.$revision.':'.intdiv(now()->timestamp, $ttl);
+        $cache = null;
+        try {
+            $cache = Cache::store($store);
+            if (is_array($metrics = $cache->get($key))) {
+                return $metrics;
+            }
+        } catch (Throwable $error) {
+            Log::warning('Dashboard metrics cache unavailable.', ['exception' => $error::class]);
+            $cache = null;
+        }
+        $metrics = $read();
+        if ($cache) {
+            try {
+                $cache->put($key, $metrics, $ttl);
+            } catch (Throwable $error) {
+                Log::warning('Dashboard metrics cache unavailable.', ['exception' => $error::class]);
+            }
+        }
+
+        return $metrics;
+    }
 
     /**
      * @return array<string, mixed>
@@ -58,13 +100,7 @@ class PlatformDashboard
         $meetings = MeetAndGreet::query()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
         $meetingCount = fn (MeetAndGreetStatus $status): int => (int) ($meetings[$status->value] ?? 0);
 
-        $adoptions = Adoption::query()->active()->with('request')->get();
-        $days = $adoptions
-            ->filter(fn (Adoption $adoption) => $adoption->request?->sent_at !== null && $adoption->adopted_at !== null)
-            ->map(fn (Adoption $adoption) => max(1, (int) $adoption->request->sent_at->diffInDays($adoption->adopted_at)));
-        $thisMonth = Carbon::now(PhilippineTime::TIME_ZONE)->format('Y-m');
-        $lastMonth = Carbon::now(PhilippineTime::TIME_ZONE)->startOfMonth()->subMonth()->format('Y-m');
-        $adoptedIn = $adoptions->filter(fn (Adoption $adoption) => $adoption->adopted_at !== null)->countBy(fn (Adoption $adoption) => $this->month($adoption->adopted_at));
+        $adoptions = $this->adoptionTotals();
 
         $requestsByStatus = AdoptionRequest::query()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
         $pending = $accountCount(AccountStatus::PendingVerification);
@@ -107,10 +143,10 @@ class PlatformDashboard
                     ->whereHas('slot', fn (Builder $slot) => $slot->whereBetween('starts_at', [now(), now()->addDays(self::UPCOMING_DAYS)]))
                     ->count(),
             ],
-            'adoptions_count' => $adoptions->count(),
-            'adoptions_this_month' => (int) ($adoptedIn[$thisMonth] ?? 0),
-            'adoptions_last_month' => (int) ($adoptedIn[$lastMonth] ?? 0),
-            'average_days_to_adoption' => $days->isNotEmpty() ? round($days->avg(), 1) : 0.0,
+            'adoptions_count' => (int) $adoptions->total,
+            'adoptions_this_month' => (int) $adoptions->this_month,
+            'adoptions_last_month' => (int) $adoptions->last_month,
+            'average_days_to_adoption' => round((float) ($adoptions->average_days ?? 0), 1),
         ];
     }
 
@@ -125,9 +161,9 @@ class PlatformDashboard
         $first = Carbon::now(PhilippineTime::TIME_ZONE)->startOfMonth()->subMonths(self::TREND_MONTHS - 1);
         $since = $first->copy()->utc();
 
-        $sent = $this->perMonth(AdoptionRequest::query()->where('sent_at', '>=', $since)->pluck('sent_at'));
-        $approved = $this->perMonth(AdoptionRequest::query()->where('approved_at', '>=', $since)->pluck('approved_at'));
-        $adopted = $this->perMonth(Adoption::query()->active()->where('adopted_at', '>=', $since)->pluck('adopted_at'));
+        $sent = $this->monthTotals('adoption_requests', 'sent_at', $since);
+        $approved = $this->monthTotals('adoption_requests', 'approved_at', $since);
+        $adopted = $this->monthTotals('adoptions', 'adopted_at', $since);
 
         $months = [];
         for ($i = 0; $i < self::TREND_MONTHS; $i++) {
@@ -147,7 +183,9 @@ class PlatformDashboard
     public function pendingVerifications(int $limit = 5): Collection
     {
         return User::query()
-            ->with(['pet', 'homeProfile', 'verificationSubmission'])
+            ->select(['id', 'name', 'role', 'status', 'created_at'])
+            ->with(['pet:id,user_id,name', 'homeProfile:id,user_id,full_name',
+                'verificationSubmission:verification_submissions.id,verification_submissions.user_id,verification_submissions.submitted_at'])
             ->whereIn('role', [Role::Pet->value, Role::Human->value])
             ->where('status', AccountStatus::PendingVerification->value)
             ->orderBy('created_at')
@@ -159,7 +197,7 @@ class PlatformDashboard
     public function openReports(int $limit = 5): Collection
     {
         return Report::query()
-            ->with('reportedUser')
+            ->with(['reportedUser:id,name,role,status', 'reportedUser.pet:id,user_id,name', 'reportedUser.homeProfile:id,user_id,full_name'])
             ->where('status', ReportStatus::Open->value)
             ->orderByDesc('created_at')
             ->limit($limit)
@@ -177,13 +215,40 @@ class PlatformDashboard
             ->get();
     }
 
-    private function month(mixed $at): string
+    private function adoptionTotals(): object
     {
-        return Carbon::parse($at)->setTimezone(PhilippineTime::TIME_ZONE)->format('Y-m');
+        $month = Carbon::now(PhilippineTime::TIME_ZONE)->startOfMonth();
+        $start = $month->copy()->utc();
+        $previous = $month->copy()->subMonth()->utc();
+        $end = $month->copy()->addMonth()->utc();
+        $days = match (DB::getDriverName()) {
+            'pgsql' => 'GREATEST(1, FLOOR(EXTRACT(EPOCH FROM (adoptions.adopted_at - ar.sent_at)) / 86400))',
+            'sqlite' => 'MAX(1, CAST(julianday(adoptions.adopted_at) - julianday(ar.sent_at) AS INTEGER))',
+            default => 'GREATEST(1, TIMESTAMPDIFF(DAY, ar.sent_at, adoptions.adopted_at))',
+        };
+
+        return DB::table('adoptions')->whereNull('adoptions.link_removed_at')
+            ->leftJoin('adoption_requests as ar', 'ar.id', '=', 'adoptions.adoption_request_id')
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw('SUM(CASE WHEN adoptions.adopted_at >= ? AND adoptions.adopted_at < ? THEN 1 ELSE 0 END) AS this_month', [$start, $end])
+            ->selectRaw('SUM(CASE WHEN adoptions.adopted_at >= ? AND adoptions.adopted_at < ? THEN 1 ELSE 0 END) AS last_month', [$previous, $start])
+            ->selectRaw("AVG(CASE WHEN ar.sent_at IS NOT NULL AND adoptions.adopted_at IS NOT NULL THEN $days END) AS average_days")
+            ->first();
     }
 
-    private function perMonth(Collection $dates): Collection
+    private function monthTotals(string $table, string $column, Carbon $since): Collection
     {
-        return $dates->filter()->countBy(fn ($at) => $this->month($at));
+        // Table/column names are internal constants, never request values. Stored dates are UTC.
+        $month = match (DB::getDriverName()) {
+            'pgsql' => "to_char($column + interval '8 hours', 'YYYY-MM')",
+            'sqlite' => "strftime('%Y-%m', $column, '+8 hours')",
+            default => "DATE_FORMAT(DATE_ADD($column, INTERVAL 8 HOUR), '%Y-%m')",
+        };
+        $query = DB::table($table)->where($column, '>=', $since);
+        if ($table === 'adoptions') {
+            $query->whereNull('link_removed_at');
+        }
+
+        return $query->selectRaw("$month AS month, COUNT(*) AS total")->groupByRaw($month)->pluck('total', 'month');
     }
 }

@@ -28,7 +28,7 @@ export function ApplyButton({ home, state }: Props) {
   if (state.kind === "open") {
     return (
       <>
-        <Link href={requestPath(state.requestId)} className={buttonClasses({ variant: "primary" })}>
+        <Link prefetch={false} href={requestPath(state.requestId)} className={buttonClasses({ variant: "primary" })}>
           View my request
         </Link>
         <StatusBadge status={REQUEST_STATUS_LABELS[state.status]} />
@@ -40,7 +40,7 @@ export function ApplyButton({ home, state }: Props) {
 
   if (!isApplyBlocker(state)) {
     return (
-      <Link href={applyPath(home.id)} className={buttonClasses({ variant: "primary" })}>
+      <Link prefetch={false} href={applyPath(home.id)} className={buttonClasses({ variant: "primary" })}>
         Apply for this home
       </Link>
     );

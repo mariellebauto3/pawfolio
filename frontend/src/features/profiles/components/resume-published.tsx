@@ -23,13 +23,13 @@ export function ResumePublished({ name }: { name: string }) {
           {name} now appears in search and in humans&apos; Pets for You. A “For Hire” post was added to the feed.
         </p>
         <div className="flex flex-wrap justify-center gap-3">
-          <Link href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
             See Homes for You
           </Link>
-          <Link href={ROUTES.me} className={buttonClasses({ variant: "secondary" })}>
+          <Link prefetch={false} href={ROUTES.me} className={buttonClasses({ variant: "secondary" })}>
             View my resume
           </Link>
-          <Link href={ROUTES.memberHome} className={buttonClasses({ variant: "tertiary" })}>
+          <Link prefetch={false} href={ROUTES.memberHome} className={buttonClasses({ variant: "tertiary" })}>
             See my For Hire post
           </Link>
         </div>

@@ -83,7 +83,7 @@ export function LogEntryDrawer({ entry, onClose }: Props) {
             <Row term="Actor">
               <span className="flex flex-col">
                 {shown.actor.id !== null && (shown.actor.role === "pet" || shown.actor.role === "human") ? (
-                  <Link href={adminAccountPath(shown.actor.id)} className={`${LINK} self-start`}>
+                  <Link prefetch={false} href={adminAccountPath(shown.actor.id)} className={`${LINK} self-start`}>
                     {shown.actor.display_name}
                   </Link>
                 ) : (
@@ -107,7 +107,7 @@ export function LogEntryDrawer({ entry, onClose }: Props) {
                 <span className="flex flex-col gap-1">
                   <span>{shown.subject_label}</span>
                   {shown.target && (
-                    <Link href={TARGET_PATHS[shown.target.kind](shown.target.id)} className={`${LINK} self-start text-sm`}>
+                    <Link prefetch={false} href={TARGET_PATHS[shown.target.kind](shown.target.id)} className={`${LINK} self-start text-sm`}>
                       {TARGET_NAMES[shown.target.kind]}
                     </Link>
                   )}

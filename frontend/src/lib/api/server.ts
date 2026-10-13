@@ -1,4 +1,5 @@
 import { cookies, headers } from "next/headers";
+import { cache } from "react";
 import { requestOrigin } from "@/lib/auth/request-origin";
 import { env } from "@/config/env";
 import { readCookie } from "@/lib/api/cookies";
@@ -27,7 +28,7 @@ export function createServerApiClient({ cookie, origin }: ServerApiContext): Api
 }
 
 /** For Server Components and Route Handlers: an API client acting as the current visitor. */
-export async function getServerApi(): Promise<ApiClient> {
+export const getServerApi = cache(async (): Promise<ApiClient> => {
   const cookieStore = await cookies();
   return createServerApiClient({ cookie: cookieStore.toString() || null, origin: requestOrigin(await headers()) });
-}
+});

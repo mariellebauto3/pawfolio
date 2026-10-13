@@ -35,7 +35,7 @@ const columns: TableColumn<ActivityEntry>[] = [
           {about && (
             <span className="text-sm font-normal wrap-break-word text-ink-muted">
               {entry.target?.kind === "request" ? (
-                <Link href={requestPath(entry.target.id)} className="underline hover:text-primary">
+                <Link prefetch={false} href={requestPath(entry.target.id)} className="underline hover:text-primary">
                   {about}
                 </Link>
               ) : (

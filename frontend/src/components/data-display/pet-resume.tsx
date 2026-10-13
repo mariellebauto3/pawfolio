@@ -110,7 +110,7 @@ export function PetResume({ pet, actions, notice, aside, owner = false }: Props)
                 title={
                   // A Furparent whose Open to Adopt is off isn't shown: the name stays, the link doesn't.
                   pet.hired_by.is_home_viewable ? (
-                    <>Hired by <Link href={homeProfilePath(pet.hired_by.home_profile_id)} className="underline">{pet.hired_by.full_name}</Link></>
+                    <>Hired by <Link prefetch={false} href={homeProfilePath(pet.hired_by.home_profile_id)} className="underline">{pet.hired_by.full_name}</Link></>
                   ) : (
                     <>Hired by {pet.hired_by.full_name}</>
                   )

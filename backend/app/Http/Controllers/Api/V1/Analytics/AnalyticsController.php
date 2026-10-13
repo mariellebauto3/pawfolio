@@ -51,16 +51,17 @@ class AnalyticsController extends Controller
 
     public function adminDashboard(Request $request)
     {
+        $metrics = $this->dashboard->metrics();
         $pending = $this->dashboard->pendingVerifications();
         $submittedAt = fn (User $account) => ($account->verificationSubmission?->submitted_at ?? $account->created_at)?->toISOString();
 
         return ResponseResource::make([
             'tiles' => [
-                ...$this->dashboard->tiles(),
+                ...$metrics['tiles'],
                 // How long the account at the front of the queue has waited; null when the queue is empty.
                 'oldest_verification_at' => $pending->first() ? $submittedAt($pending->first()) : null,
             ],
-            'trends' => $this->dashboard->monthlyTrends(),
+            'trends' => $metrics['trends'],
             'needs_attention' => [
                 'pending_verifications' => $pending->map(fn (User $account) => [
                     'id' => $account->id,

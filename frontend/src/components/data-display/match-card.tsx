@@ -92,7 +92,7 @@ export function MatchCard({
           {avatar}
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <Heading className="text-xl wrap-break-word">
-              <Link href={href} data-card-link className="after:absolute after:inset-0 after:content-[''] hover:text-primary">
+              <Link prefetch={false} href={href} data-card-link className="after:absolute after:inset-0 after:content-[''] hover:text-primary">
                 {title}
               </Link>
             </Heading>

@@ -65,7 +65,12 @@ function homeFits(home: HomeProfile, query: Query): boolean {
 
 /** A page of matches in the shape of every list, plus whether the account has matches yet. */
 function page(rows: readonly unknown[], query: Query, reason: string | null = null): MockResult {
-  const body = paginate(rows, query, "/api/v1/matches");
+  const items = query.summary ? rows.map((value) => {
+    const row = value as { score: number; pet?: Pet; home_profile?: HomeProfile };
+    return { score: row.score, profile: row.pet ? { id: row.pet.id, name: row.pet.name, city: row.pet.city, avatar_url: row.pet.photos[0]?.url ?? null }
+      : { id: row.home_profile!.id, name: row.home_profile!.full_name, city: row.home_profile!.city, avatar_url: row.home_profile!.profile_photo_url } };
+  }) : rows;
+  const body = paginate(items, query, "/api/v1/matches");
   return { status: 200, body: { ...body, meta: { ...body.meta, eligible: reason === null, reason } } };
 }
 

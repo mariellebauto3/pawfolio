@@ -36,7 +36,7 @@ export function InviteCard({ invite, state, dismiss }: Props) {
         <Avatar name={home.full_name} src={home.profile_photo_url ?? undefined} alt="" size="lg" />
         <div className="flex min-w-0 flex-col gap-1">
           <h2 className="text-xl wrap-break-word">
-            <Link href={homeProfilePath(home.id)} className="hover:text-primary">
+            <Link prefetch={false} href={homeProfilePath(home.id)} className="hover:text-primary">
               {home.full_name}
             </Link>
           </h2>
@@ -70,12 +70,12 @@ export function InviteCard({ invite, state, dismiss }: Props) {
       {/* On a phone the main action takes the full width, with View home and Dismiss on the row under it. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         {state.kind === "open" && (
-          <Link href={requestPath(state.requestId)} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={requestPath(state.requestId)} className={buttonClasses({ variant: "primary" })}>
             View my request
           </Link>
         )}
         {state.kind === "can_apply" && (
-          <Link href={applyPath(home.id)} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={applyPath(home.id)} className={buttonClasses({ variant: "primary" })}>
             Apply for this home
           </Link>
         )}
@@ -83,7 +83,7 @@ export function InviteCard({ invite, state, dismiss }: Props) {
         {state.kind === "not_accepting" && <Button disabled>Not accepting requests</Button>}
 
         <div className="flex items-center justify-between gap-3 sm:contents">
-          <Link href={homeProfilePath(home.id)} className={buttonClasses()}>
+          <Link prefetch={false} href={homeProfilePath(home.id)} className={buttonClasses()}>
             View home
             <span className="sr-only">: {home.full_name}</span>
           </Link>

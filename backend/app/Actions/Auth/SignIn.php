@@ -83,7 +83,9 @@ class SignIn
         Auth::guard('web')->login($user, $remember);
 
         if ($request->hasSession()) {
-            $request->session()->regenerate();
+            // SessionGuard::login already migrates/destroys the old session ID.
+            // Rotate CSRF without migrating the same session a second time.
+            $request->session()->regenerateToken();
         }
 
         $this->log($request, $user, 'signed_in');

@@ -60,6 +60,7 @@ class ListMatchesRequest extends BrowseRequest
     {
         // Matches are never searched by words, and they are in the viewer's own province by rule.
         return Arr::except(parent::rules(), ['q', 'province']) + [
+            'summary' => ['sometimes', 'boolean'],
             'min_score' => ['sometimes', 'nullable', 'integer', 'between:0,100'],
             'max_score' => ['sometimes', 'nullable', 'integer', 'between:0,100'],
         ];

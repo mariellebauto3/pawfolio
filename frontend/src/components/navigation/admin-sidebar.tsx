@@ -99,7 +99,7 @@ function AdminNavList({ pathname, counts, onNavigate }: ListProps) {
         const active = isNavLinkActive(pathname, item);
         return (
           <li key={item.id}>
-            <Link
+            <Link prefetch={false}
               href={item.href}
               onClick={onNavigate}
               // "page" on the page itself, "true" on a page inside its section (a report under Reports).

@@ -40,16 +40,21 @@ describe("admin layout authentication and sidebar", () => {
     expect(mocks.counts).not.toHaveBeenCalled();
   });
 
-  it("renders the new section counts for an active admin", async () => {
+  it("renders the shell before loading counts, then streams them for an active admin", async () => {
     mocks.account.mockResolvedValue({ ok: true, account: { role: "admin", status: "active" } });
     const result = await AdminLayout({ children: null });
-    expect(result.props.counts).toEqual({ verification: 3, reports: 2, requests: 1 });
+    expect(mocks.counts).not.toHaveBeenCalled();
+    const deferred = result.props.sidebar.props.children;
+    const sidebar = await deferred.type(deferred.props);
+    expect(sidebar.props.counts).toEqual({ verification: 3, reports: 2, requests: 1 });
   });
 
   it("keeps the admin shell available when sidebar counts fail", async () => {
     mocks.account.mockResolvedValue({ ok: true, account: { role: "admin", status: "active" } });
     mocks.counts.mockRejectedValue(new Error("counts unavailable"));
     const result = await AdminLayout({ children: null });
-    expect(result.props.counts).toEqual({});
+    const deferred = result.props.sidebar.props.children;
+    const sidebar = await deferred.type(deferred.props);
+    expect(sidebar.props.counts).toEqual({});
   });
 });

@@ -67,7 +67,7 @@ export function PlatformDashboard({ dashboard }: Props) {
                   <span className="font-bold">{row.text}</span>
                   {row.detail && <span className="text-sm wrap-break-word text-ink-muted">{row.detail}</span>}
                 </span>
-                <Link href={row.href} className={buttonClasses({ size: "sm" })}>
+                <Link prefetch={false} href={row.href} className={buttonClasses({ size: "sm" })}>
                   {row.action}
                   <span className="sr-only">: {row.text}</span>
                 </Link>

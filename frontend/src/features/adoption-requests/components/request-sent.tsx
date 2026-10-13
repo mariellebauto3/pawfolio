@@ -60,10 +60,10 @@ export function RequestSent({ homeName, sent }: Props) {
       </dl>
 
       <div className="mt-2 flex flex-col gap-3 self-stretch sm:flex-row sm:justify-center sm:self-auto">
-        <Link href={ROUTES.requests} className={buttonClasses({ variant: "primary" })}>
+        <Link prefetch={false} href={ROUTES.requests} className={buttonClasses({ variant: "primary" })}>
           Track my requests
         </Link>
-        <Link href={ROUTES.matches} className={buttonClasses()}>
+        <Link prefetch={false} href={ROUTES.matches} className={buttonClasses()}>
           Back to Homes for You
         </Link>
       </div>

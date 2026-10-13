@@ -177,7 +177,7 @@ export function AlertsMenu({ alerts, triggerClassName, countClassName }: Props) 
             )}
           </div>
 
-          <Link
+          <Link prefetch={false}
             href={ROUTES.notifications}
             onClick={() => setOpen(false)}
             className="flex min-h-11 items-center justify-center rounded-b-card border-t border-line px-4 font-bold text-primary no-underline transition-colors duration-150 hover:bg-primary-soft"

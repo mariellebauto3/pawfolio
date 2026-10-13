@@ -51,7 +51,7 @@ export function Pagination({ page, totalPages, searchParams = {}, param = "page"
 
   const previous =
     current > 1 ? (
-      <Link href={href(current - 1)} className={cn(STEP, "text-primary hover:bg-primary-soft")}>
+      <Link prefetch={false} href={href(current - 1)} className={cn(STEP, "text-primary hover:bg-primary-soft")}>
         <Icon name="chevron-left" className="size-4" />
         Previous
       </Link>
@@ -64,7 +64,7 @@ export function Pagination({ page, totalPages, searchParams = {}, param = "page"
 
   const next =
     current < totalPages ? (
-      <Link href={href(current + 1)} className={cn(STEP, "text-primary hover:bg-primary-soft")}>
+      <Link prefetch={false} href={href(current + 1)} className={cn(STEP, "text-primary hover:bg-primary-soft")}>
         Next
         <Icon name="chevron-right" className="size-4" />
       </Link>
@@ -89,7 +89,7 @@ export function Pagination({ page, totalPages, searchParams = {}, param = "page"
             </li>
           ) : (
             <li key={item}>
-              <Link
+              <Link prefetch={false}
                 href={href(item)}
                 aria-label={`Page ${item}`}
                 aria-current={item === current ? "page" : undefined}

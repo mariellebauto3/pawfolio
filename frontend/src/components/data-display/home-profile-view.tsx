@@ -156,7 +156,7 @@ export function HomeProfileView({ home, actions, notice, aside, owner = false, a
                 <li key={adoption.adoption_id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3 first:pt-0 last:pb-0">
                   <Avatar name={adoption.pet.name} src={adoption.pet.photo_url ?? undefined} alt="" size="md" />
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <Link href={petPath(adoption.pet.id)} className="truncate font-bold underline-offset-4 hover:underline">
+                    <Link prefetch={false} href={petPath(adoption.pet.id)} className="truncate font-bold underline-offset-4 hover:underline">
                       {adoption.pet.name}
                     </Link>
                     <span className="truncate text-sm text-ink-muted">

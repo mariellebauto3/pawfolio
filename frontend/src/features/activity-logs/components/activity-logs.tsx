@@ -30,7 +30,7 @@ export function ActivityLogs({ entries, filters, searchParams }: Props) {
             title="No entries match these filters"
             description="Nothing of this type by this kind of actor has been logged."
             action={
-              <Link href={ROUTES.adminActivityLogs} className={buttonClasses()}>
+              <Link prefetch={false} href={ROUTES.adminActivityLogs} className={buttonClasses()}>
                 Clear filters
               </Link>
             }
@@ -47,7 +47,7 @@ export function ActivityLogs({ entries, filters, searchParams }: Props) {
       <p role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
         {logSummary(entries.meta.total, filters)}
         {filtered && (
-          <Link href={ROUTES.adminActivityLogs} className="font-bold text-primary underline hover:text-primary-hover">
+          <Link prefetch={false} href={ROUTES.adminActivityLogs} className="font-bold text-primary underline hover:text-primary-hover">
             Clear filters
           </Link>
         )}

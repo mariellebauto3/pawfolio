@@ -44,7 +44,7 @@ export function BrowseResults({ kind, filters, results }: Props) {
         title={kind === "pets" ? "No pets match these filters" : "No homes match these filters"}
         description="Take a filter off, or search for a broader word such as a city."
         action={
-          <Link href={clearAll} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={clearAll} className={buttonClasses({ variant: "primary" })}>
             Clear filters
           </Link>
         }
@@ -59,7 +59,7 @@ export function BrowseResults({ kind, filters, results }: Props) {
             : "Homes show up here as soon as a human turns on Open to Adopt."
         }
         action={
-          <Link href={ROUTES.memberHome} className={buttonClasses()}>
+          <Link prefetch={false} href={ROUTES.memberHome} className={buttonClasses()}>
             Back to the feed
           </Link>
         }
@@ -81,7 +81,7 @@ export function BrowseResults({ kind, filters, results }: Props) {
           </li>
           {chips.map((chip) => (
             <li key={chip.key}>
-              <Link
+              <Link prefetch={false}
                 href={chip.href}
                 className="inline-flex min-h-11 items-center gap-1.5 rounded-pill border border-line-strong bg-surface py-1 pr-2 pl-3 text-sm font-bold transition-colors duration-200 ease-out hover:border-primary hover:bg-primary-soft md:min-h-8"
               >
@@ -93,7 +93,7 @@ export function BrowseResults({ kind, filters, results }: Props) {
           ))}
           {chips.length > 1 && (
             <li>
-              <Link href={clearAll} className="px-1 text-sm font-bold text-primary underline hover:text-primary-hover">
+              <Link prefetch={false} href={clearAll} className="px-1 text-sm font-bold text-primary underline hover:text-primary-hover">
                 Clear all
               </Link>
             </li>

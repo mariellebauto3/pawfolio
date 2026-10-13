@@ -34,7 +34,7 @@ export function MatchSummary({ name, match, missing, breakdown }: Props) {
       <Frame>
         <p className="text-sm">{missing.text}</p>
         {missing.action && (
-          <Link href={missing.action.href} className="text-sm font-bold text-primary underline hover:text-primary-hover">
+          <Link prefetch={false} href={missing.action.href} className="text-sm font-bold text-primary underline hover:text-primary-hover">
             {missing.action.label}
           </Link>
         )}

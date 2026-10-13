@@ -75,7 +75,7 @@ export function MeetSection({ reader, stage, request, meeting, adopt }: Props) {
             tone="warning"
             title="You have no open slots"
             action={
-              <Link href={ROUTES.availability} className={buttonClasses({ variant: "primary", size: "sm" })}>
+              <Link prefetch={false} href={ROUTES.availability} className={buttonClasses({ variant: "primary", size: "sm" })}>
                 Add a slot
               </Link>
             }
@@ -87,7 +87,7 @@ export function MeetSection({ reader, stage, request, meeting, adopt }: Props) {
             <p className="text-sm text-ink-muted">
               You have {open} open {open === 1 ? "slot" : "slots"}.{expires && ` ${pet} has until ${expires} to book.`}
             </p>
-            <Link href={ROUTES.availability} className={buttonClasses({ size: "sm", className: "self-start" })}>
+            <Link prefetch={false} href={ROUTES.availability} className={buttonClasses({ size: "sm", className: "self-start" })}>
               Manage availability
             </Link>
           </>

@@ -41,6 +41,8 @@ export function createAlertsStore(client: ApiClient, { intervalMs = POLL_INTERVA
   // An answer is used only if nothing overtook it: a newer question, or a write that changed what it counted.
   let countTurn = 0;
   let latestTurn = 0;
+  let pendingCount: Promise<void> | null = null;
+  let recheckAfterPending = false;
 
   function set(change: Partial<AlertsSnapshot>) {
     snapshot = { ...snapshot, ...change };
@@ -48,7 +50,23 @@ export function createAlertsStore(client: ApiClient, { intervalMs = POLL_INTERVA
   }
 
   /** Asks the API for the count. `reloadRows`: also load the dropdown's rows again when the count has moved. */
-  async function check(reloadRows = true): Promise<void> {
+  function check(reloadRows = true, requireFresh = false): Promise<void> {
+    if (pendingCount) {
+      if (requireFresh) recheckAfterPending = true;
+      return pendingCount;
+    }
+    pendingCount = readCount(reloadRows).finally(() => {
+      pendingCount = null;
+      // A completed write or dropdown read needs a newer snapshot than the in-flight read.
+      if (recheckAfterPending) {
+        recheckAfterPending = false;
+        if (running) void check(reloadRows);
+      }
+    });
+    return pendingCount;
+  }
+
+  async function readCount(reloadRows: boolean): Promise<void> {
     if (!running) return;
     const turn = ++countTurn;
     lastCheckAt = now();
@@ -97,7 +115,7 @@ export function createAlertsStore(client: ApiClient, { intervalMs = POLL_INTERVA
       if (turn !== latestTurn) return;
       set({ latest: { status: "ready", items: page.data } });
       // The rows are as new as can be: have the count say the same, without waiting for its minute.
-      void check(false);
+      void check(false, true);
     } catch (error) {
       if (!isApiError(error)) throw error;
       if (turn !== latestTurn) return;
@@ -123,7 +141,7 @@ export function createAlertsStore(client: ApiClient, { intervalMs = POLL_INTERVA
         readIds.delete(notificationId);
         set({ readIds });
       })
-      .then(() => check());
+      .then(() => check(true, true));
   }
 
   /** Everything is read. Shown at once; if the API refuses, what was shown before is put back and the error is the caller's to show. */
@@ -142,7 +160,7 @@ export function createAlertsStore(client: ApiClient, { intervalMs = POLL_INTERVA
     } finally {
       // Either way, ask the API where things stand: the count, and the rows if the dropdown has been opened (a
       // load that was overtaken just now will never answer).
-      void check();
+      void check(true, true);
       if (snapshot.latest.status !== "idle") void loadLatest();
     }
   }

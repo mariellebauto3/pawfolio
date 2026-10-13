@@ -53,7 +53,7 @@ export function PostCard({ post, when, variant = "feed", menu, actions, children
         <Avatar name={author.display_name} src={author.avatar_url ?? undefined} alt="" />
         <div className="flex min-w-0 flex-1 flex-col">
           {profilePath ? (
-            <Link href={profilePath} className="self-start font-bold text-ink no-underline wrap-break-word hover:text-primary hover:underline">
+            <Link prefetch={false} href={profilePath} className="self-start font-bold text-ink no-underline wrap-break-word hover:text-primary hover:underline">
               {author.display_name}
             </Link>
           ) : (
@@ -77,7 +77,7 @@ export function PostCard({ post, when, variant = "feed", menu, actions, children
         {/* Line breaks are the author's; long words and pasted addresses wrap instead of widening the card. */}
         <p className={cn("wrap-break-word whitespace-pre-line", long && "line-clamp-6")}>{post.body}</p>
         {long && (
-          <Link href={href} className="self-start text-sm font-bold text-primary hover:underline">
+          <Link prefetch={false} href={href} className="self-start text-sm font-bold text-primary hover:underline">
             Read the whole post
             <span className="sr-only"> by {author.display_name}</span>
           </Link>
@@ -90,7 +90,7 @@ export function PostCard({ post, when, variant = "feed", menu, actions, children
         <div className="mx-4 mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-card bg-surface-sunken px-4 py-3 md:mx-5">
           <p className="min-w-0 flex-1 basis-48 text-sm">Posted automatically when {author.display_name}’s resume went live.</p>
           {profilePath && (
-            <Link href={profilePath} className={buttonClasses({ size: "sm" })}>
+            <Link prefetch={false} href={profilePath} className={buttonClasses({ size: "sm" })}>
               View resume
               <span className="sr-only"> of {author.display_name}</span>
             </Link>
@@ -105,7 +105,7 @@ export function PostCard({ post, when, variant = "feed", menu, actions, children
             <span className="block font-bold wrap-break-word">{post.adopted_pet.name}’s adoption story</span>
             Adopted on Pawfolio
           </p>
-          <Link href={petPath(post.adopted_pet.id)} className={buttonClasses({ size: "sm" })}>
+          <Link prefetch={false} href={petPath(post.adopted_pet.id)} className={buttonClasses({ size: "sm" })}>
             View alumni profile
             <span className="sr-only"> of {post.adopted_pet.name}</span>
           </Link>
@@ -117,7 +117,7 @@ export function PostCard({ post, when, variant = "feed", menu, actions, children
         {detail ? (
           <span>{count(post.comments_count, "comment", "comments")}</span>
         ) : (
-          <Link href={`${href}#comments`} className="text-ink-muted hover:text-primary hover:underline">
+          <Link prefetch={false} href={`${href}#comments`} className="text-ink-muted hover:text-primary hover:underline">
             {count(post.comments_count, "comment", "comments")}
             <span className="sr-only"> on {author.display_name}’s post</span>
           </Link>

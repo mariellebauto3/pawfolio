@@ -33,7 +33,7 @@ export default async function EditHomeProfilePage({ searchParams }: Props) {
         title="Home Profile & lifestyle quiz"
         description="Pets read this like a job posting. It takes about 5 minutes."
         actions={
-          <Link href={ROUTES.me} className={buttonClasses({ variant: "tertiary", size: "sm" })}>
+          <Link prefetch={false} href={ROUTES.me} className={buttonClasses({ variant: "tertiary", size: "sm" })}>
             View my profile
           </Link>
         }

@@ -28,7 +28,7 @@ export function PetStats({ stats }: Props) {
           icon="pencil"
           title="Your resume is still a draft"
           actions={
-            <Link href={ROUTES.resumeEdit} className={buttonClasses({ variant: "primary", size: "sm" })}>
+            <Link prefetch={false} href={ROUTES.resumeEdit} className={buttonClasses({ variant: "primary", size: "sm" })}>
               Finish my resume
             </Link>
           }
@@ -45,7 +45,7 @@ export function PetStats({ stats }: Props) {
           value={tiles.requests.total}
           note={
             tiles.requests.open > 0 ? (
-              <Link href={ROUTES.requests} className={NOTE_LINK}>
+              <Link prefetch={false} href={ROUTES.requests} className={NOTE_LINK}>
                 {tiles.requests.open} open
               </Link>
             ) : (
@@ -58,7 +58,7 @@ export function PetStats({ stats }: Props) {
           value={tiles.invites.total}
           note={
             tiles.invites.live > 0 ? (
-              <Link href={ROUTES.invites} className={NOTE_LINK}>
+              <Link prefetch={false} href={ROUTES.invites} className={NOTE_LINK}>
                 {tiles.invites.live} to answer
               </Link>
             ) : (

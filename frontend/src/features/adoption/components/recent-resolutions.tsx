@@ -37,7 +37,7 @@ export function RecentResolutions({ resolutions, total }: Props) {
                   {resolution.admin_name && ` by ${resolution.admin_name}`}
                 </span>
                 {resolution.adoption_request_id !== null && (
-                  <Link href={adminRequestPath(resolution.adoption_request_id)} className="font-bold text-primary underline hover:text-primary-hover">
+                  <Link prefetch={false} href={adminRequestPath(resolution.adoption_request_id)} className="font-bold text-primary underline hover:text-primary-hover">
                     View request<span className="sr-only"> #{resolution.adoption_request_id}</span>
                   </Link>
                 )}

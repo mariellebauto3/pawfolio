@@ -33,7 +33,7 @@ export function PostAside({ post, more }: Props) {
           </div>
         </div>
         {profilePath && (
-          <Link href={profilePath} className={buttonClasses({ size: "sm", className: "self-start" })}>
+          <Link prefetch={false} href={profilePath} className={buttonClasses({ size: "sm", className: "self-start" })}>
             {author.role === "pet" ? "View resume" : "View Home Profile"}
             <span className="sr-only"> of {author.display_name}</span>
           </Link>
@@ -45,7 +45,7 @@ export function PostAside({ post, more }: Props) {
           <ul className="flex flex-col divide-y divide-line">
             {more.map(({ post: other, when }) => (
               <li key={other.id} className="py-3 first:pt-0 last:pb-0">
-                <Link href={postPath(other.id)} className="group flex flex-col gap-0.5 text-ink no-underline">
+                <Link prefetch={false} href={postPath(other.id)} className="group flex flex-col gap-0.5 text-ink no-underline">
                   <span className="line-clamp-2 text-sm wrap-break-word group-hover:text-primary group-hover:underline">{other.title ?? other.body}</span>
                   <time dateTime={other.created_at} className="text-xs text-ink-muted">
                     {when}

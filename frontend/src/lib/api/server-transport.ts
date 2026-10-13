@@ -1,5 +1,5 @@
 import { XSRF_COOKIE, XSRF_HEADER, readCookie } from "@/lib/api/cookies";
-import { type Transport, baseHeaders, buildApiUrl, encodeBody, isWriteMethod, readBody } from "@/lib/api/core";
+import { type Transport, type TransportResponse, baseHeaders, buildApiUrl, encodeBody, isWriteMethod, readBody } from "@/lib/api/core";
 import { networkError } from "@/lib/api/errors";
 
 // Talks to Laravel from the Next.js server (Server Components, proxy.ts) on behalf of the browser that made the
@@ -28,7 +28,9 @@ export type ServerTransportDeps = {
 };
 
 export function createServerTransport({ apiUrl, cookie, origin, fetch, timeoutMs = SERVER_CALL_TIMEOUT_MS }: ServerTransportDeps): Transport {
-  return async (request) => {
+  // This transport belongs to one server render and one cookie context, never a global/user cache.
+  const reads = new Map<string, Promise<TransportResponse>>();
+  const send: Transport = async (request) => {
     const headers = baseHeaders();
     headers.set("Origin", origin);
     headers.set("Referer", `${origin}/`);
@@ -63,5 +65,25 @@ export function createServerTransport({ apiUrl, cookie, origin, fetch, timeoutMs
       body: request.responseType === "blob" && response.ok ? await response.blob() : await readBody(response),
       retryAfter: response.headers.get("Retry-After"),
     };
+  };
+  return (request) => {
+    if (request.method !== "GET") {
+      reads.clear();
+      return send(request);
+    }
+    // Callers with explicit cancellation own their request lifetime.
+    if (request.signal || request.responseType === "blob") return send(request);
+    const key = buildApiUrl(apiUrl, request.path, request.query);
+    const pending = reads.get(key);
+    if (pending) return pending;
+    const read = send(request).then((response) => {
+      if (response.status >= 400 && reads.get(key) === read) reads.delete(key);
+      return response;
+    }).catch((error: unknown) => {
+      if (reads.get(key) === read) reads.delete(key);
+      throw error;
+    });
+    reads.set(key, read);
+    return read;
   };
 }

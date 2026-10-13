@@ -52,7 +52,7 @@ export function NoNotifications({ tab, role, period = "all" }: Props) {
             : "Older notifications are kept. You’ll find them under Earlier."
         }
         action={
-          <Link href={notificationsHref(tab, 1, earlier ? "all" : "earlier")} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={notificationsHref(tab, 1, earlier ? "all" : "earlier")} className={buttonClasses({ variant: "primary" })}>
             {earlier ? "See all notifications" : "See earlier notifications"}
           </Link>
         }
@@ -76,7 +76,7 @@ export function NoNotifications({ tab, role, period = "all" }: Props) {
       }
       action={
         role === "admin" ? undefined : (
-          <Link href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
+          <Link prefetch={false} href={ROUTES.matches} className={buttonClasses({ variant: "primary" })}>
             {role === "pet" ? "See Homes for You" : "See Pets for You"}
           </Link>
         )

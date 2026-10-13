@@ -56,7 +56,7 @@ export function MatchFilters({ kind, view }: Props) {
             const selected = chip.id === view.show;
             return (
               <li key={chip.id}>
-                <Link
+                <Link prefetch={false}
                   href={matchesHref({ ...view, show: chip.id, page: 1 })}
                   aria-current={selected ? "true" : undefined}
                   scroll={false}

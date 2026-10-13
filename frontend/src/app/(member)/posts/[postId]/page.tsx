@@ -52,7 +52,7 @@ export default async function PostPage({ params }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Link href={ROUTES.memberHome} className="inline-flex min-h-11 items-center gap-1 self-start text-sm font-bold text-primary hover:underline md:min-h-0">
+      <Link prefetch={false} href={ROUTES.memberHome} className="inline-flex min-h-11 items-center gap-1 self-start text-sm font-bold text-primary hover:underline md:min-h-0">
         <Icon name="chevron-left" className="size-4 shrink-0" />
         Back to feed
       </Link>
