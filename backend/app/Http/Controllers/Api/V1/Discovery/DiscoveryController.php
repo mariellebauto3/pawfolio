@@ -31,6 +31,7 @@ use App\Models\Pet;
 use App\Models\PetVetRecord;
 use App\Models\Post;
 use App\Models\ProfileView;
+use App\Services\Discovery\RecentlyHired;
 use App\Services\Matching\MatchScoreCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -454,7 +455,7 @@ class DiscoveryController extends Controller
 
         $posts = Post::query()
             ->visible()
-            ->with(['author.pet.photos', 'author.homeProfile', 'photos'])
+            ->with(['author:id,role,name', 'author.pet:id,user_id,name', 'author.homeProfile:id,user_id,full_name'])
             ->whereHas('author', $activeAccount)
             ->where(function ($sub) use ($like): void {
                 $sub->whereRaw('LOWER(title) LIKE ?', [$like])
@@ -503,13 +504,13 @@ class DiscoveryController extends Controller
 
         // One kind, a page at a time (SEC-API-05).
         if ($type === 'pets') {
-            $paginator = $pets->withCount(['profileViews', 'bookmarks'])->paginate($request->perPage());
+            $paginator = $pets->withCount(['profileViews', 'bookmarks'])->paginate($request->perPage(), total: $totals['pets']);
             $rows = $this->petRows($paginator->getCollection(), $request);
         } elseif ($type === 'home_profiles') {
-            $paginator = $homes->paginate($request->perPage());
+            $paginator = $homes->paginate($request->perPage(), total: $totals['home_profiles']);
             $rows = $this->homeRows($paginator->getCollection(), $request);
         } else {
-            $paginator = $posts->paginate($request->perPage());
+            $paginator = $posts->paginate($request->perPage(), total: $totals['posts']);
             $rows = $this->postRows($paginator->getCollection());
         }
 
@@ -586,35 +587,7 @@ class DiscoveryController extends Controller
      */
     public function recentlyHired()
     {
-        $adoptions = Adoption::query()
-            ->with('pet.photos')
-            ->whereNotNull('adopted_at')
-            ->whereNull('link_removed_at')
-            ->whereHas('pet', fn ($pet) => $pet
-                ->where('status', PetStatus::AdoptedHired->value)
-                ->whereHas('user', fn ($u) => $u->where('status', AccountStatus::Active->value)))
-            ->orderByDesc('adopted_at')
-            ->orderByDesc('id')
-            ->limit(4)
-            ->get()
-            ->values();
-
-        $items = $adoptions->map(function (Adoption $adoption): array {
-            $pet = $adoption->pet;
-            // The first photo whose file is really there: a row left behind by a file that is gone would send the
-            // landing page an address that answers 404, and the panel would lose its picture.
-            $firstPhoto = $pet->photos
-                ->sortBy('sort_order')
-                ->first(fn ($photo) => Storage::disk('public')->exists($photo->file_path));
-
-            return [
-                'name' => $pet->name,
-                'photo_url' => $firstPhoto ? Storage::disk('public')->url($firstPhoto->file_path) : null,
-                'hired_at' => $adoption->adopted_at->toISOString(),
-            ];
-        })->values()->all();
-
-        return ResponseResource::collection($items);
+        return ResponseResource::collection(app(RecentlyHired::class)->items());
     }
 
     /**

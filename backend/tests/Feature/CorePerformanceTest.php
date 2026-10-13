@@ -6,6 +6,7 @@ use App\Models\HomeProfile;
 use App\Models\Pet;
 use App\Models\Post;
 use App\Models\User;
+use App\Services\Analytics\MemberStats;
 use App\Services\Matching\MatchScoreCalculator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -63,5 +64,12 @@ class CorePerformanceTest extends TestCase
             ->assertJsonCount(3, 'data.accepted_species'));
         $this->assertLessThanOrEqual(19, count($queries));
         $this->assertEqualsCanonicalizing($answers['preferred_sizes'], $home->preferredSizes()->get()->map(fn ($row) => $row->size->value)->all());
+    }
+
+    public function test_pet_stats_use_six_queries_instead_of_separate_tile_counts(): void
+    {
+        $pet = Pet::factory()->create();
+        $queries = $this->queries(fn () => app(MemberStats::class)->forPet($pet));
+        $this->assertCount(6, $queries);
     }
 }
