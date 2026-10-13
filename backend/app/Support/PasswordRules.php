@@ -40,7 +40,7 @@ final class PasswordRules
             "{$field}.min" => 'Use at least 8 characters.',
             "{$field}.letters" => 'Include at least one letter.',
             "{$field}.numbers" => 'Include at least one number.',
-            "{$field}.uncompromised" => 'This password has appeared in a data leak. Choose a different one.',
+            "{$field}.uncompromised" => "This password isn't safe to use. Please choose a different password.",
         ];
     }
 }
