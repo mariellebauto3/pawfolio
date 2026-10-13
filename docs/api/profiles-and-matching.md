@@ -301,6 +301,10 @@ answers the same way from the fixtures. A change here also changes those two fil
 
 ### `GET /api/v1/matches`
 
+Home can request `summary=1&per_page=3`. Rankings and visibility use the same filters and eligibility checks,
+but each item is `{ score, profile: { id, name, city, avatar_url } }` rather than a full profile and score breakdown.
+This loads only the three suggestion cards; the complete Matches module is fetched when opened.
+
 The pairs that pass all four dealbreakers, best score first. A human gets pets that are **Looking for a Home**; a
 pet gets homes that are **Open to Adopt** with the quiz finished. Profiles whose account isn't Active are left out.
 

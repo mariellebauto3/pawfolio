@@ -11,6 +11,7 @@ use App\Enums\ReportReason;
 use App\Enums\ReportStatus;
 use App\Enums\ReportTargetType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CommunityFeed\FeedRequest;
 use App\Http\Resources\ErrorResource;
 use App\Http\Resources\Profiles\PetResource;
 use App\Http\Resources\ResponseResource;
@@ -22,6 +23,7 @@ use App\Models\Reaction;
 use App\Models\Report;
 use App\Models\User;
 use App\Services\ActivityLogs\ActivityLogger;
+use App\Services\CommunityFeed\HomeFeedSummary;
 use App\Services\Notifications\NotificationService;
 use App\Services\Uploads\FileUploadService;
 use Illuminate\Http\Request;
@@ -62,16 +64,20 @@ class CommunityFeedController extends Controller
         private readonly NotificationService $notifications,
     ) {}
 
-    public function index(Request $request)
+    public function index(FeedRequest $request, HomeFeedSummary $home)
     {
         $this->authorBlocks = [];
         $user = $request->user();
-        $perPage = min(max((int) $request->query('per_page', 20), 1), 50);
+        $perPage = (int) $request->query('per_page', 10);
+        $cursorMode = $request->query('pagination') === 'cursor';
+        $homeSummary = $request->boolean('include_home') && ! $request->filled('cursor')
+            ? $home->forUser($user) : null;
 
         $query = Post::query()
             ->visible()
             ->with($this->postRelations($user))
             ->withCount($this->postCounts())
+            ->withExists(['reactions as viewer_has_reacted' => fn ($reaction) => $reaction->where('user_id', $user->id)])
             ->byActiveAuthor()
             ->orderByDesc('created_at')
             ->orderByDesc('id');
@@ -87,18 +93,11 @@ class CommunityFeedController extends Controller
             $query->where('author_user_id', (int) $request->query('author_user_id'));
         }
 
-        $paginator = $query->paginate($perPage);
+        $paginator = $cursorMode
+            ? $query->cursorPaginate($perPage, ['*'], 'cursor', $request->feedCursor())
+            : $query->paginate($perPage);
 
-        $postIds = $paginator->getCollection()->pluck('id')->all();
-        $reactedPostIds = $user && $postIds !== []
-            ? Reaction::query()
-                ->where('user_id', $user->id)
-                ->whereIn('post_id', $postIds)
-                ->pluck('post_id')
-                ->flip()
-            : collect();
-
-        $announcements = Announcement::query()
+        $announcements = $request->filled('cursor') ? [] : Announcement::query()
             ->visibleTo($user)
             ->orderByDesc('published_at')
             ->limit(3)
@@ -114,9 +113,19 @@ class CommunityFeedController extends Controller
             ->all();
 
         $items = $paginator->getCollection()
-            ->map(fn (Post $post) => $this->formatPost($post, $reactedPostIds->has($post->id), $user))
+            ->map(fn (Post $post) => $this->formatPost($post, (bool) $post->viewer_has_reacted, $user))
             ->values()
             ->all();
+
+        if ($cursorMode) {
+            return ResponseResource::make(data: $items, meta: [
+                'per_page' => $perPage,
+                'has_more' => $paginator->hasMorePages(),
+                'next_cursor' => $paginator->nextCursor()?->encode(),
+                'announcements' => $announcements,
+                'home' => $homeSummary,
+            ], links: ['next' => $paginator->nextPageUrl()]);
+        }
 
         return ResponseResource::make(
             data: $items,
@@ -131,6 +140,7 @@ class CommunityFeedController extends Controller
                 'to' => $paginator->lastItem(),
                 'path' => $paginator->path(),
                 'announcements' => $announcements,
+                'home' => $homeSummary,
             ],
             links: [
                 'first' => $paginator->url(1),

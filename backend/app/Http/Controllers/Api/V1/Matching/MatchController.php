@@ -23,6 +23,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Compatibility matches list and per-criterion breakdown (BE-13, MT-01..MT-05).
@@ -62,11 +63,13 @@ class MatchController extends Controller
             $this->calculator->recalculateForHome($home);
         }
 
-        $query = MatchScore::query()
-            ->with(['pet' => fn ($pet) => $pet
+        $relations = $request->boolean('summary')
+            ? ['pet:id,name,city', 'pet.photos:id,pet_id,file_path,sort_order']
+            : ['pet' => fn ($pet) => $pet
                 ->with(['photos', 'temperamentTags', 'skills', 'specialNeeds', 'publishedAdoption.homeProfile'])
                 // The view and bookmark counts of the whole page with the list, not one query per pet.
-                ->withCount(['profileViews', 'bookmarks'])])
+                ->withCount(['profileViews', 'bookmarks'])];
+        $query = MatchScore::query()->with($relations)
             ->where('home_profile_id', $home->id)
             ->whereHas('pet', function (Builder $pet) use ($request): void {
                 $pet->where('status', PetStatus::LookingForAHome->value)
@@ -98,6 +101,10 @@ class MatchController extends Controller
             });
 
         $paginator = $this->ranked($query, $request, Pet::query()->select('published_at')->whereColumn('pets.id', 'match_scores.pet_id'));
+
+        if ($request->boolean('summary')) {
+            return $this->suggestions($paginator, 'pet');
+        }
 
         $bookmarked = Bookmark::query()
             ->where('user_id', $user->id)
@@ -133,15 +140,17 @@ class MatchController extends Controller
             $this->calculator->recalculateForPet($pet);
         }
 
-        $query = MatchScore::query()
-            ->with(['homeProfile' => fn ($home) => $home->with([
+        $relations = $request->boolean('summary')
+            ? ['homeProfile:id,full_name,city,profile_photo_path']
+            : ['homeProfile' => fn ($home) => $home->with([
                 'householdMembers',
                 'otherPets',
                 'acceptedSpecies',
                 'preferredSizes',
                 'preferredAges',
                 'activeAdoptions.pet.photos',
-            ])])
+            ])];
+        $query = MatchScore::query()->with($relations)
             ->where('pet_id', $pet->id)
             ->whereHas('homeProfile', function (Builder $home) use ($request): void {
                 $home->where('is_open_to_adopt', true)
@@ -180,6 +189,10 @@ class MatchController extends Controller
             HomeProfile::query()->select('quiz_completed_at')->whereColumn('home_profiles.id', 'match_scores.home_profile_id'),
         );
 
+        if ($request->boolean('summary')) {
+            return $this->suggestions($paginator, 'homeProfile');
+        }
+
         $bookmarked = Bookmark::query()
             ->where('user_id', $user->id)
             ->whereIn('home_profile_id', $paginator->getCollection()->pluck('home_profile_id'))
@@ -196,6 +209,21 @@ class MatchController extends Controller
                     ->toArray($request),
             ];
         })->values()->all());
+    }
+
+    private function suggestions(LengthAwarePaginator $paginator, string $relation): ResponseResource
+    {
+        return $this->page($paginator, $paginator->getCollection()->map(function (MatchScore $match) use ($relation): array {
+            $profile = $match->$relation;
+            $photo = $relation === 'pet' ? $profile->photos->first()?->file_path : $profile->profile_photo_path;
+
+            return ['score' => (int) $match->score, 'profile' => [
+                'id' => $profile->id,
+                'name' => $relation === 'pet' ? $profile->name : $profile->full_name,
+                'city' => $profile->city,
+                'avatar_url' => $photo ? Storage::disk('public')->url($photo) : null,
+            ]];
+        })->all());
     }
 
     /**
