@@ -182,8 +182,7 @@ class DiscoveryController extends Controller
 
         $matchEvaluation = null;
         if ($viewer && $viewer->isHuman() && $viewer->homeProfile && $viewer->homeProfile->hasCompletedQuiz()) {
-            $this->matcher->persistPair($pet, $viewer->homeProfile);
-            $matchEvaluation = $this->matcher->evaluate($pet, $viewer->homeProfile);
+            $matchEvaluation = $this->matcher->evaluateAndPersist($pet, $viewer->homeProfile);
         }
 
         $hasApprovedAccess = $viewer && $viewer->homeProfile
@@ -396,8 +395,7 @@ class DiscoveryController extends Controller
 
         $matchEvaluation = null;
         if ($viewer && $viewer->isPet() && $viewer->pet && $viewer->pet->getStatusEnum() !== PetStatus::Draft && $home->hasCompletedQuiz()) {
-            $this->matcher->persistPair($viewer->pet, $home);
-            $matchEvaluation = $this->matcher->evaluate($viewer->pet, $home);
+            $matchEvaluation = $this->matcher->evaluateAndPersist($viewer->pet, $home);
         }
 
         $resource = new HomeProfileResource($home);

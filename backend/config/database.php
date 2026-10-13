@@ -100,6 +100,8 @@ return [
             // Supavisor transaction mode does not support server-side prepared statements.
             'options' => extension_loaded('pdo_pgsql') ? [
                 PDO::ATTR_EMULATE_PREPARES => (bool) env('DB_EMULATE_PREPARES', false),
+                // Keep native parameters without a separate named-prepare round trip.
+                PDO::PGSQL_ATTR_DISABLE_PREPARES => (bool) env('DB_DISABLE_PREPARES', true),
             ] : [],
         ],
 

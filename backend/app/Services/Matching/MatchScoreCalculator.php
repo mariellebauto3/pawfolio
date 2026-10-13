@@ -9,6 +9,7 @@ use App\Enums\PetStatus;
 use App\Models\HomeProfile;
 use App\Models\MatchScore;
 use App\Models\Pet;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Deterministic 2-step compatibility scoring engine (BE-13, Proposal §6, MT-01..MT-03).
@@ -30,6 +31,14 @@ use App\Models\Pet;
  */
 class MatchScoreCalculator
 {
+    private const POINT_COLUMNS = ['score', 'activity_points', 'hours_away_points', 'space_points', 'experience_points', 'size_age_points', 'compatibility_points', 'special_needs_points'];
+
+    private const PET_COLUMNS = ['id', 'status', 'species', 'province', 'energy_level', 'time_alone', 'space_needs', 'experience_needed', 'size', 'approximate_age_months', 'good_with_kids', 'good_with_dogs', 'good_with_cats'];
+
+    private const HOME_COLUMNS = ['id', 'quiz_completed_at', 'province', 'activity_level', 'hours_away', 'home_type', 'outdoor_space', 'pet_experience', 'special_needs_willingness'];
+
+    private const HOME_RELATIONS = ['householdMembers:id,home_profile_id,member', 'otherPets:id,home_profile_id,pet_type', 'acceptedSpecies:id,home_profile_id,species', 'preferredSizes:id,home_profile_id,size', 'preferredAges:id,home_profile_id,age_group'];
+
     /**
      * Evaluate dealbreakers and weighted points for a (Pet, HomeProfile) pair.
      *
@@ -50,7 +59,7 @@ class MatchScoreCalculator
      */
     public function evaluate(Pet $pet, HomeProfile $home): array
     {
-        $pet->loadMissing(['specialNeeds', 'temperamentTags', 'skills']);
+        $pet->loadMissing('specialNeeds:id,pet_id,need');
         $home->loadMissing(['householdMembers', 'otherPets', 'acceptedSpecies', 'preferredSizes', 'preferredAges']);
 
         $dealbreakers = $this->checkDealbreakers($pet, $home);
@@ -167,81 +176,132 @@ class MatchScoreCalculator
     /**
      * Recalculate and persist match_scores for one Pet across all quiz-completed Home Profiles.
      */
-    public function recalculateForPet(Pet $pet): void
+    public function recalculateForPet(Pet $pet, bool $sourceLocked = false): void
     {
-        $status = $pet->getStatusEnum();
-        if (! in_array($status, [PetStatus::LookingForAHome, PetStatus::InProcess], true)) {
-            MatchScore::where('pet_id', $pet->id)->delete();
+        $sourceLocked = $sourceLocked && DB::transactionLevel() > 0;
+        $this->inSnapshot(function () use ($pet, $sourceLocked): void {
+            if (! $sourceLocked) {
+                $pet = Pet::whereKey($pet->id)->sharedLock()->firstOrFail(self::PET_COLUMNS);
+            }
+            $status = $pet->getStatusEnum();
+            if (! in_array($status, [PetStatus::LookingForAHome, PetStatus::InProcess], true)) {
+                MatchScore::where('pet_id', $pet->id)->delete();
 
-            return;
-        }
+                return;
+            }
 
-        $pet->load(['specialNeeds', 'temperamentTags', 'skills']);
+            $pet->loadMissing('specialNeeds:id,pet_id,need');
 
-        $homes = HomeProfile::query()
-            ->whereNotNull('quiz_completed_at')
-            ->with(['householdMembers', 'otherPets', 'acceptedSpecies', 'preferredSizes', 'preferredAges'])
-            ->get();
-
-        foreach ($homes as $home) {
-            $this->persistPair($pet, $home);
-        }
+            HomeProfile::query()
+                ->select(self::HOME_COLUMNS)
+                ->whereNotNull('quiz_completed_at')
+                ->with(self::HOME_RELATIONS)
+                ->sharedLock()
+                ->chunkById(200, fn ($homes) => $this->persistBatch($homes, $pet, null));
+        }, $sourceLocked);
     }
 
     /**
      * Recalculate and persist match_scores for one HomeProfile across all published Pets.
      */
-    public function recalculateForHome(HomeProfile $home): void
+    public function recalculateForHome(HomeProfile $home, bool $sourceLocked = false): void
     {
-        if (! $home->hasCompletedQuiz()) {
-            MatchScore::where('home_profile_id', $home->id)->delete();
+        $sourceLocked = $sourceLocked && DB::transactionLevel() > 0;
+        $this->inSnapshot(function () use ($home, $sourceLocked): void {
+            if (! $sourceLocked) {
+                $home = HomeProfile::whereKey($home->id)->sharedLock()->firstOrFail(self::HOME_COLUMNS);
+            }
+            if (! $home->hasCompletedQuiz()) {
+                MatchScore::where('home_profile_id', $home->id)->delete();
 
-            return;
+                return;
+            }
+
+            $home->loadMissing(self::HOME_RELATIONS);
+
+            Pet::query()
+                ->select(self::PET_COLUMNS)
+                ->whereIn('status', [PetStatus::LookingForAHome->value, PetStatus::InProcess->value])
+                ->with('specialNeeds:id,pet_id,need')
+                ->sharedLock()
+                ->chunkById(200, fn ($pets) => $this->persistBatch($pets, null, $home));
+        }, $sourceLocked);
+    }
+
+    private function persistBatch($candidates, ?Pet $pet, ?HomeProfile $home): void
+    {
+        $rows = [];
+        $failed = [];
+        foreach ($candidates as $candidate) {
+            $pairPet = $pet ?? $candidate;
+            $pairHome = $home ?? $candidate;
+            $result = $this->evaluate($pairPet, $pairHome);
+            if ($result['passes_dealbreakers']) {
+                $rows[] = ['pet_id' => $pairPet->id, 'home_profile_id' => $pairHome->id, ...$this->scoreData($result)];
+            } else {
+                $failed[] = $candidate->id;
+            }
         }
-
-        $home->load(['householdMembers', 'otherPets', 'acceptedSpecies', 'preferredSizes', 'preferredAges']);
-
-        $pets = Pet::query()
-            ->whereIn('status', [PetStatus::LookingForAHome->value, PetStatus::InProcess->value])
-            ->with(['specialNeeds', 'temperamentTags', 'skills'])
-            ->get();
-
-        foreach ($pets as $pet) {
-            $this->persistPair($pet, $home);
+        if ($rows !== []) {
+            MatchScore::upsert($rows, ['pet_id', 'home_profile_id'], [...self::POINT_COLUMNS, 'calculated_at']);
         }
+        if ($failed !== []) {
+            MatchScore::query()
+                ->where($pet ? 'pet_id' : 'home_profile_id', $pet?->id ?? $home->id)
+                ->whereIn($pet ? 'home_profile_id' : 'pet_id', $failed)->delete();
+        }
+    }
+
+    private function inSnapshot(callable $calculate, bool $sourceLocked): void
+    {
+        if ($sourceLocked) {
+            $calculate();
+        } else {
+            DB::transaction($calculate, 3);
+        }
+    }
+
+    private function scoreData(array $result): array
+    {
+        return array_intersect_key($result, array_flip(self::POINT_COLUMNS)) + ['calculated_at' => now()];
     }
 
     public function persistPair(Pet $pet, HomeProfile $home): ?MatchScore
     {
-        $result = $this->evaluate($pet, $home);
+        $result = $this->evaluateAndPersist($pet, $home);
 
-        if (! $result['passes_dealbreakers']) {
-            MatchScore::where('pet_id', $pet->id)
-                ->where('home_profile_id', $home->id)
-                ->delete();
+        return $result['passes_dealbreakers']
+            ? MatchScore::where('pet_id', $pet->id)->where('home_profile_id', $home->id)->first()
+            : null;
+    }
 
-            return null;
-        }
+    public function evaluateAndPersist(Pet $pet, HomeProfile $home): array
+    {
+        return DB::transaction(function () use ($pet, $home): array {
+            // Protect both inputs while writing a single score from a profile view.
+            $currentPet = Pet::whereKey($pet->id)->sharedLock()->firstOrFail(self::PET_COLUMNS);
+            $currentHome = HomeProfile::whereKey($home->id)->sharedLock()->firstOrFail(self::HOME_COLUMNS);
+            $pet->setRawAttributes(array_replace($pet->getAttributes(), $currentPet->getAttributes()), true)->unsetRelation('specialNeeds');
+            $home->setRawAttributes(array_replace($home->getAttributes(), $currentHome->getAttributes()), true);
+            foreach (['householdMembers', 'otherPets', 'acceptedSpecies', 'preferredSizes', 'preferredAges'] as $relation) {
+                $home->unsetRelation($relation);
+            }
+            $result = $this->evaluate($pet, $home);
 
-        $row = MatchScore::firstOrNew([
-            'pet_id' => $pet->id,
-            'home_profile_id' => $home->id,
-        ]);
+            if (! $result['passes_dealbreakers']) {
+                MatchScore::where('pet_id', $pet->id)
+                    ->where('home_profile_id', $home->id)
+                    ->delete();
 
-        $row->pet_id = $pet->id;
-        $row->home_profile_id = $home->id;
-        $row->score = $result['score'];
-        $row->activity_points = $result['activity_points'];
-        $row->hours_away_points = $result['hours_away_points'];
-        $row->space_points = $result['space_points'];
-        $row->experience_points = $result['experience_points'];
-        $row->size_age_points = $result['size_age_points'];
-        $row->compatibility_points = $result['compatibility_points'];
-        $row->special_needs_points = $result['special_needs_points'];
-        $row->calculated_at = now();
-        $row->save();
+                return $result;
+            }
 
-        return $row;
+            MatchScore::upsert([
+                ['pet_id' => $pet->id, 'home_profile_id' => $home->id, ...$this->scoreData($result)],
+            ], ['pet_id', 'home_profile_id'], [...self::POINT_COLUMNS, 'calculated_at']);
+
+            return $result;
+        }, 3);
     }
 
     /**

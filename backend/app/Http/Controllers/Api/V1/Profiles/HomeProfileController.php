@@ -24,6 +24,7 @@ use App\Models\HomeProfile;
 use App\Services\ActivityLogs\ActivityLogger;
 use App\Services\Matching\MatchScoreCalculator;
 use App\Services\Uploads\FileUploadService;
+use App\Support\ProfileAnswers;
 use App\Support\Provinces;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -42,7 +43,7 @@ class HomeProfileController extends Controller
 
     public function show(Request $request)
     {
-        $home = $request->user()->homeProfile;
+        $home = $request->user()->homeProfile()->withCount(['profileViews', 'meetAndGreetSlots as open_slots_count' => fn ($slots) => $slots->bookable()])->first();
         if (! $home) {
             return ErrorResource::notFound('Home Profile not found.')->toResponse($request);
         }
@@ -64,7 +65,8 @@ class HomeProfileController extends Controller
         $rules = $this->rulesForStep($step);
         $validated = $request->validate($rules);
 
-        DB::transaction(function () use ($home, $validated, $step, $user, $request): void {
+        $home = DB::transaction(function () use ($home, $validated, $step, $user, $request): HomeProfile {
+            $home = $this->lockedHome($home);
             foreach ([
                 'about_home', 'home_type', 'outdoor_space', 'city', 'province',
                 'activity_level', 'hours_away', 'pet_experience', 'special_needs_willingness',
@@ -81,41 +83,26 @@ class HomeProfileController extends Controller
             $home->save();
 
             if (array_key_exists('household_members', $validated)) {
-                $home->householdMembers()->delete();
-                foreach (array_values(array_unique($validated['household_members'])) as $member) {
-                    $home->householdMembers()->create(['member' => $member]);
-                }
+                ProfileAnswers::replace($home, 'householdMembers', 'member', $validated['household_members']);
             }
 
             if (array_key_exists('other_pets', $validated)) {
-                $home->otherPets()->delete();
-                foreach (array_values(array_unique($validated['other_pets'])) as $petType) {
-                    $home->otherPets()->create(['pet_type' => $petType]);
-                }
+                ProfileAnswers::replace($home, 'otherPets', 'pet_type', $validated['other_pets']);
             }
 
             if (array_key_exists('accepted_species', $validated)) {
-                $home->acceptedSpecies()->delete();
-                foreach (array_values(array_unique($validated['accepted_species'])) as $species) {
-                    $home->acceptedSpecies()->create(['species' => $species]);
-                }
+                ProfileAnswers::replace($home, 'acceptedSpecies', 'species', $validated['accepted_species']);
             }
 
             if (array_key_exists('preferred_sizes', $validated)) {
-                $home->preferredSizes()->delete();
-                foreach (array_values(array_unique($validated['preferred_sizes'])) as $size) {
-                    $home->preferredSizes()->create(['size' => $size]);
-                }
+                ProfileAnswers::replace($home, 'preferredSizes', 'size', $validated['preferred_sizes']);
             }
 
             if (array_key_exists('preferred_ages', $validated)) {
-                $home->preferredAges()->delete();
-                foreach (array_values(array_unique($validated['preferred_ages'])) as $age) {
-                    $home->preferredAges()->create(['age_group' => $age]);
-                }
+                ProfileAnswers::replace($home, 'preferredAges', 'age_group', $validated['preferred_ages']);
             }
 
-            if ($step === '6' || $step === 'review' || $this->isQuizComplete($home->fresh())) {
+            if ($step === '6' || $step === 'review' || $this->isQuizComplete($home)) {
                 if ($home->quiz_completed_at === null) {
                     $home->quiz_completed_at = now();
                     $home->save();
@@ -129,12 +116,13 @@ class HomeProfileController extends Controller
                 subject: $home,
                 userAgent: $request->userAgent(),
             );
-        });
+            if ($home->hasCompletedQuiz()) {
+                $this->matcher->recalculateForHome($home, sourceLocked: true);
+            }
 
-        $home->refresh();
-        if ($home->hasCompletedQuiz()) {
-            $this->matcher->recalculateForHome($home);
-        }
+            return $home;
+        }, 3);
+        $user->setRelation('homeProfile', $home);
 
         return ResponseResource::make(
             (new HomeProfileResource($home))->forOwner()->toArray($request),
@@ -158,35 +146,55 @@ class HomeProfileController extends Controller
             'cover_photo' => ['sometimes', 'nullable', 'file'],
         ]);
 
-        if (array_key_exists('headline', $validated)) {
-            $home->headline = $validated['headline'];
-        }
-        if (array_key_exists('about_home', $validated)) {
-            $home->about_home = $validated['about_home'];
-        }
+        $storedPaths = [];
+        $oldPaths = [];
+        $photoChanges = [];
+        try {
+            if ($request->hasFile('profile_photo') && $request->file('profile_photo') instanceof UploadedFile) {
+                $stored = $this->uploads->storePublicPhoto($request->file('profile_photo'), 'homes/avatars', 'profile_photo');
+                $storedPaths[] = $stored['file_path'];
+                $photoChanges['profile_photo_path'] = $stored['file_path'];
+            }
 
-        if ($request->hasFile('profile_photo') && $request->file('profile_photo') instanceof UploadedFile) {
-            $stored = $this->uploads->storePublicPhoto($request->file('profile_photo'), 'homes/avatars', 'profile_photo');
-            $home->profile_photo_path = $stored['file_path'];
+            if ($request->hasFile('cover_photo') && $request->file('cover_photo') instanceof UploadedFile) {
+                $stored = $this->uploads->storePublicPhoto($request->file('cover_photo'), 'homes/covers', 'cover_photo');
+                $storedPaths[] = $stored['file_path'];
+                $photoChanges['cover_photo_path'] = $stored['file_path'];
+            }
+            $home = DB::transaction(function () use ($home, $validated, $photoChanges, $user, $request, &$oldPaths): HomeProfile {
+                $home = $this->lockedHome($home);
+                foreach (['headline', 'about_home'] as $field) {
+                    if (array_key_exists($field, $validated)) {
+                        $home->{$field} = $validated[$field];
+                    }
+                }
+                foreach ($photoChanges as $field => $path) {
+                    $oldPaths[] = $home->{$field};
+                    $home->{$field} = $path;
+                }
+                $home->save();
+
+                ActivityLogger::log(
+                    type: ActivityLogType::Profile,
+                    action: 'home_intro_updated',
+                    actor: $user,
+                    subject: $home,
+                    userAgent: $request->userAgent(),
+                );
+
+                return $home;
+            }, 3);
+        } catch (\Throwable $exception) {
+            $this->uploads->cleanupFiles('public', $storedPaths);
+            throw $exception;
         }
-
-        if ($request->hasFile('cover_photo') && $request->file('cover_photo') instanceof UploadedFile) {
-            $stored = $this->uploads->storePublicPhoto($request->file('cover_photo'), 'homes/covers', 'cover_photo');
-            $home->cover_photo_path = $stored['file_path'];
+        $user->setRelation('homeProfile', $home);
+        foreach (array_unique($oldPaths) as $oldPath) {
+            $this->uploads->deleteUnreferencedPublicFile($oldPath);
         }
-
-        $home->save();
-
-        ActivityLogger::log(
-            type: ActivityLogType::Profile,
-            action: 'home_intro_updated',
-            actor: $user,
-            subject: $home,
-            userAgent: $request->userAgent(),
-        );
 
         return ResponseResource::make(
-            (new HomeProfileResource($home->fresh()))->forOwner()->toArray($request),
+            (new HomeProfileResource($home))->forOwner()->toArray($request),
         );
     }
 
@@ -205,34 +213,51 @@ class HomeProfileController extends Controller
 
         $wantOpen = (bool) $validated['is_open_to_adopt'];
 
-        if ($wantOpen && ! $home->hasCompletedQuiz()) {
-            return ErrorResource::conflict(
-                'Complete your Home Profile and lifestyle quiz before turning on Open to Adopt.',
-                'quiz_incomplete',
-            )->toResponse($request);
+        $result = DB::transaction(function () use ($home, $wantOpen, $request, $user) {
+            $home = $this->lockedHome($home);
+            if ($wantOpen && ! $home->hasCompletedQuiz()) {
+                return ErrorResource::conflict(
+                    'Complete your Home Profile and lifestyle quiz before turning on Open to Adopt.',
+                    'quiz_incomplete',
+                )->toResponse($request);
+            }
+
+            $before = $home->is_open_to_adopt ? 'open' : 'closed';
+            $home->is_open_to_adopt = $wantOpen;
+            $home->save();
+
+            ActivityLogger::log(
+                type: ActivityLogType::Profile,
+                action: $wantOpen ? 'open_to_adopt_enabled' : 'open_to_adopt_disabled',
+                actor: $user,
+                subject: $home,
+                before: $before,
+                after: $wantOpen ? 'open' : 'closed',
+                userAgent: $request->userAgent(),
+            );
+
+            if ($home->hasCompletedQuiz()) {
+                $this->matcher->recalculateForHome($home, sourceLocked: true);
+            }
+
+            return $home;
+        }, 3);
+        if (! $result instanceof HomeProfile) {
+            return $result;
         }
-
-        $before = $home->is_open_to_adopt ? 'open' : 'closed';
-        $home->is_open_to_adopt = $wantOpen;
-        $home->save();
-
-        ActivityLogger::log(
-            type: ActivityLogType::Profile,
-            action: $wantOpen ? 'open_to_adopt_enabled' : 'open_to_adopt_disabled',
-            actor: $user,
-            subject: $home,
-            before: $before,
-            after: $wantOpen ? 'open' : 'closed',
-            userAgent: $request->userAgent(),
-        );
-
-        if ($home->hasCompletedQuiz()) {
-            $this->matcher->recalculateForHome($home);
-        }
+        $user->setRelation('homeProfile', $result);
 
         return ResponseResource::make(
-            (new HomeProfileResource($home->fresh()))->forOwner()->toArray($request),
+            (new HomeProfileResource($result))->forOwner()->toArray($request),
         );
+    }
+
+    private function lockedHome(HomeProfile $home): HomeProfile
+    {
+        return HomeProfile::whereKey($home->id)->withCount([
+            'profileViews',
+            'meetAndGreetSlots as open_slots_count' => fn ($slots) => $slots->bookable(),
+        ])->lockForUpdate()->firstOrFail();
     }
 
     private function isQuizComplete(HomeProfile $home): bool

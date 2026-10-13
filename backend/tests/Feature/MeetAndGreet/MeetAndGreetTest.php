@@ -303,7 +303,7 @@ class MeetAndGreetTest extends TestCase
         $this->booking($booked);
 
         $this->actingAs($this->human)->postJson($this->url('propose-time'), [])->assertUnprocessable()->assertJsonValidationErrors(['proposed_slot_id']);
-        $this->actingAs($this->human)->postJson($this->url('propose-time'), ['proposed_slot_id' => $this->slot()->id, 'message' => str_repeat('a', 601)])
+        $this->actingAs($this->human)->postJson($this->url('propose-time'), ['proposed_slot_id' => $this->slot(['starts_at' => now()->addDays(4)])->id, 'message' => str_repeat('a', 601)])
             ->assertUnprocessable()->assertJsonValidationErrors(['message']);
 
         // The slot the pet already booked is no other time.

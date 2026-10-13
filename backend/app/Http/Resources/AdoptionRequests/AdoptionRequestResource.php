@@ -70,7 +70,6 @@ class AdoptionRequestResource extends JsonResource
             'activeMeetAndGreet.slot',
             'latestMeetAndGreet.slot',
             'latestMeetAndGreet.proposedSlot',
-            'homeProfile.meetAndGreetSlots',
             'adoption',
         ]);
 
@@ -90,8 +89,8 @@ class AdoptionRequestResource extends JsonResource
         $viewer = $request->user();
         $isParticipantOrAdmin = $viewer && (
             $viewer->isAdmin()
-            || ($viewer->pet && $viewer->pet->id === $ar->pet_id)
-            || ($viewer->homeProfile && $viewer->homeProfile->id === $ar->home_profile_id)
+            || ($viewer->isPet() && $viewer->pet?->id === $ar->pet_id)
+            || ($viewer->isHuman() && $viewer->homeProfile?->id === $ar->home_profile_id)
         );
 
         $activeMeet = $ar->activeMeetAndGreet;

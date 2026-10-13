@@ -139,8 +139,8 @@ class HomeProfileResource extends JsonResource
             $data['birthdate'] = $home->birthdate instanceof CarbonInterface
                 ? $home->birthdate->format('Y-m-d')
                 : (string) ($home->birthdate ?? '');
-            $data['views_count'] = $home->profileViews()->count();
-            $data['open_slots_count'] = $home->meetAndGreetSlots()->bookable()->count();
+            $data['views_count'] = (int) ($home->getAttribute('profile_views_count') ?? $home->profileViews()->count());
+            $data['open_slots_count'] = (int) ($home->getAttribute('open_slots_count') ?? $home->meetAndGreetSlots()->bookable()->count());
         }
 
         return $data;

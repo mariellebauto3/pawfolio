@@ -145,14 +145,16 @@ class MeetGreetSlotController extends Controller
         }
 
         $home = $user->homeProfile;
+        $startsAt = $request->startsAt();
         $times = [];
         for ($week = 0; $week < $request->weeks(); $week++) {
-            $times[] = $request->startsAt()->addWeeks($week);
+            $times[] = $startsAt->copy()->addWeeks($week);
         }
 
         return DB::transaction(function () use ($home, $times, $user, $request) {
             // Two slots at the same time can't both be kept: a pet would book one, and the other would still look open.
-            $taken = $home->meetAndGreetSlots()->available()->whereIn('starts_at', $times)->lockForUpdate()->exists();
+            HomeProfile::whereKey($home->id)->lockForUpdate()->firstOrFail(['id']);
+            $taken = $home->meetAndGreetSlots()->available()->whereIn('starts_at', $times)->exists();
             if ($taken) {
                 $message = count($times) > 1 ? 'You already have a slot at that time in one of these weeks.' : 'You already have a slot at that time.';
 
@@ -181,7 +183,7 @@ class MeetGreetSlotController extends Controller
             );
 
             return ResponseResource::created($rows)->toResponse($request);
-        });
+        }, 3);
     }
 
     public function destroy(Request $request, MeetGreetSlot $slot)
@@ -192,16 +194,22 @@ class MeetGreetSlotController extends Controller
             return ErrorResource::notFound("We couldn't find that slot.")->toResponse($request);
         }
 
-        if ($slot->activeBooking() !== null) {
-            return ErrorResource::conflict(
-                'A pet has booked this slot. Propose another time or cancel the meeting on the request first.',
-                'slot_has_active_booking',
-            )->toResponse($request);
-        }
+        return DB::transaction(function () use ($slot, $request) {
+            $slot = MeetGreetSlot::whereKey($slot->id)->lockForUpdate()->firstOrFail();
+            if ($slot->deleted_at !== null) {
+                return ErrorResource::notFound("We couldn't find that slot.")->toResponse($request);
+            }
+            if ($slot->bookings()->active()->exists()) {
+                return ErrorResource::conflict(
+                    'A pet has booked this slot. Propose another time or cancel the meeting on the request first.',
+                    'slot_has_active_booking',
+                )->toResponse($request);
+            }
 
-        $slot->deleted_at = now();
-        $slot->save();
+            $slot->deleted_at = now();
+            $slot->save();
 
-        return ResponseResource::make(['deleted' => true]);
+            return ResponseResource::make(['deleted' => true]);
+        }, 3);
     }
 }

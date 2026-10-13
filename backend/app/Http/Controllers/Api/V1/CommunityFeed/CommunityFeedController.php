@@ -64,17 +64,13 @@ class CommunityFeedController extends Controller
 
     public function index(Request $request)
     {
+        $this->authorBlocks = [];
         $user = $request->user();
         $perPage = min(max((int) $request->query('per_page', 20), 1), 50);
 
         $query = Post::query()
             ->visible()
-            ->with([
-                'author.pet.photos',
-                'author.homeProfile',
-                'photos',
-                'adoptedPet.photos',
-            ])
+            ->with($this->postRelations($user))
             ->withCount($this->postCounts())
             ->byActiveAuthor()
             ->orderByDesc('created_at')
@@ -147,18 +143,14 @@ class CommunityFeedController extends Controller
 
     public function show(Request $request, Post $post)
     {
+        $this->authorBlocks = [];
         $user = $request->user();
 
         if ($post->isDeleted() || (($post->isRemoved() || ! $this->isByActiveAccount($post->author)) && ! $user->isAdmin())) {
             return ErrorResource::notFound("We couldn't find that post.")->toResponse($request);
         }
 
-        $post->load([
-            'author.pet.photos',
-            'author.homeProfile',
-            'photos',
-            'adoptedPet.photos',
-        ])->loadCount($this->postCounts());
+        $post->loadMissing($this->postRelations($user))->loadCount($this->postCounts());
 
         $hasReacted = Reaction::query()
             ->where('user_id', $user->id)
@@ -168,10 +160,8 @@ class CommunityFeedController extends Controller
         $topComments = Comment::query()
             ->visible()
             ->byActiveAuthor()
-            ->with([
-                'author.pet.photos',
-                'author.homeProfile',
-                'replies' => fn ($q) => $q->whereNull('removed_at')->byActiveAuthor()->with(['author.pet.photos', 'author.homeProfile'])->withCount('reactions')->orderBy('created_at'),
+            ->with([...$this->authorRelations($user),
+                'replies' => fn ($q) => $q->whereNull('removed_at')->byActiveAuthor()->with($this->authorRelations($user))->withCount('reactions')->orderBy('created_at'),
             ])
             ->withCount('reactions')
             ->where('post_id', $post->id)
@@ -220,44 +210,54 @@ class CommunityFeedController extends Controller
         ]);
 
         $storedPhotos = [];
-        if ($request->hasFile('photos')) {
-            /** @var list<UploadedFile> $files */
-            $files = array_values($request->file('photos', []));
-            foreach ($files as $idx => $file) {
-                $storedPhotos[] = $this->uploads->storePublicPhoto($file, 'posts/photos', "photos.{$idx}");
+        try {
+            if ($request->hasFile('photos')) {
+                /** @var list<UploadedFile> $files */
+                $files = array_values($request->file('photos', []));
+                foreach ($files as $idx => $file) {
+                    $storedPhotos[] = $this->uploads->storePublicPhoto($file, 'posts/photos', "photos.{$idx}");
+                }
             }
+
+            $post = DB::transaction(function () use ($user, $validated, $storedPhotos, $request): Post {
+                $post = new Post;
+                $post->author_user_id = $user->id;
+                $post->type = $validated['type'] ?? ($user->isPet() ? PostType::Update->value : PostType::Post->value);
+                $post->title = isset($validated['title']) && trim($validated['title']) !== '' ? trim($validated['title']) : null;
+                $post->body = trim($validated['body']);
+                $post->save();
+
+                if ($storedPhotos !== []) {
+                    $now = now()->toDateTimeString();
+                    $rows = [];
+                    foreach ($storedPhotos as $idx => $meta) {
+                        $rows[] = ['post_id' => $post->id, 'file_path' => $meta['file_path'], 'sort_order' => $idx + 1, 'created_at' => $now, 'updated_at' => $now];
+                    }
+                    $post->photos()->insert($rows);
+                }
+
+                $this->flagIfContainsSellingKeywords($post, $user->id);
+
+                ActivityLogger::log(
+                    type: ActivityLogType::Feed,
+                    action: 'post_created',
+                    actor: $user,
+                    subject: $post,
+                    userAgent: $request->userAgent(),
+                );
+
+                $post->setRelation('author', $user);
+
+                return $post;
+            }, 3);
+
+        } catch (\Throwable $exception) {
+            $this->uploads->cleanupFiles('public', array_column($storedPhotos, 'file_path'));
+            throw $exception;
         }
 
-        $post = DB::transaction(function () use ($user, $validated, $storedPhotos, $request): Post {
-            $post = new Post;
-            $post->author_user_id = $user->id;
-            $post->type = $validated['type'] ?? ($user->isPet() ? PostType::Update->value : PostType::Post->value);
-            $post->title = isset($validated['title']) && trim($validated['title']) !== '' ? trim($validated['title']) : null;
-            $post->body = trim($validated['body']);
-            $post->save();
-
-            foreach ($storedPhotos as $idx => $meta) {
-                $post->photos()->create([
-                    'file_path' => $meta['file_path'],
-                    'sort_order' => $idx + 1,
-                ]);
-            }
-
-            $this->flagIfContainsSellingKeywords($post, $user->id);
-
-            ActivityLogger::log(
-                type: ActivityLogType::Feed,
-                action: 'post_created',
-                actor: $user,
-                subject: $post,
-                userAgent: $request->userAgent(),
-            );
-
-            return $post;
-        });
-
-        $post->load(['author.pet.photos', 'author.homeProfile', 'photos', 'adoptedPet.photos'])
-            ->loadCount($this->postCounts());
+        $this->authorBlocks = [];
+        $post->loadMissing($this->postRelations($user))->loadCount($this->postCounts());
 
         return ResponseResource::created($this->formatPost($post, false, $user));
     }
@@ -290,43 +290,53 @@ class CommunityFeedController extends Controller
         }
 
         $storedPhotos = [];
-        if ($request->hasFile('photos')) {
-            /** @var list<UploadedFile> $files */
-            $files = array_values($request->file('photos', []));
-            foreach ($files as $idx => $file) {
-                $storedPhotos[] = $this->uploads->storePublicPhoto($file, 'posts/stories', "photos.{$idx}");
+        try {
+            if ($request->hasFile('photos')) {
+                /** @var list<UploadedFile> $files */
+                $files = array_values($request->file('photos', []));
+                foreach ($files as $idx => $file) {
+                    $storedPhotos[] = $this->uploads->storePublicPhoto($file, 'posts/stories', "photos.{$idx}");
+                }
             }
+
+            $post = DB::transaction(function () use ($user, $adoptedPetId, $validated, $storedPhotos, $request): Post {
+                $post = new Post;
+                $post->author_user_id = $user->id;
+                $post->adopted_pet_id = $adoptedPetId;
+                $post->type = PostType::AdoptionStory->value;
+                $post->title = trim($validated['title']);
+                $post->body = trim($validated['body']);
+                $post->save();
+
+                if ($storedPhotos !== []) {
+                    $now = now()->toDateTimeString();
+                    $rows = [];
+                    foreach ($storedPhotos as $idx => $meta) {
+                        $rows[] = ['post_id' => $post->id, 'file_path' => $meta['file_path'], 'sort_order' => $idx + 1, 'created_at' => $now, 'updated_at' => $now];
+                    }
+                    $post->photos()->insert($rows);
+                }
+
+                ActivityLogger::log(
+                    type: ActivityLogType::Feed,
+                    action: 'adoption_story_created',
+                    actor: $user,
+                    subject: $post,
+                    userAgent: $request->userAgent(),
+                );
+
+                $post->setRelation('author', $user);
+
+                return $post;
+            }, 3);
+
+        } catch (\Throwable $exception) {
+            $this->uploads->cleanupFiles('public', array_column($storedPhotos, 'file_path'));
+            throw $exception;
         }
 
-        $post = DB::transaction(function () use ($user, $adoptedPetId, $validated, $storedPhotos, $request): Post {
-            $post = new Post;
-            $post->author_user_id = $user->id;
-            $post->adopted_pet_id = $adoptedPetId;
-            $post->type = PostType::AdoptionStory->value;
-            $post->title = trim($validated['title']);
-            $post->body = trim($validated['body']);
-            $post->save();
-
-            foreach ($storedPhotos as $idx => $meta) {
-                $post->photos()->create([
-                    'file_path' => $meta['file_path'],
-                    'sort_order' => $idx + 1,
-                ]);
-            }
-
-            ActivityLogger::log(
-                type: ActivityLogType::Feed,
-                action: 'adoption_story_created',
-                actor: $user,
-                subject: $post,
-                userAgent: $request->userAgent(),
-            );
-
-            return $post;
-        });
-
-        $post->load(['author.pet.photos', 'author.homeProfile', 'photos', 'adoptedPet.photos'])
-            ->loadCount($this->postCounts());
+        $this->authorBlocks = [];
+        $post->loadMissing($this->postRelations($user))->loadCount($this->postCounts());
 
         return ResponseResource::created($this->formatPost($post, false, $user));
     }
@@ -344,15 +354,27 @@ class CommunityFeedController extends Controller
             'body' => ['required', 'string', 'max:3000'],
         ]);
 
-        if (array_key_exists('title', $validated)) {
-            $post->title = $validated['title'] !== null && trim($validated['title']) !== '' ? trim($validated['title']) : null;
+        $post = DB::transaction(function () use ($post, $validated, $user, $request) {
+            $post = Post::whereKey($post->id)->lockForUpdate()->firstOrFail();
+            if ($post->isDeleted() || $post->isRemoved()) {
+                return ErrorResource::forbidden('You can only edit your own active posts.')->toResponse($request);
+            }
+            if (array_key_exists('title', $validated)) {
+                $post->title = $validated['title'] !== null && trim($validated['title']) !== '' ? trim($validated['title']) : null;
+            }
+            $post->body = trim($validated['body']);
+            $post->save();
+
+            $this->flagIfContainsSellingKeywords($post, $user->id);
+
+            return $post;
+        }, 3);
+        if (! $post instanceof Post) {
+            return $post;
         }
-        $post->body = trim($validated['body']);
-        $post->save();
 
-        $this->flagIfContainsSellingKeywords($post, $user->id);
-
-        $post->load(['author.pet.photos', 'author.homeProfile', 'photos', 'adoptedPet.photos'])
+        $this->authorBlocks = [];
+        $post->loadMissing($this->postRelations($user))
             ->loadCount($this->postCounts());
 
         // An edit changes the words only: the author's own like stays as it was.
@@ -390,67 +412,76 @@ class CommunityFeedController extends Controller
     {
         $user = $request->user();
 
-        if ($this->isClosedToMembers($post)) {
-            return ErrorResource::notFound("We couldn't find that post.")->toResponse($request);
-        }
+        $result = DB::transaction(function () use ($post, $request, $user) {
+            $post = Post::whereKey($post->id)->sharedLock()->firstOrFail();
+            if ($this->isClosedToMembers($post)) {
+                return ErrorResource::notFound("We couldn't find that post.")->toResponse($request);
+            }
+            $validated = $request->validate([
+                'body' => ['required', 'string', 'max:1000'],
+                'parent_comment_id' => ['nullable', 'integer'],
+            ]);
+            $parentId = null;
+            if (! empty($validated['parent_comment_id'])) {
+                $parent = Comment::query()
+                    ->visible()
+                    ->byActiveAuthor()
+                    ->where('post_id', $post->id)
+                    ->sharedLock()
+                    ->find((int) $validated['parent_comment_id']);
 
-        $validated = $request->validate([
-            'body' => ['required', 'string', 'max:1000'],
-            'parent_comment_id' => ['nullable', 'integer'],
-        ]);
+                if (! $parent) {
+                    return ErrorResource::notFound('Parent comment not found.')->toResponse($request);
+                }
 
-        $parentId = null;
-        if (! empty($validated['parent_comment_id'])) {
-            $parent = Comment::query()
-                ->visible()
-                ->byActiveAuthor()
-                ->where('post_id', $post->id)
-                ->find((int) $validated['parent_comment_id']);
+                if ($parent->parent_comment_id !== null) {
+                    throw ValidationException::withMessages([
+                        'parent_comment_id' => ['Replies can only be added to top-level comments.'],
+                    ]);
+                }
 
-            if (! $parent) {
-                return ErrorResource::notFound('Parent comment not found.')->toResponse($request);
+                $parentId = $parent->id;
             }
 
-            if ($parent->parent_comment_id !== null) {
-                throw ValidationException::withMessages([
-                    'parent_comment_id' => ['Replies can only be added to top-level comments.'],
-                ]);
+            $comment = new Comment;
+            $comment->post_id = $post->id;
+            $comment->user_id = $user->id;
+            $comment->parent_comment_id = $parentId;
+            $comment->body = trim($validated['body']);
+            $comment->save();
+
+            // Notify post author if someone else commented and post_activity notifications are enabled.
+            if ($post->author_user_id !== $user->id && $post->author) {
+                $prefs = $post->author->notificationPreference;
+                if (! $prefs || $prefs->shouldPostActivity()) {
+                    $this->notifications->store(
+                        recipient: $post->author,
+                        type: 'post_comment',
+                        title: "{$user->displayName()} commented on your post",
+                        body: mb_substr($comment->body, 0, 140),
+                        data: [
+                            'category' => 'Feed',
+                            'post_id' => $post->id,
+                            'comment_id' => $comment->id,
+                            'link' => "/posts/{$post->id}",
+                        ],
+                        urgency: 'info',
+                        actionUrl: "/posts/{$post->id}",
+                    );
+                }
             }
 
-            $parentId = $parent->id;
+            $comment->setRelation('author', $user);
+
+            return $comment;
+        }, 3);
+        if (! $result instanceof Comment) {
+            return $result;
         }
+        $this->authorBlocks = [];
+        $result->loadMissing($this->authorRelations($user))->loadCount('reactions');
 
-        $comment = new Comment;
-        $comment->post_id = $post->id;
-        $comment->user_id = $user->id;
-        $comment->parent_comment_id = $parentId;
-        $comment->body = trim($validated['body']);
-        $comment->save();
-
-        // Notify post author if someone else commented and post_activity notifications are enabled.
-        if ($post->author_user_id !== $user->id && $post->author) {
-            $prefs = $post->author->notificationPreference;
-            if (! $prefs || $prefs->shouldPostActivity()) {
-                $this->notifications->store(
-                    recipient: $post->author,
-                    type: 'post_comment',
-                    title: "{$user->displayName()} commented on your post",
-                    body: mb_substr($comment->body, 0, 140),
-                    data: [
-                        'category' => 'Feed',
-                        'post_id' => $post->id,
-                        'comment_id' => $comment->id,
-                        'link' => "/posts/{$post->id}",
-                    ],
-                    urgency: 'info',
-                    actionUrl: "/posts/{$post->id}",
-                );
-            }
-        }
-
-        $comment->load(['author.pet.photos', 'author.homeProfile'])->loadCount('reactions');
-
-        return ResponseResource::created($this->formatComment($comment, false, $user));
+        return ResponseResource::created($this->formatComment($result, false, $user));
     }
 
     public function destroyComment(Request $request, Comment $comment)
@@ -471,65 +502,49 @@ class CommunityFeedController extends Controller
     {
         $user = $request->user();
 
-        if ($this->isClosedToMembers($post)) {
-            return ErrorResource::notFound("We couldn't find that post.")->toResponse($request);
-        }
+        return DB::transaction(function () use ($request, $user, $post) {
+            // Serialize this viewer's toggles, not every viewer of a popular post.
+            User::whereKey($user->id)->lockForUpdate()->firstOrFail(['id']);
+            $post = Post::whereKey($post->id)->sharedLock()->firstOrFail();
+            if ($this->isClosedToMembers($post)) {
+                return ErrorResource::notFound("We couldn't find that post.")->toResponse($request);
+            }
 
-        $existing = Reaction::query()
-            ->where('user_id', $user->id)
-            ->where('post_id', $post->id)
-            ->first();
-
-        if ($existing) {
-            $existing->delete();
-            $reacted = false;
-        } else {
-            $reaction = new Reaction;
-            $reaction->user_id = $user->id;
-            $reaction->post_id = $post->id;
-            $reaction->save();
-            $reacted = true;
-        }
-
-        $count = Reaction::query()->where('post_id', $post->id)->count();
-
-        return ResponseResource::make([
-            'reacted' => $reacted,
-            'reactions_count' => $count,
-        ]);
+            return ResponseResource::make($this->toggleReaction($user, 'post_id', $post->id));
+        }, 3);
     }
 
     public function toggleCommentReaction(Request $request, Comment $comment)
     {
         $user = $request->user();
 
-        // A like needs a comment that is still listed: on a post that is still open, by an account that is still Active.
-        if ($comment->removed_at !== null || ! $this->isByActiveAccount($comment->author) || $comment->post === null || $this->isClosedToMembers($comment->post)) {
-            return ErrorResource::notFound('Comment not found.')->toResponse($request);
-        }
+        return DB::transaction(function () use ($request, $user, $comment) {
+            User::whereKey($user->id)->lockForUpdate()->firstOrFail(['id']);
+            $post = Post::whereKey($comment->post_id)->sharedLock()->firstOrFail();
+            $comment = Comment::whereKey($comment->id)->sharedLock()->firstOrFail();
+            if ($comment->removed_at !== null || ! $this->isByActiveAccount($comment->author) || $this->isClosedToMembers($post)) {
+                return ErrorResource::notFound('Comment not found.')->toResponse($request);
+            }
+            if ($comment->parent_comment_id !== null && ! Comment::whereKey($comment->parent_comment_id)
+                ->where('post_id', $post->id)->visible()->byActiveAuthor()->sharedLock()->first(['id'])) {
+                return ErrorResource::notFound('Comment not found.')->toResponse($request);
+            }
 
-        $existing = Reaction::query()
-            ->where('user_id', $user->id)
-            ->where('comment_id', $comment->id)
-            ->first();
+            return ResponseResource::make($this->toggleReaction($user, 'comment_id', $comment->id));
+        }, 3);
+    }
 
-        if ($existing) {
-            $existing->delete();
-            $reacted = false;
-        } else {
+    private function toggleReaction(User $user, string $column, int $id): array
+    {
+        $deleted = Reaction::where('user_id', $user->id)->where($column, $id)->delete();
+        if (! $deleted) {
             $reaction = new Reaction;
             $reaction->user_id = $user->id;
-            $reaction->comment_id = $comment->id;
+            $reaction->{$column} = $id;
             $reaction->save();
-            $reacted = true;
         }
 
-        $count = Reaction::query()->where('comment_id', $comment->id)->count();
-
-        return ResponseResource::make([
-            'reacted' => $reacted,
-            'reactions_count' => $count,
-        ]);
+        return ['reacted' => ! $deleted, 'reactions_count' => Reaction::where($column, $id)->count()];
     }
 
     private function flagIfContainsSellingKeywords(Post $post, int $authorUserId): void
@@ -622,6 +637,8 @@ class CommunityFeedController extends Controller
 
         $pet = $author->isPet() ? $author->pet : null;
         $home = $author->isHuman() ? $author->homeProfile : null;
+        $pet?->setRelation('user', $author);
+        $home?->setRelation('user', $author);
         $profile = $pet ?? $home;
 
         return $this->authorBlocks[$author->id] = [
@@ -640,6 +657,32 @@ class CommunityFeedController extends Controller
     /**
      * @return array<string, mixed>
      */
+    private function authorRelations(User $viewer): array
+    {
+        $viewerPetId = $viewer->isPet() ? $viewer->pet?->id : null;
+
+        return [
+            'author:id,name,role,status',
+            'author.pet:id,user_id,name,breed,city,status',
+            'author.pet.photos:id,pet_id,file_path,sort_order',
+            'author.homeProfile' => function ($home) use ($viewerPetId): void {
+                $home->select(['id', 'user_id', 'full_name', 'city', 'furparent_at', 'is_open_to_adopt', 'profile_photo_path']);
+                if ($viewerPetId !== null) {
+                    $home->selectRaw((int) $viewerPetId.' AS visibility_viewer_pet_id')->withExists([
+                        'adoptionRequests as viewer_has_request' => fn ($requests) => $requests->where('pet_id', $viewerPetId),
+                        'invites as viewer_has_invite' => fn ($invites) => $invites->where('pet_id', $viewerPetId),
+                    ]);
+                }
+            },
+        ];
+    }
+
+    private function postRelations(User $viewer): array
+    {
+        return [...$this->authorRelations($viewer), 'photos:id,post_id,file_path,sort_order',
+            'adoptedPet:id,name,species,breed,city,status', 'adoptedPet.photos:id,pet_id,file_path,sort_order'];
+    }
+
     private function formatPost(Post $post, bool $hasReacted, User $viewer): array
     {
         return [
