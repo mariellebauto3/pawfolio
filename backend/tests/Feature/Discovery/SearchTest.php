@@ -155,4 +155,21 @@ class SearchTest extends TestCase
         $this->getJson('/api/v1/search?q=a')->assertUnauthorized();
         $this->actingAs(User::factory()->pendingVerification()->create())->getJson('/api/v1/search?q=a')->assertForbidden();
     }
+
+    public function test_suggestions_match_one_letter_and_partial_names_in_every_case(): void
+    {
+        $pet = $this->pet('Ana Santos');
+        foreach (['a', 'an', 'AN', 'An', 'sant'] as $words) {
+            $response = $this->actingAs($this->viewer)->getJson('/api/v1/search?suggestions=1&q='.$words)->assertOk();
+            $this->assertContains(['id' => $pet->id, 'name' => 'Ana Santos'], $response->json('data.pets'));
+            $this->assertArrayNotHasKey('totals', $response->json('data'));
+        }
+        foreach (range(1, 12) as $index) {
+            $this->pet("Ana {$index}");
+        }
+        $this->actingAs($this->viewer)->getJson('/api/v1/search?suggestions=1&q=an&limit=999')
+            ->assertOk()->assertJsonCount(2, 'data.pets');
+        $this->actingAs($this->viewer)->getJson('/api/v1/search?suggestions=1&q=')
+            ->assertOk()->assertJsonCount(0, 'data.pets');
+    }
 }

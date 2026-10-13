@@ -58,14 +58,14 @@ export async function RecentlyHiredList() {
   return <AlumniGallery pets={pets} />;
 }
 
-/** The gallery's shape while alumni load: one open panel and five closed strips. */
+/** The gallery's shape while alumni load: one open panel and three closed strips. */
 export function RecentlyHiredSkeleton() {
   return (
     <SkeletonGroup
       label="Loading success stories"
       className="mt-8 flex h-[34rem] flex-col gap-2 md:mt-10 md:h-[clamp(22rem,36vw,28rem)] md:flex-row md:gap-2.5"
     >
-      {Array.from({ length: 6 }, (_, index) => (
+      {Array.from({ length: 4 }, (_, index) => (
         <Skeleton key={index} shape="block" className={index === 0 ? "grow-[5.4] basis-0" : "grow basis-0"} />
       ))}
     </SkeletonGroup>

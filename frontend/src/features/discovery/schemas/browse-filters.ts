@@ -40,7 +40,7 @@ export const BROWSE_SEARCH_DELAY_MS = 300;
  * How long the box waits before it asks for the names that drop down under it. Shorter than the results' wait:
  * a suggestion is the first thing looked at, and one small answer is cheap.
  */
-export const BROWSE_SUGGESTION_DELAY_MS = 150;
+export const BROWSE_SUGGESTION_DELAY_MS = 250;
 
 /** How many suggestions drop down under the search box. */
 export const BROWSE_SUGGESTION_COUNT = 6;

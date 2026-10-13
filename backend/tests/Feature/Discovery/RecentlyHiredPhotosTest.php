@@ -23,16 +23,31 @@ class RecentlyHiredPhotosTest extends TestCase
 
     private const PATH = '/api/v1/public/recently-hired';
 
-    public function test_only_the_eight_latest_published_adoptions_are_returned(): void
+    public function test_only_the_four_latest_published_adoptions_are_returned(): void
     {
-        // Create oldest first: insertion order must not choose the eight results.
+        // Create oldest first: insertion order must not choose the four results.
         for ($days = 10; $days >= 1; $days--) {
             $this->hired("Pet {$days}", $days);
         }
 
-        $this->getJson(self::PATH)->assertOk()->assertJsonCount(8, 'data')
+        $this->getJson(self::PATH)->assertOk()->assertJsonCount(4, 'data')
             ->assertJsonPath('data.0.name', 'Pet 1')
-            ->assertJsonPath('data.7.name', 'Pet 8');
+            ->assertJsonPath('data.3.name', 'Pet 4');
+    }
+
+    public function test_a_new_hire_replaces_the_oldest_without_deleting_history(): void
+    {
+        foreach (range(1, 4) as $days) {
+            $this->hired("Pet {$days}", $days);
+        }
+        $this->getJson(self::PATH)->assertJsonPath('data.3.name', 'Pet 4');
+        $newest = $this->hired('New hire', 0);
+        $this->getJson(self::PATH)->assertOk()->assertJsonCount(4, 'data')
+            ->assertJsonPath('data.0.name', 'New hire')->assertJsonPath('data.3.name', 'Pet 3');
+        $this->assertDatabaseHas('pets', ['name' => 'Pet 4']);
+        $this->assertSame(5, Adoption::query()->whereNull('link_removed_at')->count());
+        $newest->publishedAdoption->forceFill(['link_removed_at' => now()])->save();
+        $this->getJson(self::PATH)->assertJsonPath('data.0.name', 'Pet 1')->assertJsonPath('data.3.name', 'Pet 4');
     }
 
     protected function setUp(): void

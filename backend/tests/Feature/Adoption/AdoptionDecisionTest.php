@@ -206,6 +206,11 @@ class AdoptionDecisionTest extends TestCase
             ->assertJsonPath('data.hired_by.adoption_id', $adoptionId)
             ->assertJsonPath('data.hired_by.home_profile_id', $this->home->id);
 
+        // A successful decision immediately feeds the public landing-page showcase.
+        $this->getJson('/api/v1/public/recently-hired')->assertOk()
+            ->assertJsonPath('data.0.name', $this->pet->name)
+            ->assertJsonPath('data.0.hired_at', Adoption::findOrFail($adoptionId)->adopted_at->toISOString());
+
         // It can't be decided twice.
         $this->actingAs($this->human)->postJson($this->url('adopt'))->assertConflict()->assertJsonPath('code', 'invalid_request_state');
         $this->actingAs($this->human)->postJson($this->url('decline-after-meeting'))->assertConflict()->assertJsonPath('code', 'invalid_request_state');

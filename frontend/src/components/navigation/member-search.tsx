@@ -1,6 +1,8 @@
 "use client";
 
 import Form from "next/form";
+import { SearchSuggestions } from "@/components/forms/search-suggestions";
+import { memberSuggestions } from "@/components/forms/read-search-suggestions";
 import { useId } from "react";
 import { CONTROL_CLASSES } from "@/components/forms/control-styles";
 import { Icon } from "@/components/ui/icon";
@@ -32,7 +34,8 @@ export function MemberSearch({ role, className }: Props) {
         name="search"
         className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-ink-muted"
       />
-      <input
+      <SearchSuggestions
+        endpoint="/search" readSuggestions={memberSuggestions}
         id={inputId}
         name={SEARCH_QUERY_PARAM}
         type="search"

@@ -109,7 +109,7 @@ function namesHolding<T>(rows: T[], typed: unknown, nameOf: (row: T) => string):
 
 export const discoveryRoutes: MockRoute[] = [
   // Landing page strip (AU-01, docs/api/discovery.md): newest first, at most 8, public.
-  route("GET", "/public/recently-hired", () => ok(RECENTLY_HIRED.slice(0, 8)), "public"),
+  route("GET", "/public/recently-hired", () => ok(RECENTLY_HIRED.slice(0, 4)), "public"),
 
   route("GET", "/pets", ({ query, account }) => {
     if (query.search_in === "name") return { status: 200, body: paginate(namesHolding(petsMatching({ ...query, q: undefined }), query.q, (pet) => pet.name), query, "/api/v1/pets") };

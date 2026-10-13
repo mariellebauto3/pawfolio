@@ -1,6 +1,8 @@
 "use client";
 
 import Form from "next/form";
+import { SearchSuggestions } from "@/components/forms/search-suggestions";
+import { accountSuggestions } from "@/components/forms/read-search-suggestions";
 import { useId } from "react";
 import { CONTROL_CLASSES } from "@/components/forms/control-styles";
 import { Select } from "@/components/forms/select";
@@ -30,7 +32,8 @@ export function AccountsFilters({ filters }: Props) {
           Search accounts by name or email
         </label>
         <Icon name="search" className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-ink-muted" />
-        <input
+        <SearchSuggestions
+          endpoint="/admin/accounts" readSuggestions={accountSuggestions} query={{ tab: filters.tab, status: filters.status }}
           // Remounted when the search changes from outside the box ("Clear filters"), so it shows the new value.
           key={filters.search ?? ""}
           id={searchId}

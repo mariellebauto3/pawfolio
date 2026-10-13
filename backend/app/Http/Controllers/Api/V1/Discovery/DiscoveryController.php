@@ -470,6 +470,15 @@ class DiscoveryController extends Controller
             }
         }
 
+        // Suggestions need only labels, never full resources, relation loads or exact totals.
+        if ($request->boolean('suggestions')) {
+            return ResponseResource::make([
+                'pets' => $pets->setEagerLoads([])->limit(2)->get(['id', 'name'])->toArray(),
+                'home_profiles' => $homes->setEagerLoads([])->limit(2)->get(['id', 'full_name'])->toArray(),
+                'posts' => $posts->setEagerLoads([])->limit(2)->get(['id', 'title'])->toArray(),
+            ]);
+        }
+
         // How many there are of each kind, whichever kind is being read (DS-03's counts).
         $totals = [
             'pets' => (clone $pets)->count(),
@@ -573,26 +582,25 @@ class DiscoveryController extends Controller
     /**
      * Public "Recently Hired" showcase on the landing page (AU-01, docs/api/discovery.md).
      *
-     * At most 8 pets, newest adoption first, exposing only `{ name, photo_url, hired_at }` (NFR4, SEC-PRIV-03).
+     * At most 4 pets, newest adoption first, exposing only `{ name, photo_url, hired_at }` (NFR4, SEC-PRIV-03).
      */
     public function recentlyHired()
     {
-        $pets = Pet::query()
-            ->with(['photos', 'publishedAdoption'])
-            ->where('status', PetStatus::AdoptedHired->value)
-            ->whereHas('user', fn ($u) => $u->where('status', AccountStatus::Active->value))
-            ->whereHas('publishedAdoption')
-            ->orderByDesc(Adoption::query()
-                ->select('adopted_at')
-                ->whereColumn('pet_id', 'pets.id')
-                ->whereNotNull('adopted_at')
-                ->whereNull('link_removed_at')
-                ->limit(1))
-            ->limit(8)
+        $adoptions = Adoption::query()
+            ->with('pet.photos')
+            ->whereNotNull('adopted_at')
+            ->whereNull('link_removed_at')
+            ->whereHas('pet', fn ($pet) => $pet
+                ->where('status', PetStatus::AdoptedHired->value)
+                ->whereHas('user', fn ($u) => $u->where('status', AccountStatus::Active->value)))
+            ->orderByDesc('adopted_at')
+            ->orderByDesc('id')
+            ->limit(4)
             ->get()
             ->values();
 
-        $items = $pets->map(function (Pet $pet): array {
+        $items = $adoptions->map(function (Adoption $adoption): array {
+            $pet = $adoption->pet;
             // The first photo whose file is really there: a row left behind by a file that is gone would send the
             // landing page an address that answers 404, and the panel would lose its picture.
             $firstPhoto = $pet->photos
@@ -602,7 +610,7 @@ class DiscoveryController extends Controller
             return [
                 'name' => $pet->name,
                 'photo_url' => $firstPhoto ? Storage::disk('public')->url($firstPhoto->file_path) : null,
-                'hired_at' => ($pet->publishedAdoption?->adopted_at ?? $pet->updated_at)?->toISOString(),
+                'hired_at' => $adoption->adopted_at->toISOString(),
             ];
         })->values()->all();
 
