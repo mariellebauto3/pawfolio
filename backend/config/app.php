@@ -61,6 +61,13 @@ return [
     'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
 
     /*
+    | The scheduled jobs (routes/console.php) also run after API answers, at most once every 5 minutes, because
+    | Render's free plan has no cron or worker (App\Http\Middleware\RunDueScheduledJobs, ADR 0008).
+    */
+
+    'run_due_jobs_on_requests' => (bool) env('RUN_DUE_JOBS_ON_REQUESTS', true),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
