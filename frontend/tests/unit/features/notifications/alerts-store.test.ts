@@ -334,6 +334,53 @@ describe("opening one", () => {
   });
 });
 
+describe("telling the page that something arrived", () => {
+  it("says so when a check counts more unread than the one before, and only then", async () => {
+    const api = fakeApi([row("a")]);
+    const onArrival = vi.fn();
+    const store = createAlertsStore(api.client, { onArrival });
+
+    // The first count is where things stand, not news.
+    store.start();
+    await settle();
+    expect(store.getSnapshot().unreadCount).toBe(1);
+    expect(onArrival).not.toHaveBeenCalled();
+
+    // Nothing new by the next check.
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    expect(onArrival).not.toHaveBeenCalled();
+
+    // A request was answered: a notification arrives.
+    api.state.rows = [row("b"), ...api.state.rows];
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    expect(store.getSnapshot().unreadCount).toBe(2);
+    expect(onArrival).toHaveBeenCalledOnce();
+
+    // Read on another device: the count drops, and no page shows anything it shouldn't.
+    api.state.rows = api.state.rows.map((r) => ({ ...r, is_read: true }));
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    expect(store.getSnapshot().unreadCount).toBe(0);
+    expect(onArrival).toHaveBeenCalledOnce();
+    store.stop();
+  });
+
+  it("doesn't take this account's own reading for news", async () => {
+    const api = fakeApi([row("a"), row("b")]);
+    const onArrival = vi.fn();
+    const store = createAlertsStore(api.client, { onArrival });
+    store.start();
+    await settle();
+
+    store.markRead("a");
+    await settle();
+    await store.markAllRead();
+    await settle();
+    expect(store.getSnapshot().unreadCount).toBe(0);
+    expect(onArrival).not.toHaveBeenCalled();
+    store.stop();
+  });
+});
+
 describe("Mark all as read", () => {
   it("shows everything as read at once, then agrees with the API", async () => {
     const api = fakeApi([row("a"), row("b"), row("c", true)]);

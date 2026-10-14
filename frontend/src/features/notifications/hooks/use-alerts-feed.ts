@@ -20,8 +20,13 @@ export function useAlertsFeed(): Alerts | null {
   const { status, isActive, account } = useSession();
   const accountId = status === "signed-in" && isActive && account ? account.id : null;
 
-  // One store per account: signing in as someone else starts from nothing.
-  const store = useMemo(() => (accountId === null ? null : createAlertsStore(api, { isHidden: () => document.hidden })), [accountId]);
+  // One store per account: signing in as someone else starts from nothing. When something new arrives, the server
+  // renders the open page again, which also drops the pages kept for quick navigation: a request that was just
+  // answered then reads the same on every page, without waiting for those pages to grow old.
+  const store = useMemo(
+    () => (accountId === null ? null : createAlertsStore(api, { isHidden: () => document.hidden, onArrival: () => router.refresh() })),
+    [accountId, router],
+  );
   const snapshot = useSyncExternalStore(store?.subscribe ?? noSubscription, store?.getSnapshot ?? emptySnapshot, emptySnapshot);
 
   useEffect(() => {
