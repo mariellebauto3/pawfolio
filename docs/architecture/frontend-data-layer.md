@@ -85,6 +85,14 @@ whose API doesn't answer shows its error state with "Try again" instead of a loa
   (marking one notification as read, noting an admin section as opened, signing in, logging out). A screen that
   calls `router.refresh()` after its own write still works; the page is then rendered twice, so new screens leave
   it out.
+
+  A client component that copies what the server sent into its own state (`useState(initial)`) must take in the
+  props of the next render, or the render is wasted and the screen keeps showing what was true before. The Home
+  feed does (`mergeRefreshedFeed` in `features/community-feed/hooks/feed-pagination.ts`): the fresh first batch
+  replaces the posts it covers, the ones loaded below it stay, and a post the viewer changed a moment ago keeps the
+  copy on screen, so a render that started before the change doesn't undo it.
+- **A page asks who is signed in with `requireAccount()`** (or `renderAccount()`), which shares one `/auth/me` call
+  with the layouts for the whole render. Calling `fetchSession` on `getServerApi()` asks a second time.
 - **Check what a list answered** with the readers in `src/lib/api/readers.ts` (`readPage`, `isPet`, `isHome`): a
   page that isn't a page is refused, and a row that doesn't match the contract is left out. Discovery and Matching
   share them; a module that lists pets or homes should too.

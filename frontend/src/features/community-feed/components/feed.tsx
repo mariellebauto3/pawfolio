@@ -15,7 +15,7 @@ import type { Post } from "@/types/post";
 import { getFeed } from "../api/feed";
 import type { FeedPage, FeedViewer, StoryPet } from "../types/feed";
 import { FeedPost } from "./feed-post";
-import { appendFeedPosts } from "../hooks/feed-pagination";
+import { appendFeedPosts, LOCAL_CHANGE_HOLD_MS, mergeRefreshedFeed } from "../hooks/feed-pagination";
 
 type Props = {
   /** The first page, as the server read it. */
@@ -53,8 +53,34 @@ export function Feed({ initial, viewer, storyPets, compose, renderedAt }: Props)
   const sentinel = useRef<HTMLDivElement>(null);
   const inFlight = useRef<AbortController | null>(null);
   const loadedCursors = useRef(new Set<string>());
+  // When the viewer last changed each post here, so a render that started before the change doesn't undo it.
+  const changedAt = useRef(new Map<number, number>());
+  const shownInitial = useRef(initial);
+
+  const touch = useCallback((postId: number) => {
+    changedAt.current.set(postId, Date.now());
+  }, []);
 
   useEffect(() => () => { inFlight.current?.abort(); }, []);
+
+  // The page is rendered again after every accepted write and every new notification (PageCacheSync): the fresh
+  // first batch replaces what it covers, and the posts loaded below it stay.
+  useEffect(() => {
+    if (shownInitial.current === initial) return;
+    shownInitial.current = initial;
+    const now = Date.now();
+    const isLocal = (postId: number) => now - (changedAt.current.get(postId) ?? Number.NEGATIVE_INFINITY) < LOCAL_CHANGE_HOLD_MS;
+    const merged = mergeRefreshedFeed(posts, initial.posts, isLocal);
+    setPosts(merged.posts);
+    setNow(new Date(renderedAt));
+    // Only the first batch was on screen: carry on from where the fresh one ends.
+    if (!merged.olderLoaded) {
+      const freshCursor = initial.nextCursor ?? null;
+      if (freshCursor) loadedCursors.current.delete(freshCursor);
+      setNextCursor(freshCursor);
+      setHasMore(initial.hasMore ?? false);
+    }
+  }, [initial, renderedAt, posts]);
 
   // The address that opened the story form has done its job: a reload shouldn't open it again. Only the address
   // changes; nothing is asked of the server for it.
@@ -104,17 +130,20 @@ export function Feed({ initial, viewer, storyPets, compose, renderedAt }: Props)
   }, [hasMore, loading, loadProblem, loadMore]);
 
   function handlePosted(post: Post, said: string) {
+    touch(post.id);
     setNow(new Date());
     setPosts((shown) => [post, ...shown.filter((other) => other.id !== post.id)]);
     toast.show(said);
   }
 
   function handleSaved(saved: Post) {
+    touch(saved.id);
     setPosts((shown) => shown.map((post) => (post.id === saved.id ? saved : post)));
     toast.show("Changes saved.");
   }
 
   function handleDeleted(deleted: Post) {
+    touch(deleted.id);
     focusComposerOnClose.current = true;
     setPosts((shown) => shown.filter((post) => post.id !== deleted.id));
     setOpen(null);
@@ -172,7 +201,10 @@ export function Feed({ initial, viewer, storyPets, compose, renderedAt }: Props)
               post={post}
               when={formatTimeAgo(post.created_at, now)}
               viewerId={viewer.id}
-              onPatch={(postId, patch) => setPosts((shown) => shown.map((other) => (other.id === postId ? { ...other, ...patch } : other)))}
+              onPatch={(postId, patch) => {
+                touch(postId);
+                setPosts((shown) => shown.map((other) => (other.id === postId ? { ...other, ...patch } : other)));
+              }}
               onEdit={(target) => setOpen({ kind: "edit", post: target })}
               onDelete={(target) => setOpen({ kind: "delete", post: target })}
               titleAs="h3"

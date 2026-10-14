@@ -7,17 +7,16 @@ import { getLatestPosts, getOwnPet, getSimilarPets } from "@/features/profiles/a
 import { MyHomeProfile } from "@/features/profiles/components/my-home-profile";
 import { MyResume } from "@/features/profiles/components/my-resume";
 import { getServerApi } from "@/lib/api/server";
-import { homePathFor, signInPath } from "@/lib/auth/redirects";
-import { fetchSession } from "@/lib/auth/session";
+import { homePathFor } from "@/lib/auth/redirects";
+import { requireAccount } from "@/lib/auth/require-account";
 
 export const metadata: Metadata = { title: "My profile" };
 
 // "/me" is the signed-in account's own profile: a pet's resume (PR-01, PR-02), a human's Home Profile (PR-11). A
 // Furparent's adopted pets each open their adoption details there (AL-06, FR13, FR14).
 export default async function MePage() {
+  const account = await requireAccount(ROUTES.me);
   const api = await getServerApi();
-  const account = await fetchSession(api);
-  if (!account) redirect(signInPath(ROUTES.me));
   if (account.role === "admin") redirect(homePathFor(account));
 
   if (account.role === "human") {
