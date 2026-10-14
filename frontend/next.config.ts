@@ -33,6 +33,12 @@ const nextConfig: NextConfig = {
   // is where the admin sidebar ends (the signed-in admin and Log out) and where the phone tab bar starts, so the
   // badge covered them. Bottom right has nothing under it.
   devIndicators: { position: "bottom-right" },
+  // A page that was opened is kept in the tab's memory for this many seconds, so going back to it by a link (Browse,
+  // then Requests, then Browse again) shows it at once and asks the API nothing. Next.js keeps none by default for
+  // pages rendered per request, which every signed-in page is. It stays short because another account can change
+  // what a page shows; this account's own writes and a new notification drop the kept pages straight away
+  // (src/lib/utils/page-refresher.ts). Memory only: a reload, signing in and logging out start from nothing.
+  experimental: { staleTimes: { dynamic: 30 } },
   images: {
     remotePatterns: [new URL("/storage/**", apiUrl), ...(storagePattern ? [storagePattern] : [])],
     // The image optimizer refuses to fetch from an address on this machine unless told to. That is only ever the
