@@ -8,8 +8,8 @@ import { getOwnHomeProfile } from "@/features/profiles/api/home-profile";
 import { HomeProfileWizard } from "@/features/profiles/forms/home-profile-wizard";
 import { quizStepFromParam } from "@/features/profiles/schemas/home-profile-schemas";
 import { getServerApi } from "@/lib/api/server";
-import { homePathFor, signInPath } from "@/lib/auth/redirects";
-import { fetchSession } from "@/lib/auth/session";
+import { homePathFor } from "@/lib/auth/redirects";
+import { requireAccount } from "@/lib/auth/require-account";
 
 export const metadata: Metadata = { title: "Home Profile & lifestyle quiz" };
 
@@ -20,9 +20,8 @@ type Props = {
 // PR-14…PR-20: the Home Profile & lifestyle quiz. `?step=2` opens a step (1 to 6), so "Continue the quiz" and a
 // reload land where they should. Only a human has a Home Profile; the API checks that itself (SEC-FE-05).
 export default async function EditHomeProfilePage({ searchParams }: Props) {
+  const account = await requireAccount(ROUTES.homeProfileEdit);
   const api = await getServerApi();
-  const account = await fetchSession(api);
-  if (!account) redirect(signInPath(ROUTES.homeProfileEdit));
   if (account.role !== "human") redirect(homePathFor(account));
 
   const [home, params] = await Promise.all([getOwnHomeProfile(api), searchParams]);
