@@ -71,6 +71,20 @@ whose API doesn't answer shows its error state with "Try again" instead of a loa
 - **A call nobody pressed** (the top bar counting unread notifications every minute) passes
   `{ skipAuthRedirect: true }` and stops asking after a 401 or `account_not_active`: a background check must not
   pull someone off a form they are filling in. Their own next step gets the same answer, and the redirect.
+- **A page that was opened is kept for 30 seconds** in the tab's memory (`experimental.staleTimes.dynamic` in
+  `next.config.ts`), so going back to it by a link shows it at once and asks the API nothing. Three things drop
+  the kept pages, by having the server render the open page again:
+  - **Any write `api` sends and the API accepts.** `PageCacheSync` (root layout) listens with `onApiWrite`, so a
+    screen never has to know which other pages its write changes. A burst of writes shares renders
+    (`src/lib/utils/page-refresher.ts`).
+  - **A new notification** (`onArrival` in the Alerts store): what another account did shows up without waiting
+    for the pages to grow old.
+  - A reload, signing in and logging out, which start a new document.
+
+  A write that changes nothing a page shows, or that is followed by a new document, passes `{ keepPages: true }`
+  (marking one notification as read, noting an admin section as opened, signing in, logging out). A screen that
+  calls `router.refresh()` after its own write still works; the page is then rendered twice, so new screens leave
+  it out.
 - **Check what a list answered** with the readers in `src/lib/api/readers.ts` (`readPage`, `isPet`, `isHome`): a
   page that isn't a page is refused, and a row that doesn't match the contract is left out. Discovery and Matching
   share them; a module that lists pets or homes should too.
