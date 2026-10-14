@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { routeRedirect } from "@/lib/auth/redirects";
 import { Atkinson_Hyperlegible_Next, Zilla_Slab } from "next/font/google";
 import { renderAccount } from "@/lib/auth/render-account";
+import { PageCacheSync } from "@/providers/page-cache-sync";
 import { SessionProvider } from "@/providers/session-provider";
 import { ToastProvider } from "@/providers/toast-provider";
 import "./globals.css";
@@ -43,6 +44,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${zillaSlab.variable} ${atkinson.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
+        <PageCacheSync />
         <SessionProvider initialAccount={initialAccount}>
           <ToastProvider>{children}</ToastProvider>
         </SessionProvider>

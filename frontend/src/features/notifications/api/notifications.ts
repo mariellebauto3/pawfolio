@@ -69,9 +69,12 @@ export async function getUnreadCount(client: ApiClient, signal?: AbortSignal): P
   return count;
 }
 
-/** Marks one notification as read. Marking one that is already read is not an error. */
+/**
+ * Marks one notification as read. Marking one that is already read is not an error. The kept pages stay: the
+ * Alerts store remembers what was opened (`readIds`), and the row's own link is about to be followed.
+ */
 export async function markNotificationRead(client: ApiClient, notificationId: string): Promise<void> {
-  await client.post<unknown>(apiPath`/notifications/${notificationId}/read`);
+  await client.post<unknown>(apiPath`/notifications/${notificationId}/read`, undefined, { keepPages: true });
 }
 
 /** Marks every unread notification of the account as read (NT-01, NT-02 "Mark all as read"). */

@@ -77,6 +77,33 @@ describe("createApiClient", () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it("reports a write the API accepted to onWrite, and nothing else", async () => {
+    const onWrite = vi.fn();
+    const client = createApiClient(answer(200), { onWrite });
+
+    // Reading changes nothing a page shows.
+    await client.get("/pets");
+    expect(onWrite).not.toHaveBeenCalled();
+
+    await client.post("/bookmarks", { pet_id: 1 });
+    await client.patch("/me", { headline: "Hi" });
+    await client.put("/settings", {});
+    await client.delete("/bookmarks/1");
+    expect(onWrite).toHaveBeenCalledTimes(4);
+
+    // The caller says no page shows what this write changes.
+    onWrite.mockClear();
+    await client.post("/notifications/a/read", undefined, { keepPages: true });
+    expect(onWrite).not.toHaveBeenCalled();
+  });
+
+  it("doesn't report a write the API refused", async () => {
+    const onWrite = vi.fn();
+    const client = createApiClient(answer(409, { message: "Taken." }), { onWrite });
+    await expect(client.post("/adoption-requests", {})).rejects.toBeInstanceOf(ApiError);
+    expect(onWrite).not.toHaveBeenCalled();
+  });
+
   it("passes method, path, query and body to the transport", async () => {
     const transport = vi.fn(answer(200));
     const client = createApiClient(transport);

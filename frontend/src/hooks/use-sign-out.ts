@@ -15,7 +15,7 @@ import { ROUTES } from "@/constants/routes";
 export function useSignOut(): () => Promise<void> {
   return useCallback(async () => {
     try {
-      await api.post(AUTH_ENDPOINTS.signOut, undefined, { skipAuthRedirect: true });
+      await api.post(AUTH_ENDPOINTS.signOut, undefined, { skipAuthRedirect: true, keepPages: true });
     } catch (error) {
       // Already signed out (session expired) is the result we wanted.
       if (!(isApiError(error) && error.kind === "unauthenticated")) throw error;

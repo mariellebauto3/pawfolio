@@ -8,9 +8,11 @@ import { createMockTransport, writeBrowserMockDecisions, writeBrowserMockPersona
 //   const { data } = await api.get<ApiResource<Pet>>(`/pets/${petId}`);
 //   await api.post(`/adoption-requests/${id}/approve`, { message });
 // Failures throw ApiError (src/lib/api/errors.ts). 401 and account-not-active errors are also reported to the
-// listeners below, which the SessionProvider uses to redirect.
+// listeners below, which the SessionProvider uses to redirect. Accepted writes are reported to the write listeners,
+// which PageCacheSync uses to drop the pages kept for quick navigation.
 
 const errorListeners = new Set<ApiErrorListener>();
+const writeListeners = new Set<() => void>();
 
 /** Subscribe to API errors from `api` (not the server client). Returns the unsubscribe function. */
 export function onApiError(listener: ApiErrorListener): () => void {
@@ -18,6 +20,26 @@ export function onApiError(listener: ApiErrorListener): () => void {
   return () => {
     errorListeners.delete(listener);
   };
+}
+
+/** Subscribe to writes the API accepted from `api`, except those sent with `keepPages`. Returns the unsubscribe function. */
+export function onApiWrite(listener: () => void): () => void {
+  writeListeners.add(listener);
+  return () => {
+    writeListeners.delete(listener);
+  };
+}
+
+/** A failing listener must not replace the answer the caller is waiting for; report it and carry on. */
+function tell<Args extends unknown[]>(listeners: ReadonlySet<(...args: Args) => void>, ...args: Args): void {
+  listeners.forEach((listener) => {
+    try {
+      listener(...args);
+    } catch (listenerError) {
+      if (typeof reportError === "function") reportError(listenerError);
+      else console.error(listenerError);
+    }
+  });
 }
 
 const transport =
@@ -35,14 +57,6 @@ const transport =
       });
 
 export const api: ApiClient = createApiClient(transport, {
-  onError: (error) =>
-    errorListeners.forEach((listener) => {
-      // A failing listener must not replace the ApiError the caller is waiting for; report it and carry on.
-      try {
-        listener(error);
-      } catch (listenerError) {
-        if (typeof reportError === "function") reportError(listenerError);
-        else console.error(listenerError);
-      }
-    }),
+  onError: (error) => tell(errorListeners, error),
+  onWrite: () => tell(writeListeners),
 });

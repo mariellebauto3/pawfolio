@@ -12,7 +12,8 @@ export type SignInInput = { email: string; password: string; remember: boolean }
 
 /** Signs in and returns the account. Throws ApiError: 422 `fieldErrors.email` (AU-03), 429 lockout. */
 export async function signIn(client: ApiClient, input: SignInInput): Promise<Account> {
-  const response = await client.post<ApiResource<unknown>>(AUTH_ENDPOINTS.signIn, input, { skipAuthRedirect: true });
+  // A fresh document replaces every kept page once this answers, so nothing is rendered again here.
+  const response = await client.post<ApiResource<unknown>>(AUTH_ENDPOINTS.signIn, input, { skipAuthRedirect: true, keepPages: true });
   if (!isAccount(response?.data)) {
     throw new ApiError({ kind: "server", status: 200, message: "We couldn't sign you in. Please try again." });
   }

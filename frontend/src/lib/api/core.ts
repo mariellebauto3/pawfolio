@@ -18,6 +18,12 @@ export type RequestOptions = {
    * expected and handled on the spot: loading the session, signing in.
    */
   skipAuthRedirect?: boolean;
+  /**
+   * This write changes nothing a rendered page shows, or the document is replaced right after it (signing in,
+   * logging out), so the pages kept for quick navigation are left as they are. Every other accepted write drops
+   * them (`onWrite`, src/lib/utils/page-refresher.ts).
+   */
+  keepPages?: boolean;
 };
 
 export type FileRequestOptions = RequestOptions & {
@@ -65,14 +71,16 @@ export type ApiErrorListener = (error: ApiError) => void;
 type ClientOptions = {
   /** Called for every ApiError unless the call sets `skipAuthRedirect`. */
   onError?: ApiErrorListener;
+  /** Called after every write the API accepted, unless the call sets `keepPages`. */
+  onWrite?: () => void;
 };
 
-export function createApiClient(transport: Transport, { onError }: ClientOptions = {}): ApiClient {
+export function createApiClient(transport: Transport, { onError, onWrite }: ClientOptions = {}): ApiClient {
   async function request<T>(
     method: HttpMethod,
     path: string,
     body: unknown,
-    { query, signal, skipAuthRedirect = false }: RequestOptions = {},
+    { query, signal, skipAuthRedirect = false, keepPages = false }: RequestOptions = {},
     responseType: TransportRequest["responseType"] = "json",
   ): Promise<T> {
     assertSafePath(path);
@@ -90,7 +98,11 @@ export function createApiClient(transport: Transport, { onError }: ClientOptions
       throw error;
     }
 
-    if (response.status >= 200 && response.status < 300) return response.body as T;
+    if (response.status >= 200 && response.status < 300) {
+      // What a page rendered before this write may no longer be true.
+      if (isWriteMethod(method) && !keepPages) onWrite?.();
+      return response.body as T;
+    }
 
     const error = normalizeApiError(response.status, response.body, response.retryAfter);
     if (!skipAuthRedirect) onError?.(error);
