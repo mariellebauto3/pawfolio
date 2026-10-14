@@ -3,6 +3,7 @@
 use App\Exceptions\Handler;
 use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\EnsureRole;
+use App\Http\Middleware\RunDueScheduledJobs;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Foundation\Application;
@@ -21,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        $middleware->api(append: [RunDueScheduledJobs::class]);
         $middleware->append(SecurityHeaders::class);
         $middleware->alias([
             'active' => EnsureAccountIsActive::class,
