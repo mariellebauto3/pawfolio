@@ -7,7 +7,7 @@
 | --- | --- |
 | **Owner** | The whole team; changes need review like any other rule |
 | **Applies to** | `frontend/`, `backend/`, database, deployment, and any new module or feature |
-| **Version** | 1.15 · 2026-10-11 — see the changelog at the end |
+| **Version** | 1.16 · 2026-10-14 — see the changelog at the end |
 
 ## 0. Baseline and cross-references
 
@@ -313,6 +313,7 @@ Update this table as risks are found, accepted or fixed.
 | 2026-10-10 | The admin sidebar's counts are now what arrived in each section since that admin last opened it, noted by `POST /api/v1/admin/sidebar/{section}/seen` in a row of the admin's own (`admin_section_views`) | The time and the admin are the server's and the session's, never the body's, and the section is one of a fixed three, with a test that a sent time, id or section is ignored and an unknown section is 404 (SEC-AUTHZ-02, SEC-INPUT-03, SEC-INPUT-04). Admins only (SEC-AUTHZ-07). It changes a count, not who may review or what is waiting: every queue and the dashboard still show everything that is waiting |
 | 2026-10-10 | Browse's search box asks the API on every pause in typing, twice (the names under the box, then the cards) (T06, T11) | Both are the list endpoints that already existed, for Active accounts only, with `q` always a bound parameter and wildcards escaped; `search_in` is allow-listed (`all`, `name`) and anything else is 422 (SEC-INPUT-01…03). The names are a page of 6 (SEC-API-05) of pets and homes the caller may already list, public details only, rendered as text (SEC-PRIV-03, SEC-FE-01). The box waits 150 ms and 300 ms after the last key and drops answers a newer key overtook, and the API's own rate limit applies. What is typed lives in the URL as before: search words, not personal data (SEC-FE-04) |
 | 2026-10-10 | Members read announcements at `GET /api/v1/announcements`, and photos that fail to load are retried straight from the API's storage (T05, T07) | The list is for Active accounts, published announcements of the caller's own audience only, four fields, no admin's name (SEC-AUTHZ-06, SEC-API-01, SEC-API-05), with a test for each; the words are rendered as text and nothing in them is a link (SEC-FE-01, SEC-FE-02). The retry loads a public photo from the same storage path `next/image` already allows, never a document. When the Content-Security-Policy is written (SEC-DEPLOY-02), `img-src` needs the API's origin |
+| 2026-10-14 | Pages a signed-in visitor opened are kept in the tab's memory for 30 seconds, so going back to one asks the API nothing (T05, T04). A kept page can hold what the account was allowed to read when it was rendered, contact details on a confirmed Meet & Greet included | Memory of one tab only: nothing is written to browser storage or a URL (SEC-FE-04), and no server keeps a rendered page or an API answer. A reload, signing in and logging out start a new document, and a session that changed in another tab reloads the page or leaves it, as before (SEC-AUTH-11). Kept or not, a page only shows what the API answered for that account, and every action is authorized again by the API (SEC-FE-05, SEC-AUTHZ-06): an account suspended meanwhile can read for up to 30 seconds a page it had already read, and its next request is refused. The account's own writes and a new notification drop the kept pages at once; `keepPages` is for writes that change nothing a page shows. Raising the 30 seconds needs a rule change here |
 
 ## Changelog
 
@@ -334,6 +335,7 @@ Update this table as risks are found, accepted or fixed.
 | 1.13 | 2026-10-10 | FE-25: §12 records how stats and the platform dashboard keep to counts, how a view's source is read, and the counting faults fixed while wiring BE-25 |
 | 1.14 | 2026-10-10 | FE-26: §12 records the activity log faults fixed while wiring BE-26, what a member and an admin each read of an entry, and how the CSV export is protected |
 | 1.15 | 2026-10-11 | Records admin section counts, bounded browse suggestions, member announcement history and public photo retries; authentication changes are handled separately in PR #57 |
+| 1.16 | 2026-10-14 | Records that opened pages are kept in the tab's memory for 30 seconds, what drops them and what they may hold |
 
 ## Authentication navigation update (2026-10-11)
 

@@ -28,11 +28,16 @@ type Options = {
   /** Whether the tab is in the background: nothing is asked while nobody can see the answer. */
   isHidden?: () => boolean;
   now?: () => number;
+  /**
+   * A check found more unread notifications than the last one: something happened to this account (a request was
+   * answered, an invite arrived), so the pages kept for quick navigation may be showing it as it was before.
+   */
+  onArrival?: () => void;
 };
 
 export type AlertsStore = ReturnType<typeof createAlertsStore>;
 
-export function createAlertsStore(client: ApiClient, { intervalMs = POLL_INTERVAL_MS, minGapMs = MIN_CHECK_GAP_MS, isHidden = () => false, now = Date.now }: Options = {}) {
+export function createAlertsStore(client: ApiClient, { intervalMs = POLL_INTERVAL_MS, minGapMs = MIN_CHECK_GAP_MS, isHidden = () => false, now = Date.now, onArrival }: Options = {}) {
   let snapshot = EMPTY_ALERTS;
   const listeners = new Set<() => void>();
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -74,7 +79,9 @@ export function createAlertsStore(client: ApiClient, { intervalMs = POLL_INTERVA
       const unreadCount = await getUnreadCount(client);
       if (!running || turn !== countTurn) return;
       const changed = snapshot.unreadCount !== undefined && snapshot.unreadCount !== unreadCount;
+      const arrived = snapshot.unreadCount !== undefined && unreadCount > snapshot.unreadCount;
       set({ unreadCount });
+      if (arrived) onArrival?.();
       // Something arrived, or was read on another device: the dropdown's rows are out of date too.
       if (reloadRows && changed && snapshot.latest.status !== "idle") void loadLatest();
     } catch (error) {

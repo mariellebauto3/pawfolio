@@ -94,6 +94,12 @@ Planned routes (from the LoFi, full list in the feature READMEs):
 - Nothing is pushed to the browser (no websockets). A count that must stay current is asked for again on a timer
   and when the window is looked at again, as Alerts does (`features/notifications/hooks/alerts-store.ts`): not while
   the tab is hidden, never with a redirect on failure (`skipAuthRedirect`), and it stops once the session is over.
+- A page that was opened is kept in the tab's memory for 30 seconds (`staleTimes` in `next.config.ts`, 2026-10-14),
+  so going back to it asks the API nothing. Send every write through `api`: an accepted write drops the kept pages
+  for you (`PageCacheSync`), and a write sent any other way would leave them showing what was true before it. Pass
+  `keepPages` only for a write that changes nothing a page shows. Don't raise the 30 seconds without a rule change:
+  another account's change is unseen for that long, unless it sends a notification. How-to:
+  `docs/architecture/frontend-data-layer.md`.
 - Photos from the API are rendered with `ApiImage` (`src/components/ui/api-image.tsx`), or with `Photo` and `Avatar`
   which use it, never with `next/image` directly: it retries a picture that failed and falls back to a placeholder.
 - Show loading states (`loading.tsx` or skeletons) and handle empty and error states for every data view.

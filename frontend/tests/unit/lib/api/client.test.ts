@@ -43,4 +43,22 @@ describe("error listeners", () => {
     expect(reportError).toHaveBeenCalledWith(expect.objectContaining({ message: "listener broke" }));
     stop();
   });
+
+  it("tells write listeners about an accepted write until they stop listening", async () => {
+    vi.stubGlobal("window", { location: { origin: "https://pawfolio-service.vercel.app" } });
+    vi.stubGlobal("document", { cookie: "XSRF-TOKEN=csrf-token" });
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ data: {} })));
+    const { api, onApiWrite } = await import("@/lib/api/client");
+
+    const listener = vi.fn();
+    const stop = onApiWrite(listener);
+    await api.get("/pets");
+    expect(listener).not.toHaveBeenCalled();
+    await api.post("/bookmarks", { pet_id: 1 });
+    expect(listener).toHaveBeenCalledOnce();
+
+    stop();
+    await api.post("/bookmarks", { pet_id: 2 });
+    expect(listener).toHaveBeenCalledOnce();
+  });
 });

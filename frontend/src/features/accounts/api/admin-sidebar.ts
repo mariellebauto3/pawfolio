@@ -26,6 +26,7 @@ export async function getAdminSidebarCounts(client: ApiClient): Promise<AdminNav
 
 /** Tells the API the admin has a section open, so its count starts again from now. */
 export async function markAdminSectionSeen(client: ApiClient, section: AdminCountedSection): Promise<void> {
-  // A background call: a session that ended is found out by what the admin does next, not by this.
-  await client.post<unknown>(apiPath`/admin/sidebar/${section}/seen`, undefined, { skipAuthRedirect: true });
+  // A background call: a session that ended is found out by what the admin does next, not by this. Its caller
+  // loads the layout's counts again itself (`AdminSectionSeen`), so the page isn't rendered a second time for it.
+  await client.post<unknown>(apiPath`/admin/sidebar/${section}/seen`, undefined, { skipAuthRedirect: true, keepPages: true });
 }

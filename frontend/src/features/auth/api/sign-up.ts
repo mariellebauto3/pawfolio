@@ -9,7 +9,8 @@ import type { ApiResource } from "@/types/api";
 // build it with toPetSignUpForm / toHumanSignUpForm. Like sign-in, they skip the client's automatic 401 handling.
 
 async function signUp(client: ApiClient, path: string, form: FormData): Promise<Account> {
-  const response = await client.post<ApiResource<unknown>>(path, form, { skipAuthRedirect: true });
+  // As with sign-in, a fresh document follows, so the kept pages are left alone.
+  const response = await client.post<ApiResource<unknown>>(path, form, { skipAuthRedirect: true, keepPages: true });
   if (!isAccount(response?.data)) {
     throw new ApiError({ kind: "server", status: 201, message: "We couldn't create your account. Please try again." });
   }

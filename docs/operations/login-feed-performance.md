@@ -45,6 +45,41 @@ successful GETs inside that cookie context; failures are retryable and writes cl
 cache stores user API responses. Next.js still reuses its existing navigation/back-forward state; mutation flows
 continue to refresh the affected data, and sign-in/out replace the document to isolate accounts.
 
+## Going back to a page (2026-10-14)
+
+Before this, every click on a module asked for it again: Browse, then Requests, then Browse made the same Browse
+request twice, each with its own `/auth/me` and data call. A page that was opened is now kept in the tab's memory
+for 30 seconds (`experimental.staleTimes.dynamic` in `frontend/next.config.ts`) and shown again without a request.
+It is memory of one tab only: a reload, sign-in and log-out start from nothing, and the API authorizes every
+request as before.
+
+What keeps a kept page true:
+
+- Every write the browser's `api` client sends and the API accepts drops all kept pages, by rendering the open
+  page again (`PageCacheSync`, `src/lib/utils/page-refresher.ts`). No screen lists which pages it affects. Writes
+  in a burst share renders: the first is answered at once, the rest by one more render a second later.
+- A new notification does the same (`onArrival` in the Alerts store), so what another account did (a request
+  approved, an invite) shows without waiting 30 seconds. A change by another account that sends no notification
+  (a home turning Open to Adopt off) is seen up to 30 seconds late, where it used to be seen on the next click.
+- Marking one notification as read, noting an admin section as opened, signing in and logging out pass `keepPages`
+  and render nothing again for it.
+
+Known cost: about twenty screens already call `router.refresh()` after their own write (withdraw, book a slot,
+remove a bookmark from the list). Those writes now render the open page twice. It is invisible and they are
+occasional; removing the screens' own calls is the tidy-up, left out here to keep the change small.
+
+Prefetching stays off, the main tabs included. Measured on a production build with a 250 ms network delay: without
+prefetch a first click on a tab shows its skeleton after 290 ms; with it, after 15 ms; the page itself arrives at
+the same time either way. Prefetching the five tabs cost 7 more requests on every page load and 3 more after
+every write. Prefetching only on hover showed the generic page skeleton first and the tab's own a moment later,
+which reads as a flicker. Neither was worth it next to a return visit that now costs nothing.
+
+Checked in headless Chrome against a scratch database (never the shared one), as a pet: Browse, Requests, Browse
+made no request for the second Browse and showed it in under 200 ms; after 32 seconds it was asked for again. A
+home saved from a card on Homes for You was on the Bookmarks page opened seconds earlier. A like kept the feed's
+loaded posts. A notification written for the account rendered the open Requests page again on the next count.
+Log-out and sign-in by the form rendered nothing again before the new document.
+
 Run migrations before using the new dashboard revision cache and cursor-filter indexes. Existing indexes already
 cover case-insensitive emails, feed ordering, reaction ownership and profile/count foreign keys. The new indexes
 cover visible feed cursor scans restricted to an author or type; full-feed cursors reuse the existing partial index.
