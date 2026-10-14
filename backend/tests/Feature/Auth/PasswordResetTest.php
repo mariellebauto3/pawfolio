@@ -3,14 +3,18 @@
 namespace Tests\Feature\Auth;
 
 use App\Enums\AccountStatus;
+use App\Mail\BrevoTransport;
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
+use Symfony\Component\Mailer\Exception\TransportException;
 use Tests\TestCase;
 
 /**
@@ -65,6 +69,96 @@ class PasswordResetTest extends TestCase
             ->assertOk()->assertExactJson(['message' => self::SAME_ANSWER]);
 
         Notification::assertNothingSent();
+    }
+
+    public function test_the_answer_states_its_length_so_it_leaves_before_the_email_is_sent(): void
+    {
+        $response = $this->postJson('/api/v1/auth/forgot-password', ['email' => 'ghost@example.com'])->assertOk();
+
+        // Without it, `php artisan serve` keeps the browser waiting until the deferred email is sent (ADR 0007).
+        $this->assertSame((string) strlen((string) $response->getContent()), $response->headers->get('Content-Length'));
+    }
+
+    public function test_the_reset_email_is_written_for_pawfolio(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create(['email' => 'mochi@example.com', 'status' => AccountStatus::Active]);
+
+        $this->postJson('/api/v1/auth/forgot-password', ['email' => 'mochi@example.com'])->assertOk();
+
+        Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user) {
+            $mail = $notification->toMail($user);
+            $this->assertSame('Reset your Pawfolio password', $mail->subject);
+            $this->assertSame('Reset password', $mail->actionText);
+            $this->assertContains('This link works once and expires in 30 minutes.', $mail->outroLines);
+
+            return true;
+        });
+    }
+
+    public function test_an_address_gets_at_most_3_reset_emails_an_hour_whatever_the_ip(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create(['email' => 'mochi@example.com', 'status' => AccountStatus::Active]);
+
+        foreach (['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4'] as $ip) {
+            $this->travel(2)->minutes(); // past the broker's one-a-minute throttle
+            $this->withServerVariables(['REMOTE_ADDR' => $ip])
+                ->postJson('/api/v1/auth/forgot-password', ['email' => 'Mochi@Example.com'])
+                ->assertOk()->assertExactJson(['message' => self::SAME_ANSWER]);
+        }
+
+        Notification::assertSentToTimes($user, ResetPassword::class, 3);
+    }
+
+    public function test_with_brevo_the_email_goes_to_brevos_api_with_the_key(): void
+    {
+        $this->useBrevo();
+        Http::fake([BrevoTransport::ENDPOINT => Http::response(['messageId' => '<1@smtp-relay.brevo.com>'], 201)]);
+        User::factory()->create(['email' => 'mochi@example.com', 'status' => AccountStatus::Active]);
+
+        $this->postJson('/api/v1/auth/forgot-password', ['email' => 'mochi@example.com'])
+            ->assertOk()->assertExactJson(['message' => self::SAME_ANSWER]);
+
+        Http::assertSent(function (Request $request) {
+            if ($request->url() !== BrevoTransport::ENDPOINT) {
+                return false;
+            }
+            $this->assertSame(['test-brevo-key'], $request->header('api-key'));
+            $this->assertSame(['email' => 'pawfolio.team@example.com', 'name' => 'Pawfolio'], $request['sender']);
+            $this->assertSame([['email' => 'mochi@example.com']], $request['to']);
+            $this->assertSame('Reset your Pawfolio password', $request['subject']);
+            $this->assertStringContainsString('/reset-password#token=', $request['htmlContent']);
+            $this->assertStringContainsString('/reset-password#token=', $request['textContent']);
+
+            return true;
+        });
+    }
+
+    public function test_a_brevo_failure_gets_the_same_answer_and_is_reported(): void
+    {
+        Exceptions::fake();
+        $this->useBrevo();
+        Http::fake([BrevoTransport::ENDPOINT => Http::response(['code' => 'unauthorized', 'message' => 'Key not found'], 401)]);
+        User::factory()->create(['email' => 'mochi@example.com', 'status' => AccountStatus::Active]);
+
+        $this->postJson('/api/v1/auth/forgot-password', ['email' => 'mochi@example.com'])
+            ->assertOk()->assertExactJson(['message' => self::SAME_ANSWER]);
+
+        Exceptions::assertReported(fn (TransportException $e) => $e->getMessage() === 'Brevo refused the email (HTTP 401, unauthorized).');
+    }
+
+    public function test_a_missing_brevo_key_gets_the_same_answer_and_is_reported(): void
+    {
+        Exceptions::fake();
+        $this->useBrevo();
+        config(['services.brevo.key' => null]);
+        User::factory()->create(['email' => 'mochi@example.com', 'status' => AccountStatus::Active]);
+
+        $this->postJson('/api/v1/auth/forgot-password', ['email' => 'mochi@example.com'])
+            ->assertOk()->assertExactJson(['message' => self::SAME_ANSWER]);
+
+        Exceptions::assertReported(fn (\RuntimeException $e) => $e->getMessage() === 'BREVO_API_KEY is not set.');
     }
 
     public function test_forgot_password_validates_the_email(): void
@@ -157,5 +251,15 @@ class PasswordResetTest extends TestCase
             'token' => Password::createToken($user), 'email' => 'mochi@example.com',
             'password' => 'leaked1234', 'password_confirmation' => 'leaked1234',
         ])->assertUnprocessable()->assertJsonPath('errors.password.0', "This password isn't safe to use. Please choose a different password.");
+    }
+
+    private function useBrevo(): void
+    {
+        config([
+            'mail.default' => 'brevo',
+            'services.brevo.key' => 'test-brevo-key',
+            'mail.from.address' => 'pawfolio.team@example.com',
+            'mail.from.name' => 'Pawfolio',
+        ]);
     }
 }

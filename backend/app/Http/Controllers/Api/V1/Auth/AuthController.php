@@ -19,8 +19,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+
+use function Illuminate\Support\defer;
 
 /**
  * Authentication endpoints for the v1 API (BE-03, docs/api/auth.md).
@@ -28,6 +31,8 @@ use Illuminate\Validation\ValidationException;
 class AuthController extends Controller
 {
     private const FORGOT_PASSWORD_ANSWER = "If an account exists for that email, we've sent a link to reset the password. It expires in 30 minutes.";
+
+    private const RESET_EMAILS_PER_ADDRESS_PER_HOUR = 3;
 
     private const RESET_PASSWORD_ANSWER = 'Your password has been reset. Sign in with your new password.';
 
@@ -90,18 +95,39 @@ class AuthController extends Controller
         $startedAt = hrtime(true);
 
         $storedEmail = User::whereRaw('LOWER(email) = ?', [$email])->value('email');
-        if ($storedEmail !== null) {
-            Password::broker()->sendResetLink(['email' => $storedEmail]);
-        } else {
-            Hash::make('pawfolio-password-reset-timing-equalizer');
-        }
+        // Counted for every address alike, so being over it says nothing about whether an account exists (SEC-AUTH-05).
+        // It stops one inbox being flooded from many IPs and keeps the daily email quota for everyone (T11, ADR 0007).
+        $withinLimit = RateLimiter::attempt(
+            'forgot-password-email:'.hash('sha256', $email),
+            self::RESET_EMAILS_PER_ADDRESS_PER_HOUR,
+            fn () => true,
+            3600,
+        );
+
+        // The token is made and the email sent after the answer has gone, so how long the provider takes, or whether it
+        // fails, never shows in the answer (SEC-AUTH-05). A failure is reported without the address (SEC-LOG-03).
+        defer(function () use ($storedEmail, $withinLimit): void {
+            if ($storedEmail === null || ! $withinLimit) {
+                Hash::make('pawfolio-password-reset-timing-equalizer');
+
+                return;
+            }
+            try {
+                Password::broker()->sendResetLink(['email' => $storedEmail]);
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        });
 
         $elapsedUs = (int) ((hrtime(true) - $startedAt) / 1000);
         if ($elapsedUs < 200_000) {
             usleep(200_000 - $elapsedUs);
         }
 
-        return response()->json(['message' => self::FORGOT_PASSWORD_ANSWER]);
+        // `php artisan serve` (Render) holds the browser until the deferred email is sent unless the length is known.
+        $response = response()->json(['message' => self::FORGOT_PASSWORD_ANSWER]);
+
+        return $response->header('Content-Length', (string) strlen((string) $response->getContent()));
     }
 
     public function resetPassword(ResetPasswordRequest $request): JsonResponse

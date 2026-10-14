@@ -65,6 +65,11 @@ return [
             'transport' => 'resend',
         ],
 
+        // Brevo's HTTPS API (App\Mail\BrevoTransport); Render's free plan blocks the SMTP ports (ADR 0007).
+        'brevo' => [
+            'transport' => 'brevo',
+        ],
+
         'sendmail' => [
             'transport' => 'sendmail',
             'path' => env('MAIL_SENDMAIL_PATH', '/usr/sbin/sendmail -bs -i'),
