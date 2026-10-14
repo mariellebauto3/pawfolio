@@ -73,6 +73,12 @@ The signed-in account. Used by `SessionProvider` and `proxy.ts`.
   ago (SEC-AUTH-05). "Resend email" calls this again.
 - **422:** missing or invalid email.
 - **429** with `Retry-After`: 5 requests per 15 minutes per IP (SEC-AUTH-04).
+- **Per address:** at most 3 links an hour, whatever the IP. Past that the answer is still the 200 above and nothing
+  is sent, for every address alike.
+- **Sending** (ADR 0007): the answer goes first, with `Content-Length`; the token is made and the email sent after it,
+  so the provider's speed or failure never shows. Locally (`MAIL_MAILER=log`) the email, link included, is written to
+  `storage/logs/laravel.log`; on Render (`MAIL_MAILER=brevo`) it goes through Brevo's API. Subject: "Reset your
+  Pawfolio password".
 - **The emailed link** opens the frontend's `AU-06` screen:
 
   ```

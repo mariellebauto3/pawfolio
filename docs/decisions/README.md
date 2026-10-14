@@ -30,3 +30,4 @@ What becomes easier or harder; follow-up work.
 | [0004](0004-api-client-session-and-mocks.md) | One API client, session from `/auth/me`, and mock mode | accepted |
 | [0005](0005-page-shells-and-server-seeded-session.md) | Page shells per route group, with the session loaded on the server | accepted |
 | [0006](0006-deployment-architecture.md) | Production PostgreSQL 16, Sanctum subdomain topology, and private/public storage split | accepted |
+| [0007](0007-transactional-email-brevo.md) | Transactional email through Brevo's HTTPS API | accepted |
