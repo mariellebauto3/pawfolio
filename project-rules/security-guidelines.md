@@ -7,7 +7,7 @@
 | --- | --- |
 | **Owner** | The whole team; changes need review like any other rule |
 | **Applies to** | `frontend/`, `backend/`, database, deployment, and any new module or feature |
-| **Version** | 1.17 · 2026-10-14 — see the changelog at the end |
+| **Version** | 1.18 · 2026-10-14 — see the changelog at the end |
 
 ## 0. Baseline and cross-references
 
@@ -315,6 +315,7 @@ Update this table as risks are found, accepted or fixed.
 | 2026-10-10 | Members read announcements at `GET /api/v1/announcements`, and photos that fail to load are retried straight from the API's storage (T05, T07) | The list is for Active accounts, published announcements of the caller's own audience only, four fields, no admin's name (SEC-AUTHZ-06, SEC-API-01, SEC-API-05), with a test for each; the words are rendered as text and nothing in them is a link (SEC-FE-01, SEC-FE-02). The retry loads a public photo from the same storage path `next/image` already allows, never a document. When the Content-Security-Policy is written (SEC-DEPLOY-02), `img-src` needs the API's origin |
 | 2026-10-14 | Pages a signed-in visitor opened are kept in the tab's memory for 30 seconds, so going back to one asks the API nothing (T05, T04). A kept page can hold what the account was allowed to read when it was rendered, contact details on a confirmed Meet & Greet included | Memory of one tab only: nothing is written to browser storage or a URL (SEC-FE-04), and no server keeps a rendered page or an API answer. A reload, signing in and logging out start a new document, and a session that changed in another tab reloads the page or leaves it, as before (SEC-AUTH-11). Kept or not, a page only shows what the API answered for that account, and every action is authorized again by the API (SEC-FE-05, SEC-AUTHZ-06): an account suspended meanwhile can read for up to 30 seconds a page it had already read, and its next request is refused. The account's own writes and a new notification drop the kept pages at once; `keepPages` is for writes that change nothing a page shows. Raising the 30 seconds needs a rule change here |
 | 2026-10-14 | Reset emails were never sent (`MAIL_MAILER=log`), and Render's free plan blocks SMTP. Sending through an outside provider would have shown in the forgot-password answer: slower, or a 500 when the provider fails, only for addresses with an account (SEC-AUTH-05; Medium by §10.4). The only per-address limit was the broker's one a minute, so many IPs could flood one inbox and spend the daily quota (T11; Medium). Found before reset emails were switched on | Fixed with ADR 0007: Brevo's HTTPS API, its key only in Render's environment (SEC-SECRET-01). The token is made and the email sent after the answer (`defer()`), the answer states its length so it isn't held back, and a failure is reported without the address (SEC-LOG-03). At most 3 links an hour per address, counted for every address alike. A test covers each. Accepted for the pilot: Brevo rewrites links to count clicks, so the reset link passes through Brevo and stays in its logs; it works once and for 30 minutes (SEC-AUTH-08). With no domain of our own, the sender shows as a `brevosend.com` address |
+| 2026-10-14 | The scheduled jobs (proposal §5: 14-day expiry, Awaiting Decision after the meeting, reminders, the overdue flag of FR36, scheduled announcements) had never run in production: Render's free plan has no cron or worker. Unanswered requests kept holding the pet's 3 open slots and an Approved one kept the pet In Process (SEC-AUTHZ-08, NFR3; Medium by §10.4). Found while checking the deployment, before any release | Fixed with ADR 0008: `RunDueScheduledJobs` runs the five jobs after a successful API answer, at most once every 5 minutes, after the answer has gone. It takes nothing from the request: no endpoint, input or secret is added, and the jobs act as the system and are logged as before (SEC-API-06). Each job locks its rows and checks them again, so it is safe beside a real scheduler. Accepted for the pilot: with nobody using the site, due changes wait for the next visit; every notification is in-app, so none is seen later than it could be. A test covers each part |
 
 ## Changelog
 
@@ -338,6 +339,7 @@ Update this table as risks are found, accepted or fixed.
 | 1.15 | 2026-10-11 | Records admin section counts, bounded browse suggestions, member announcement history and public photo retries; authentication changes are handled separately in PR #57 |
 | 1.16 | 2026-10-14 | Records that opened pages are kept in the tab's memory for 30 seconds, what drops them and what they may hold |
 | 1.17 | 2026-10-14 | Records how reset emails are sent through Brevo (ADR 0007), the two faults fixed before they were switched on, and what Brevo receives |
+| 1.18 | 2026-10-14 | Records that the scheduled jobs run after API answers on Render's free plan (ADR 0008) |
 
 ## Authentication navigation update (2026-10-11)
 
