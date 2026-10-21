@@ -6,6 +6,7 @@ import {
   cropRect,
   firstOpenStep,
   movePhoto,
+  photoSavePlan,
   resumeFieldErrors,
   resumeStepPayload,
   resumeValuesFrom,
@@ -189,6 +190,48 @@ describe("movePhoto", () => {
     expect(movePhoto([1, 2, 3], 1, -4)).toEqual([1, 2, 3]);
     expect(movePhoto([1, 2, 3], 1, 99)).toEqual([2, 3, 1]);
     expect(movePhoto([1, 2, 3], 9, 0)).toEqual([1, 2, 3]);
+  });
+
+  it("moves photos that aren't saved yet by their key", () => {
+    expect(movePhoto(["photo-1", "new-1", "photo-2"], "new-1", 0)).toEqual(["new-1", "photo-1", "photo-2"]);
+  });
+});
+
+describe("photoSavePlan", () => {
+  // Plays the plan against the API's rules: every step must leave between `min` and `max` photos.
+  function play(saved: number, removals: number, additions: number, min: number, max = 10) {
+    const plan = photoSavePlan(saved, removals, additions, max);
+    let count = saved;
+    for (const step of plan) {
+      count += step === "add" ? 1 : -1;
+      if (count < min || count > max) throw new Error(`${plan.join(",")} reaches ${count}`);
+    }
+    return { plan, count };
+  }
+
+  it("adds before it removes, so a save cut short never leaves too few photos", () => {
+    expect(photoSavePlan(3, 1, 1, 10)).toEqual(["add", "remove"]);
+    expect(photoSavePlan(5, 2, 0, 10)).toEqual(["remove", "remove"]);
+    expect(photoSavePlan(3, 0, 2, 10)).toEqual(["add", "add"]);
+    expect(photoSavePlan(3, 0, 0, 10)).toEqual([]);
+  });
+
+  it("makes room with a removal when an add would pass the most photos a resume holds", () => {
+    expect(photoSavePlan(10, 2, 2, 10)).toEqual(["remove", "add", "remove", "add"]);
+  });
+
+  it("reaches every allowed end state without a refused step", () => {
+    for (const min of [1, 3]) {
+      for (let saved = min; saved <= 10; saved++) {
+        for (let removals = 0; removals <= saved; removals++) {
+          for (let additions = 0; additions <= 10; additions++) {
+            const end = saved - removals + additions;
+            if (end < min || end > 10) continue;
+            expect(play(saved, removals, additions, min).count).toBe(end);
+          }
+        }
+      }
+    }
   });
 });
 
