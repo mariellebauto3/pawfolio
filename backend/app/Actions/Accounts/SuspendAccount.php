@@ -13,11 +13,13 @@ use App\Models\User;
 use App\Services\ActivityLogs\ActivityLogger;
 use App\Services\Notifications\NotificationService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Suspends an account (FR34, AC-08, and RP-05 when a report leads to it): the status changes, the reason is kept
- * for the owner's Suspended screen (AU-21), every session ends at once (SEC-ABUSE-04) and its open requests are
- * closed (proposal §5.3). The profile is hidden by the status itself. Call it inside a transaction.
+ * for the owner's Suspended screen (AU-21), every session and remember-me cookie ends at once (SEC-ABUSE-04) and
+ * its open requests are closed (proposal §5.3). The profile is hidden by the status itself. Call it inside a
+ * transaction.
  */
 class SuspendAccount
 {
@@ -41,6 +43,8 @@ class SuspendAccount
         $before = $account->getStatus()->value;
 
         $account->status = AccountStatus::Suspended;
+        // A new token voids every "Keep me signed in" cookie, which would otherwise start a new session.
+        $account->setRememberToken(Str::random(60));
         $account->save();
 
         $record = new AccountAction;

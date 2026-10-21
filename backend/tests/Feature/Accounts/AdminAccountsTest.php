@@ -19,6 +19,7 @@ use App\Models\VerificationSubmission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /**
@@ -236,6 +237,43 @@ class AdminAccountsTest extends TestCase
         $this->assertDatabaseHas('pets', ['id' => $this->mochi->pet->id]);
 
         $this->actingAs($this->admin)->postJson($deactivate, ['reason' => 'Again.'])->assertConflict()->assertJsonPath('code', 'already_deactivated');
+    }
+
+    public function test_suspending_or_deactivating_also_voids_keep_me_signed_in(): void
+    {
+        foreach (['suspend' => $this->ana, 'deactivate' => $this->mochi] as $action => $account) {
+            $remember = $this->rememberCookie($account);
+            $this->meWithOnlyTheRememberCookie($remember)->assertOk()->assertJsonPath('data.id', $account->id);
+
+            $this->app['auth']->forgetGuards();
+            $this->actingAs($this->admin)->postJson("/api/v1/admin/accounts/{$account->id}/{$action}", ['reason' => 'Under review.'])->assertOk();
+
+            // The browser's "Keep me signed in" cookie can't start a new session either (SEC-ABUSE-04).
+            $this->meWithOnlyTheRememberCookie($remember)->assertUnauthorized();
+            $this->app['auth']->forgetGuards();
+        }
+    }
+
+    /** Signs in with "Keep me signed in" from the SPA and returns the remember cookie as the browser keeps it. */
+    private function rememberCookie(User $user): string
+    {
+        return $this->withHeader('Referer', 'http://localhost:3000/')
+            ->postJson('/api/v1/auth/sign-in', ['email' => $user->email, 'password' => 'password', 'remember' => true])
+            ->assertOk()
+            ->getCookie(auth()->guard('web')->getRecallerName(), false)
+            ->getValue();
+    }
+
+    /** Who is signed in for a browser whose session cookie is gone and whose remember cookie is not. */
+    private function meWithOnlyTheRememberCookie(string $remember): TestResponse
+    {
+        $this->app['auth']->forgetGuards();
+        $this->flushSession();
+
+        return $this->withHeader('Referer', 'http://localhost:3000/')
+            ->withCredentials()
+            ->withUnencryptedCookie(auth()->guard('web')->getRecallerName(), $remember)
+            ->getJson('/api/v1/auth/me');
     }
 
     public function test_a_change_to_a_locked_detail_is_approved_or_denied_once_and_its_document_is_for_admins(): void
