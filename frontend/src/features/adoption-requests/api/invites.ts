@@ -1,8 +1,8 @@
 import { type ApiClient, apiPath } from "@/lib/api/core";
 import { isHome, isRecord, isText, readPage, unexpected } from "@/lib/api/readers";
-import type { ApiResource, Paginated } from "@/types/api";
+import type { ApiResource } from "@/types/api";
 import { INVITES_PAGE_SIZE } from "../schemas/invites";
-import type { Invite, SentInvite } from "../types/invites";
+import type { Invite, InvitesPage, SentInvite } from "../types/invites";
 
 // Invite to Apply calls (docs/api/bookmarks-and-invites.md, RQ-01, RQ-02, FR9). The list is a read, so it works
 // from Server Components with `getServerApi()`; sending and dismissing run in the browser. The home that invites is
@@ -20,14 +20,18 @@ function isInviteRow(row: unknown): row is Record<string, unknown> & Pick<Invite
   return isRecord(row) && typeof row.id === "number" && isHome(row.home_profile);
 }
 
-/** The invites the signed-in pet received and hasn't dismissed, newest first (RQ-02). */
-export async function getInvites(client: ApiClient, page = 1): Promise<Paginated<Invite>> {
+/**
+ * The invites the signed-in pet received and hasn't dismissed, newest first (RQ-02). `hired` when the API says the
+ * pet is Hired (`meta.reason: "already_adopted"`); any other reason is read as not Hired.
+ */
+export async function getInvites(client: ApiClient, page = 1): Promise<InvitesPage> {
   const response = await client.get<unknown>("/invites", { query: { page: page > 1 ? page : undefined, per_page: INVITES_PAGE_SIZE } });
   const rows = readPage(response, isInviteRow, LIST_PROBLEM);
 
   // What decides the buttons is read strictly: anything that isn't an id or a date is "not there".
   return {
     ...rows,
+    hired: (rows.meta as { reason?: unknown }).reason === "already_adopted",
     data: rows.data.map((row) => ({
       id: row.id,
       note: textOrNull(row.note),

@@ -45,7 +45,7 @@ export default async function InvitesPage({ searchParams }: Props) {
       <PageHeader title="Invites to Apply" description="Humans who read your resume and want you to apply. Applying is always your choice." />
 
       {invites.meta.total === 0 ? (
-        <NoInvites />
+        <NoInvites hired={invites.hired} />
       ) : (
         <div className="flex flex-col gap-6">
           <InviteList rows={rows} total={invites.meta.total} />

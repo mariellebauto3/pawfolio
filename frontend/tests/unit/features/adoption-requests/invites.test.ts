@@ -4,6 +4,7 @@ import { INVITE_NOTE_MAX, inviteApplyState, inviteNote, validateInviteNote } fro
 import { getPetProfile } from "@/features/discovery/api/discovery";
 import { type Transport, createApiClient } from "@/lib/api/core";
 import { HOME_PROFILES } from "@/lib/api/mock/fixtures/home-profiles";
+import { PETS } from "@/lib/api/mock/fixtures/pets";
 import { MOCK_PERSONA_COOKIE, createMockTransport } from "@/lib/api/mock/transport";
 
 // The Invite to Apply calls against the mock API, which answers in the shapes of
@@ -92,6 +93,10 @@ describe("Invites to Apply (RQ-02)", () => {
     const page = await getInvites(answering({ data: rows, meta }).client);
     // The first row's odd values are "not there"; the other two aren't invites at all.
     expect(page.data).toEqual([{ id: 1, note: null, created_at: null, open_request_id: null, cooldown_until: null, home_profile: HOME_PROFILES[0] }]);
+    // Hired only when the API says so in those words.
+    expect(page.hired).toBe(false);
+    expect((await getInvites(answering({ data: [], meta: { ...meta, total: 0, reason: "already_adopted" } }).client)).hired).toBe(true);
+    expect((await getInvites(answering({ data: [], meta: { ...meta, total: 0, reason: true } }).client)).hired).toBe(false);
     await expect(getInvites(answering({ data: [] }).client)).rejects.toMatchObject({ kind: "server" });
   });
 
@@ -99,6 +104,20 @@ describe("Invites to Apply (RQ-02)", () => {
     await expect(getInvites(as("human"))).rejects.toMatchObject({ kind: "forbidden" });
     await expect(getInvites(as("admin"))).rejects.toMatchObject({ kind: "forbidden" });
     await expect(getInvites(as("pet-pending"))).rejects.toMatchObject({ kind: "account_not_active" });
+  });
+
+  it("lists none once the pet is Hired, and lists them again if the adoption is cancelled", async () => {
+    const mochi = PETS.find((pet) => pet.id === 1)!;
+    const before = mochi.status;
+    try {
+      mochi.status = "adopted_hired";
+      const hired = await getInvites(as("pet"));
+      expect([hired.meta.total, hired.hired]).toEqual([0, true]);
+    } finally {
+      mochi.status = before;
+    }
+    const looking = await getInvites(as("pet"));
+    expect([looking.meta.total, looking.hired]).toEqual([2, false]);
   });
 });
 

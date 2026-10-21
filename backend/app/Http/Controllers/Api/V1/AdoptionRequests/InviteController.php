@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1\AdoptionRequests;
 use App\Actions\AdoptionRequests\SendInvite;
 use App\Enums\AccountStatus;
 use App\Enums\AdoptionRequestStatus;
+use App\Enums\PetStatus;
 use App\Exceptions\InviteRefused;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AdoptionRequests\ListInvitesRequest;
@@ -30,12 +31,16 @@ use Illuminate\Support\Collection;
  */
 class InviteController extends Controller
 {
-    /** RQ-02: the invites the pet received and hasn't dismissed, newest first. */
+    /**
+     * RQ-02: the invites the pet received and hasn't dismissed, newest first. A Hired pet has none (Invite::active()),
+     * and `meta.reason` says why, so the page doesn't suggest applying elsewhere (proposal §5.5).
+     */
     public function index(ListInvitesRequest $request): ResponseResource
     {
         $user = $request->user();
         // Null only for a pet account with no resume row, which then has no invites either.
         $petId = $user->pet?->id;
+        $reason = $user->pet?->getStatusEnum() === PetStatus::AdoptedHired ? 'already_adopted' : null;
 
         $paginator = Invite::query()
             ->where('pet_id', $petId)
@@ -61,7 +66,7 @@ class InviteController extends Controller
         $bookmarked = Bookmark::query()->where('user_id', $user->id)->whereIn('home_profile_id', $homeIds)->pluck('home_profile_id')->flip();
         $requests = AdoptionRequest::query()->where('pet_id', $petId)->whereIn('home_profile_id', $homeIds)->get()->groupBy('home_profile_id');
 
-        return PaginatedResource::fromPaginator($paginator, function (Invite $invite) use ($request, $scores, $bookmarked, $requests): array {
+        $page = PaginatedResource::fromPaginator($paginator, function (Invite $invite) use ($request, $scores, $bookmarked, $requests): array {
             $homeId = $invite->home_profile_id;
             $history = $requests->get($homeId, collect());
 
@@ -79,6 +84,8 @@ class InviteController extends Controller
                     ->toArray($request),
             ];
         });
+
+        return new ResponseResource($page->data, $page->meta + ['reason' => $reason], $page->links);
     }
 
     public function store(SendInviteRequest $request, int $pet, SendInvite $send): ResponseResource|JsonResponse

@@ -75,7 +75,8 @@ class MemberStats
                 'views' => $viewCounts,
                 'bookmarks' => $bookmarkCounts,
                 'requests' => ['total' => (int) $requestCounts->sum(), 'open' => (int) $requestCounts->only(AdoptionRequest::OPEN_STATUSES)->sum()],
-                'invites' => ['total' => (int) $inviteCounts->total, 'live' => (int) $inviteCounts->live],
+                // A Hired pet has no live invites (Invite::active()); the total stays its history.
+                'invites' => ['total' => (int) $inviteCounts->total, 'live' => $pet->getStatusEnum() === PetStatus::AdoptedHired ? 0 : (int) $inviteCounts->live],
             ],
             'views_over_time' => $this->viewsPerDay($pet),
             'views_by_source' => $viewsBySource,
