@@ -30,7 +30,7 @@ export default async function EditResumePage({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-narrow">
       <PageHeader
         title="Edit resume"
-        description="Details marked Locked were verified by an admin. Everything else goes live when you save."
+        description="Details marked Locked were verified by an admin. Each step, photos and vet records included, is saved only when you press Next or Save."
         actions={
           <Link prefetch={false} href={ROUTES.me} className={buttonClasses({ variant: "tertiary", size: "sm" })}>
             Preview resume

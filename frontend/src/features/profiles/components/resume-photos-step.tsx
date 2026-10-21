@@ -1,135 +1,103 @@
 "use client";
 
-import { useState } from "react";
 import { Alert } from "@/components/feedback/alert";
-import { FileUpload } from "@/components/forms/file-upload";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Photo } from "@/components/ui/photo";
-import { api } from "@/lib/api/client";
-import { isApiError } from "@/lib/api/errors";
-import { useToast } from "@/providers/toast-provider";
-import type { PetPhoto } from "@/types/pet";
-import { reorderPhotos, setCoverPhoto } from "../api/resume";
-import { RESUME_LIMITS, movePhoto } from "../schemas/resume-schemas";
+import type { PhotoSlot, usePhotoDraft } from "../hooks/use-photo-draft";
+import { RESUME_LIMITS } from "../schemas/resume-schemas";
 import type { OwnPet } from "../types/own-pet";
 
 type Props = {
   pet: OwnPet;
-  /** Every change here is saved right away; the wizard gets the resume as the API answered. */
-  onChange: (pet: OwnPet) => void;
+  /** The step's unsaved changes. The wizard holds them and sends them on Next or Save. */
+  draft: ReturnType<typeof usePhotoDraft>;
   /** Opens the Add photo dialog (PR-09). The wizard renders it, outside its own form. */
   onAdd: () => void;
-  /** Asks before removing a photo. The wizard renders the confirmation. */
-  onRemove: (photo: PetPhoto) => void;
+  /** Takes a photo off the step; the wizard asks first when the photo is on the resume. */
+  onRemove: (slot: PhotoSlot) => void;
+  /** Opens the cover photo dialog. The wizard renders it, outside its own form. */
+  onChangeCover: () => void;
 };
 
-const UNKNOWN_PROBLEM = "That didn't go through. Check your connection and try again.";
-
 // PR-04 Photos: three to ten, the first being the profile photo. Add opens the PR-09 dialog; Make profile photo,
-// Move and Remove act on one photo; the cover photo is uploaded below. Nothing here waits for Next.
-export function ResumePhotosStep({ pet, onChange, onAdd, onRemove }: Props) {
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
-  const [coverError, setCoverError] = useState<string | undefined>();
-  const [coverKey, setCoverKey] = useState(0);
-
-  const photos = pet.photos;
-  const ids = photos.map((photo) => photo.id);
+// Move and Remove act on one photo; the cover photo has a dialog of its own. Every change here is a draft until the
+// pet presses Next or Save, like the typed steps (BUG-03).
+export function ResumePhotosStep({ pet, draft, onAdd, onRemove, onChangeCover }: Props) {
+  const { slots, cover, changed, saving } = draft;
   // The API keeps at least one photo on a Draft and three on a published resume.
   const minimum = pet.status === "draft" ? 1 : RESUME_LIMITS.minPhotos;
-  const canRemove = photos.length > minimum;
-  const full = photos.length >= RESUME_LIMITS.maxPhotos;
-
-  async function run(action: () => Promise<OwnPet>, done: string) {
-    if (busy) return;
-    setBusy(true);
-    setProblem(null);
-    try {
-      onChange(await action());
-      toast.show(done);
-    } catch (failure) {
-      setProblem(isApiError(failure) ? failure.message : UNKNOWN_PROBLEM);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function uploadCover(files: File[]) {
-    const file = files[0];
-    if (!file || busy) return;
-    setBusy(true);
-    setCoverError(undefined);
-    try {
-      onChange(await setCoverPhoto(api, file));
-      setCoverKey((key) => key + 1);
-      toast.show("Cover photo updated.");
-    } catch (failure) {
-      setCoverError(isApiError(failure) ? (failure.fieldErrors.cover_photo ?? failure.message) : UNKNOWN_PROBLEM);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const canRemove = slots.length > minimum;
+  const full = slots.length >= RESUME_LIMITS.maxPhotos;
+  const coverUrl = cover?.url ?? pet.cover_photo_url;
 
   return (
     <>
       <p className="text-ink-muted">
         Add {RESUME_LIMITS.minPhotos} to {RESUME_LIMITS.maxPhotos} clear photos. The first photo is your profile picture.{" "}
         <span className="whitespace-nowrap">
-          {photos.length} of {RESUME_LIMITS.maxPhotos} added.
-        </span>
+          {slots.length} of {RESUME_LIMITS.maxPhotos} added.
+        </span>{" "}
+        Changes here are saved when you press Next or Save.
       </p>
 
-      {problem && (
-        <Alert tone="error" announce>
-          {problem}
+      {changed && (
+        <Alert
+          action={
+            <Button variant="tertiary" size="sm" disabled={saving} onClick={draft.discard}>
+              Discard changes
+            </Button>
+          }
+        >
+          Your photo changes aren&apos;t saved yet. Press Next or Save to keep them; leaving this page drops them.
         </Alert>
       )}
 
       <ul className="grid grid-cols-2 gap-4 md:grid-cols-3">
-        {photos.map((photo, index) => {
+        {slots.map((slot, index) => {
           const name = index === 0 ? "the profile photo" : `photo ${index + 1}`;
           return (
-            <li key={photo.id} className="flex flex-col gap-2">
-              <Photo
-                src={photo.url}
-                alt={photo.caption ? `${pet.name}: ${photo.caption}` : `${pet.name}, photo ${index + 1}`}
-                sizes="(min-width: 768px) 240px, 50vw"
-              />
+            <li key={slot.key} className="flex flex-col gap-2">
+              <div className="relative">
+                <Photo
+                  src={slot.url}
+                  alt={slot.caption ? `${pet.name}: ${slot.caption}` : `${pet.name}, photo ${index + 1}`}
+                  sizes="(min-width: 768px) 240px, 50vw"
+                />
+                {slot.file && (
+                  <Badge tone="progress" className="absolute top-2 left-2">
+                    Not saved yet
+                  </Badge>
+                )}
+              </div>
               <p className="text-sm">
                 <span className="font-bold">{index === 0 ? "Profile photo" : `Photo ${index + 1}`}</span>
-                {photo.caption && <span className="text-ink-muted"> · {photo.caption}</span>}
+                {slot.caption && <span className="text-ink-muted"> · {slot.caption}</span>}
               </p>
               <div className="flex flex-wrap items-center gap-1">
                 <IconButton
                   icon="chevron-left"
                   label={`Move ${name} earlier`}
-                  disabled={busy || index === 0}
-                  onClick={() => run(() => reorderPhotos(api, movePhoto(ids, photo.id, index - 1)), "Photo moved.")}
+                  disabled={saving || index === 0}
+                  onClick={() => draft.move(slot.key, index - 1)}
                 />
                 <IconButton
                   icon="chevron-right"
                   label={`Move ${name} later`}
-                  disabled={busy || index === photos.length - 1}
-                  onClick={() => run(() => reorderPhotos(api, movePhoto(ids, photo.id, index + 1)), "Photo moved.")}
+                  disabled={saving || index === slots.length - 1}
+                  onClick={() => draft.move(slot.key, index + 1)}
                 />
                 <IconButton
                   icon="trash"
                   label={canRemove ? `Remove ${name}` : `Remove ${name} (a resume keeps at least ${minimum})`}
-                  disabled={busy || !canRemove}
-                  onClick={() => onRemove(photo)}
+                  disabled={saving || !canRemove}
+                  onClick={() => onRemove(slot)}
                 />
               </div>
               {index > 0 && (
-                <Button
-                  variant="tertiary"
-                  size="sm"
-                  disabled={busy}
-                  className="self-start"
-                  onClick={() => run(() => reorderPhotos(api, movePhoto(ids, photo.id, 0)), "Profile photo changed.")}
-                >
+                <Button variant="tertiary" size="sm" disabled={saving} className="self-start" onClick={() => draft.move(slot.key, 0)}>
                   Make profile photo
                 </Button>
               )}
@@ -141,7 +109,7 @@ export function ResumePhotosStep({ pet, onChange, onAdd, onRemove }: Props) {
             <button
               type="button"
               onClick={onAdd}
-              disabled={busy}
+              disabled={saving}
               aria-haspopup="dialog"
               className="flex aspect-4/3 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed border-line-strong bg-surface font-bold text-primary transition-colors duration-200 ease-out hover:border-primary hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -151,7 +119,7 @@ export function ResumePhotosStep({ pet, onChange, onAdd, onRemove }: Props) {
           </li>
         )}
       </ul>
-      {!canRemove && photos.length > 0 && (
+      {!canRemove && slots.length > 0 && (
         <p className="text-sm text-ink-muted">
           {pet.status === "draft"
             ? "A resume keeps at least one photo. Add another before removing this one."
@@ -160,20 +128,33 @@ export function ResumePhotosStep({ pet, onChange, onAdd, onRemove }: Props) {
       )}
 
       <div className="flex flex-col gap-3 border-t border-line pt-5">
-        {pet.cover_photo_url && (
-          <Photo ratio="cover" src={pet.cover_photo_url} alt={`${pet.name}'s cover photo`} sizes="(min-width: 768px) 760px, 100vw" />
+        <div className="flex flex-col gap-1">
+          <p className="font-bold">
+            Cover photo <span className="font-normal text-ink-muted">(optional)</span>
+          </p>
+          <p className="text-sm text-ink-muted">A wide photo across the top of your resume. JPG or PNG, up to 5 MB.</p>
+        </div>
+        {coverUrl && (
+          <div className="relative">
+            <Photo ratio="cover" src={coverUrl} alt={`${pet.name}'s cover photo`} sizes="(min-width: 768px) 760px, 100vw" />
+            {cover && (
+              <Badge tone="progress" className="absolute top-2 left-2">
+                Not saved yet
+              </Badge>
+            )}
+          </div>
         )}
-        <FileUpload
-          key={coverKey}
-          label={pet.cover_photo_url ? "Replace the cover photo" : "Cover photo"}
-          optional
-          accept={["jpg", "png"]}
-          hint="A wide photo across the top of your resume. JPG or PNG, up to 5 MB."
-          error={coverError}
-          onFilesChange={uploadCover}
-        />
+        <Button
+          variant="secondary"
+          icon={<Icon name="upload" className="size-4 shrink-0" />}
+          disabled={saving}
+          className="self-start"
+          aria-haspopup="dialog"
+          onClick={onChangeCover}
+        >
+          {coverUrl ? "Replace the cover photo" : "Add a cover photo"}
+        </Button>
       </div>
-
     </>
   );
 }

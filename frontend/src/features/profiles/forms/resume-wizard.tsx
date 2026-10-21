@@ -10,15 +10,19 @@ import { ROUTES, resumeEditPath } from "@/constants/routes";
 import { api } from "@/lib/api/client";
 import { type FieldErrors, isApiError } from "@/lib/api/errors";
 import { useToast } from "@/providers/toast-provider";
-import type { PetPhoto } from "@/types/pet";
-import { deletePhoto, deleteVetRecord, getOwnPet, publishResume, updateResume } from "../api/resume";
+import { getOwnPet, publishResume, updateResume } from "../api/resume";
 import { ResumePhotosStep } from "../components/resume-photos-step";
 import { ResumePublished } from "../components/resume-published";
 import { ResumeReviewStep } from "../components/resume-review-step";
 import { ResumeAboutStep, ResumeBasicsStep, ResumeHealthFields, ResumeSkillsStep } from "../components/resume-steps";
 import { ResumeVetRecords } from "../components/resume-vet-records";
 import { AddPhotoDialog } from "../dialogs/add-photo-dialog";
+import { CoverPhotoDialog } from "../dialogs/cover-photo-dialog";
+import { type DraftSaveResult, type PhotoSlot, usePhotoDraft } from "../hooks/use-photo-draft";
+import { type VetRecordSlot, useVetRecordDraft } from "../hooks/use-vet-record-draft";
 import {
+  PHOTOS_STEP,
+  REQUIREMENT_STEP,
   RESUME_STEPS,
   REVIEW_STEP,
   type ResumeField,
@@ -28,7 +32,7 @@ import {
   resumeValuesFrom,
   validateResumeStep,
 } from "../schemas/resume-schemas";
-import type { OwnPet, VetRecord } from "../types/own-pet";
+import type { OwnPet } from "../types/own-pet";
 
 type Props = {
   pet: OwnPet;
@@ -39,11 +43,18 @@ type Props = {
 const UNKNOWN_PROBLEM = "We couldn't save that. Check your connection and try again.";
 const NOT_READY = "Finish the items marked below, then publish.";
 const SAVED_TIME = new Intl.DateTimeFormat("en-PH", { hour: "numeric", minute: "2-digit" });
+const HEALTH_STEP = REQUIREMENT_STEP.health;
 
-// PR-03…PR-08 and PR-10: the six-step edit resume wizard (FR20, NFR1). Each form step is saved when the pet leaves
-// it with Next, or on Save draft, so nothing typed is lost and the review step reads the API's own checklist;
-// photos and vet records save as they are added. The status is never sent: Publish asks the API to move a Draft to
-// Looking for a Home (FR27).
+/** Why a photo or vet record save stopped part way. What was sent stays sent; the rest stays marked "Not saved yet". */
+function partialSaveProblem(failure: unknown): string {
+  const reason = isApiError(failure) ? (Object.values(failure.fieldErrors)[0] ?? failure.message) : UNKNOWN_PROBLEM;
+  return `Not everything was saved. ${reason} What's marked "Not saved yet" is still waiting: press Save to try again, or remove it.`;
+}
+
+// PR-03…PR-08 and PR-10: the six-step edit resume wizard (FR20, NFR1). Each step is saved when the pet leaves it with
+// Next, or on Save draft, and only then: typed answers, photos, the cover photo and vet records alike (BUG-03), so
+// Back, Discard changes or leaving the page keep the resume as it was, and the review step reads the API's own
+// checklist. The status is never sent: Publish asks the API to move a Draft to Looking for a Home (FR27).
 export function ResumeWizard({ pet: loaded, initialStep }: Props) {
   const router = useRouter();
   const toast = useToast();
@@ -54,18 +65,22 @@ export function ResumeWizard({ pet: loaded, initialStep }: Props) {
   const [problem, setProblem] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | undefined>();
   const [published, setPublished] = useState(false);
+  // The photos and vet records the pet changed on their steps, sent with that step's Next or Save.
+  const photos = usePhotoDraft(pet);
+  const records = useVetRecordDraft(pet);
   // The dialogs of the photos and health steps. They have forms of their own, so they are rendered beside the
   // wizard, never inside its form.
   const [addingPhoto, setAddingPhoto] = useState(false);
-  const [removingPhoto, setRemovingPhoto] = useState<PetPhoto | null>(null);
-  const [removingRecord, setRemovingRecord] = useState<VetRecord | null>(null);
+  const [changingCover, setChangingCover] = useState(false);
+  const [removingPhoto, setRemovingPhoto] = useState<PhotoSlot | null>(null);
+  const [removingRecord, setRemovingRecord] = useState<VetRecordSlot | null>(null);
   const form = useRef<HTMLFormElement | null>(null);
   const focusInvalid = useRef(false);
   const publishedHeading = useRef<HTMLDivElement>(null);
 
   const draft = pet.status === "draft";
-  // What is typed but not saved yet, to warn before the page is left.
-  const unsaved = JSON.stringify(values) !== JSON.stringify(resumeValuesFrom(pet));
+  // What is changed but not saved yet, to warn before the page is left.
+  const unsaved = JSON.stringify(values) !== JSON.stringify(resumeValuesFrom(pet)) || photos.changed || records.changed;
 
   useEffect(() => {
     if (!unsaved) return;
@@ -117,23 +132,33 @@ export function ResumeWizard({ pet: loaded, initialStep }: Props) {
       return false;
     }
 
+    let latest = pet;
     const body = resumeStepPayload(current, values);
     const unchanged = JSON.stringify(body) === JSON.stringify(resumeStepPayload(current, resumeValuesFrom(pet)));
-    if (unchanged) {
-      setSavedAt(`Saved at ${SAVED_TIME.format(new Date())}`);
-      return true;
+    if (!unchanged) {
+      try {
+        latest = await updateResume(api, body);
+        setPet(latest);
+      } catch (failure) {
+        if (isApiError(failure) && failure.kind === "validation") showErrors(resumeFieldErrors(failure.fieldErrors));
+        else setProblem(isApiError(failure) ? failure.message : UNKNOWN_PROBLEM);
+        return false;
+      }
     }
 
-    try {
-      const saved = await updateResume(api, body);
-      setPet(saved);
-      setSavedAt(`Saved at ${SAVED_TIME.format(new Date())}`);
-      return true;
-    } catch (failure) {
-      if (isApiError(failure) && failure.kind === "validation") showErrors(resumeFieldErrors(failure.fieldErrors));
-      else setProblem(isApiError(failure) ? failure.message : UNKNOWN_PROBLEM);
-      return false;
+    // The files of the step go after its typed answers, each upload answered with the whole resume.
+    const files = current === PHOTOS_STEP ? photos : current === HEALTH_STEP ? records : null;
+    if (files?.changed) {
+      const result: DraftSaveResult = await files.save(latest);
+      setPet(result.pet);
+      if (result.failure) {
+        setProblem(partialSaveProblem(result.failure));
+        return false;
+      }
     }
+
+    setSavedAt(`Saved at ${SAVED_TIME.format(new Date())}`);
+    return true;
   }
 
   async function finish() {
@@ -195,16 +220,32 @@ export function ResumeWizard({ pet: loaded, initialStep }: Props) {
         finishLabel={draft ? "Publish resume" : "Done"}
         steps={[
           { label: RESUME_STEPS[0], content: withProblem(0, <ResumeBasicsStep pet={pet} {...stepProps} />) },
-          { label: RESUME_STEPS[1], content: withProblem(1, <ResumePhotosStep pet={pet} onChange={setPet} onAdd={() => setAddingPhoto(true)} onRemove={setRemovingPhoto} />) },
+          {
+            label: RESUME_STEPS[PHOTOS_STEP],
+            content: withProblem(
+              PHOTOS_STEP,
+              <ResumePhotosStep
+                pet={pet}
+                draft={photos}
+                onAdd={() => setAddingPhoto(true)}
+                // A photo chosen here and not saved yet goes without asking; one on the resume is asked about.
+                onRemove={(slot) => (slot.photo ? setRemovingPhoto(slot) : photos.remove(slot.key))}
+                onChangeCover={() => setChangingCover(true)}
+              />,
+            ),
+          },
           { label: RESUME_STEPS[2], content: withProblem(2, <ResumeAboutStep {...stepProps} />) },
           { label: RESUME_STEPS[3], content: withProblem(3, <ResumeSkillsStep {...stepProps} />) },
           {
-            label: RESUME_STEPS[4],
+            label: RESUME_STEPS[HEALTH_STEP],
             content: withProblem(
-              4,
+              HEALTH_STEP,
               <>
                 <ResumeHealthFields {...stepProps} />
-                <ResumeVetRecords pet={pet} onChange={setPet} onRemove={setRemovingRecord} />
+                <ResumeVetRecords
+                  draft={records}
+                  onRemove={(slot) => (slot.record ? setRemovingRecord(slot) : records.remove(slot.key))}
+                />
               </>,
             ),
           },
@@ -212,13 +253,12 @@ export function ResumeWizard({ pet: loaded, initialStep }: Props) {
         ]}
       />
 
-      <AddPhotoDialog
-        open={addingPhoto}
-        onClose={() => setAddingPhoto(false)}
-        onAdded={(next) => {
-          setPet(next);
-          toast.show("Photo added.");
-        }}
+      <AddPhotoDialog open={addingPhoto} onClose={() => setAddingPhoto(false)} onAdded={photos.add} />
+      <CoverPhotoDialog
+        open={changingCover}
+        onClose={() => setChangingCover(false)}
+        replacing={Boolean(photos.cover ?? pet.cover_photo_url)}
+        onChosen={photos.chooseCover}
       />
       <ConfirmDialog
         open={removingPhoto !== null}
@@ -226,25 +266,27 @@ export function ResumeWizard({ pet: loaded, initialStep }: Props) {
         destructive
         title="Remove this photo?"
         confirmLabel="Remove photo"
-        consequences={["The photo is taken off your resume.", "To show it again you would add it again."]}
-        onConfirm={async () => {
-          if (!removingPhoto) return;
-          setPet(await deletePhoto(api, removingPhoto.id));
-          toast.show("Photo removed.");
+        consequences={[
+          "The photo comes off your resume when you save this step.",
+          "Until then, Discard changes brings it back.",
+        ]}
+        onConfirm={() => {
+          if (removingPhoto) photos.remove(removingPhoto.key);
         }}
       />
       <ConfirmDialog
         open={removingRecord !== null}
         onClose={() => setRemovingRecord(null)}
         destructive
-        permanent
         title="Remove this vet record?"
         confirmLabel="Remove record"
-        consequences={["The file is deleted.", "Humans with an approved request can no longer open it."]}
-        onConfirm={async () => {
-          if (!removingRecord) return;
-          setPet(await deleteVetRecord(api, removingRecord.id));
-          toast.show("Vet record removed.");
+        consequences={[
+          "The file is deleted when you save this step, and that can't be undone.",
+          "After that, humans with an approved request can no longer open it.",
+          "Until then, Discard record changes brings it back.",
+        ]}
+        onConfirm={() => {
+          if (removingRecord) records.remove(removingRecord.key);
         }}
       />
     </Card>
