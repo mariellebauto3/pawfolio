@@ -121,6 +121,11 @@ Invites to Apply (`RQ-02`): the invites the pet received and hasn't dismissed, n
 - **Apply is offered** when `open_request_id` and `cooldown_until` are both `null` and `home_profile.is_open_to_adopt`
   is true. `POST /adoption-requests` enforces all three whatever the card shows (SEC-FE-05).
 - An invite from an account that isn't Active any more is left out (SEC-PRIV-05, SEC-ABUSE-04).
+- **A Hired pet has no live invites.** It can't apply anywhere again (proposal §5.5), so the list is empty, the
+  feed's Invites to Apply card and count (`meta.home.invites_count`) are 0, and so is `tiles.invites.live` on
+  `/stats`. Nothing is marked dismissed: if an admin cancels the adoption, the invites are live again. An In Process
+  pet's invites stay listed, since it may apply once that request ends. One rule decides all of these
+  (`Invite::active()`).
 - A human doesn't list the invites they sent. The resume says whether theirs is out: `invited_at` on
   `GET /pets/{pet}` (`discovery.md`).
 
@@ -157,6 +162,13 @@ All fixed in the same PR (2026-10-08), with tests in `backend/tests/Feature/Book
 - Removing a bookmark and dismissing an invite twice were errors; they answer the same as the first time now.
 - The refusal said "Only Furparent accounts can invite"; a Furparent is a human who has adopted, and any human who
   is Open to Adopt may invite.
+
+## Found after release (BUG-01, 2026-10-21)
+
+- **A Hired pet kept its invites.** Adopting closes the pet's other requests but left its invites live, so the feed
+  still said "1 home invited you to apply", and Invites to Apply still offered Apply, which answered 409
+  `already_adopted`. A Hired pet's invites now stop counting everywhere, with a test
+  (`InvitesTest::test_a_hired_pet_has_no_live_invites`).
 
 **Left as it is, to decide:** after a pet dismisses an invite the same human may send another straight away. Only
 the general write limit (60 a minute per account) stands in the way of asking again and again. A wait after a

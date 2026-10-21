@@ -19,8 +19,13 @@ const INVITES: Invite[] = [
   { id: 2, pet_id: 1, home_profile_id: 1, note: null, created_at: "2026-09-17T15:05:00.000000Z", dismissed_at: null },
 ];
 
+// Live like the API's `Invite::active()`: not dismissed, and the pet isn't Hired. An adopted pet can't apply anywhere,
+// so its invites stop counting, and count again if the adoption is cancelled.
+const isLive = (invite: Invite) =>
+  invite.dismissed_at === null && PETS.find((pet) => pet.id === invite.pet_id)?.status !== "adopted_hired";
+
 export function activeInviteCount(petId: number | null): number {
-  return INVITES.filter((invite) => invite.pet_id === petId && invite.dismissed_at === null).length;
+  return INVITES.filter((invite) => invite.pet_id === petId && isLive(invite)).length;
 }
 
 const NOTE_MAX = 200;
@@ -31,7 +36,7 @@ const COOLDOWN_STATUSES: readonly RequestStatus[] = ["declined", "not_adopted"];
 
 /** When this home's live invite to the pet was sent, for `invited_at` on the resume a human reads; null without one. */
 export function liveInviteAt(petId: number, homeProfileId: number | null): string | null {
-  return INVITES.find((invite) => invite.pet_id === petId && invite.home_profile_id === homeProfileId && invite.dismissed_at === null)?.created_at ?? null;
+  return INVITES.find((invite) => invite.pet_id === petId && invite.home_profile_id === homeProfileId && isLive(invite))?.created_at ?? null;
 }
 
 const requestsBetween = (petId: number, homeProfileId: number) =>
@@ -52,7 +57,7 @@ export const inviteRoutes: MockRoute[] = [
     if (account?.role !== "pet") return fail(403, "This action is unauthorized.");
     const petId = account.profile_id ?? 0;
 
-    const rows = INVITES.filter((invite) => invite.pet_id === petId && invite.dismissed_at === null)
+    const rows = INVITES.filter((invite) => invite.pet_id === petId && isLive(invite))
       .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id)
       .flatMap(({ id, note, created_at, home_profile_id }) => {
         const home = HOME_PROFILES.find((h) => h.id === home_profile_id);

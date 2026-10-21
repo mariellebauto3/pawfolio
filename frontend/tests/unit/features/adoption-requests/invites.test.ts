@@ -4,6 +4,7 @@ import { INVITE_NOTE_MAX, inviteApplyState, inviteNote, validateInviteNote } fro
 import { getPetProfile } from "@/features/discovery/api/discovery";
 import { type Transport, createApiClient } from "@/lib/api/core";
 import { HOME_PROFILES } from "@/lib/api/mock/fixtures/home-profiles";
+import { PETS } from "@/lib/api/mock/fixtures/pets";
 import { MOCK_PERSONA_COOKIE, createMockTransport } from "@/lib/api/mock/transport";
 
 // The Invite to Apply calls against the mock API, which answers in the shapes of
@@ -99,6 +100,18 @@ describe("Invites to Apply (RQ-02)", () => {
     await expect(getInvites(as("human"))).rejects.toMatchObject({ kind: "forbidden" });
     await expect(getInvites(as("admin"))).rejects.toMatchObject({ kind: "forbidden" });
     await expect(getInvites(as("pet-pending"))).rejects.toMatchObject({ kind: "account_not_active" });
+  });
+
+  it("lists none once the pet is Hired, and lists them again if the adoption is cancelled", async () => {
+    const mochi = PETS.find((pet) => pet.id === 1)!;
+    const before = mochi.status;
+    try {
+      mochi.status = "adopted_hired";
+      expect((await getInvites(as("pet"))).meta.total).toBe(0);
+    } finally {
+      mochi.status = before;
+    }
+    expect((await getInvites(as("pet"))).meta.total).toBe(2);
   });
 });
 

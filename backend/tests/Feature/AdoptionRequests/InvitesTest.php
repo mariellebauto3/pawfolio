@@ -254,6 +254,31 @@ class InvitesTest extends TestCase
         $this->actingAs($otherPetUser)->getJson('/api/v1/invites')->assertOk()->assertJsonPath('meta.total', 1);
     }
 
+    public function test_a_hired_pet_has_no_live_invites(): void
+    {
+        $this->invited($this->home);
+        $this->invited($this->listedHome('Ben Cruz'));
+        $live = fn (int $count) => $this->assertSame([$count, $count, $count], [
+            $this->actingAs($this->petUser)->getJson('/api/v1/invites')->assertOk()->json('meta.total'),
+            $this->actingAs($this->petUser)->getJson('/api/v1/feed?pagination=cursor&include_home=1')->assertOk()->json('meta.home.invites_count'),
+            $this->actingAs($this->petUser)->getJson('/api/v1/stats')->assertOk()->json('data.tiles.invites.live'),
+        ]);
+
+        // In Process, the pet can't apply yet, but may once that request ends: its invites still count.
+        $this->pet->forceFill(['status' => 'in_process'])->save();
+        $live(2);
+
+        // Hired, it can't apply anywhere again (§5.5): the list, the feed's card and the stats show none.
+        $this->pet->forceFill(['status' => 'adopted_hired'])->save();
+        $live(0);
+        $this->actingAs($this->petUser)->getJson('/api/v1/stats')->assertOk()->assertJsonPath('data.tiles.invites.total', 2);
+
+        // Nothing was marked dismissed, so an adoption an admin cancels brings them back.
+        $this->assertSame(0, Invite::query()->whereNotNull('dismissed_at')->count());
+        $this->pet->forceFill(['status' => 'looking_for_a_home'])->save();
+        $live(2);
+    }
+
     public function test_an_invite_says_when_the_pet_cannot_apply(): void
     {
         $declined = $this->listedHome('Declined');

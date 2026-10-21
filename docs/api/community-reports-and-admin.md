@@ -533,7 +533,7 @@ admin to the dashboard instead).
 | `tiles.views` | `{ total, this_week }`: views of the resume, and those of the last 7 days. A view is one visitor on one day, never the pet itself or an admin |
 | `tiles.bookmarks` | `{ total, this_week }`: humans who have the pet in their Bookmarks |
 | `tiles.requests` | `{ total, open }`: requests sent, and those still open (Sent, On Hold, Approved, Meet Scheduled, Awaiting Decision) |
-| `tiles.invites` | `{ total, live }`: Invites to Apply received, and those still on the Invites page |
+| `tiles.invites` | `{ total, live }`: Invites to Apply received, and those still on the Invites page. A Hired pet's `live` is 0 |
 | `views_over_time` | 30 rows `{ date: "2026-10-10", count }`, oldest first, today last |
 | `views_by_source` | `{ matches, browse, search, bookmarks, feed, direct }`: where the views came from, all of them |
 | `request_history` | The latest 10 requests, newest first (below) |
