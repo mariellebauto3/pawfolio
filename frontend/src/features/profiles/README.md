@@ -49,10 +49,16 @@ Dialogs, menus, toasts and states render on top of (or inside) the route shown; 
 
 - **PR-01…PR-10 (FE-10):** `/me` for a pet (`components/my-resume.tsx`, on the shared
   `@/components/data-display/pet-resume`) and `/resume/edit` (`forms/resume-wizard.tsx`). The wizard saves a step
-  when the pet leaves it with Next or presses Save draft; photos and vet records save as they are added. `?step=2`
+  when the pet leaves it with Next or presses Save draft (Save changes once published), and only then. Since BUG-03
+  (2026-10-21) that includes the files: adding, moving and removing a photo, choosing a cover photo, and adding or
+  removing a vet record change only what the step shows (`hooks/use-photo-draft.ts`, `hooks/use-vet-record-draft.ts`),
+  with unsaved items marked "Not saved yet" and a Discard changes button; the step's Next or Save sends them through
+  the existing endpoints, in an order the API's photo limits never refuse (`photoSavePlan`). Back, Discard or leaving
+  the page drops them. This departs from the LoFi's PR-09 ("Add photo → toast"): the dialog now only adds the photo
+  to the step. `?step=2`
   opens a step. The rules are pure functions in `schemas/resume-schemas.ts`, tested in
   `tests/unit/features/profiles/`. API contract: `docs/api/profiles-and-matching.md`. Live API only, no mock.
-- **Dialogs with a form** (Add photo, the Remove confirmations) are rendered by the wizard beside the `Wizard`, not
+- **Dialogs with a form** (Add photo, Cover photo, the Remove confirmations) are rendered by the wizard beside the `Wizard`, not
   inside a step: a form can't sit inside the wizard's own form.
 - **PR-11…PR-20 (FE-11):** `/me` for a human (`components/my-home-profile.tsx`, on the shared
   `@/components/data-display/home-profile-view`) and `/home-profile/edit` (`forms/home-profile-wizard.tsx`). Next
