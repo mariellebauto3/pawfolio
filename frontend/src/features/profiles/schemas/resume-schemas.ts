@@ -195,14 +195,40 @@ export function stepFromParam(param: string | string[] | undefined): number | nu
   return Number.isInteger(value) && value >= 1 && value <= RESUME_STEPS.length ? value - 1 : null;
 }
 
-/** Moves one photo id to a new place in the order (PR-04 "Move", "Make profile photo"). */
-export function movePhoto(ids: readonly number[], id: number, to: number): number[] {
+/** Moves one photo id (or a key of a photo not saved yet) to a new place in the order (PR-04 "Move", "Make profile photo"). */
+export function movePhoto<Id>(ids: readonly Id[], id: Id, to: number): Id[] {
   const from = ids.indexOf(id);
   const target = Math.min(Math.max(to, 0), ids.length - 1);
   if (from === -1 || from === target) return [...ids];
   const next = ids.filter((other) => other !== id);
   next.splice(target, 0, id);
   return next;
+}
+
+export type PhotoSaveStep = "remove" | "add";
+
+/**
+ * The order in which the photos step's changes are sent when the pet saves it (BUG-03). The API answers each add and
+ * each remove on its own and refuses one that would leave fewer than `min` photos or more than `max`. Additions go
+ * first, so a save cut short leaves the resume with more photos rather than too few; an add that would pass `max`
+ * makes room with one removal, and the rest of the removals go last. Any end state between `min` and `max` is reached
+ * without a refusal.
+ */
+export function photoSavePlan(saved: number, removals: number, additions: number, max: number): PhotoSaveStep[] {
+  const plan: PhotoSaveStep[] = [];
+  let count = saved;
+  let removalsLeft = removals;
+  for (let added = 0; added < additions; added++) {
+    if (count >= max && removalsLeft > 0) {
+      plan.push("remove");
+      count--;
+      removalsLeft--;
+    }
+    plan.push("add");
+    count++;
+  }
+  for (; removalsLeft > 0; removalsLeft--) plan.push("remove");
+  return plan;
 }
 
 /**
