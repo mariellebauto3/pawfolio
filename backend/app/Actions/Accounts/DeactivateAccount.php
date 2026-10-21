@@ -11,11 +11,12 @@ use App\Models\AccountAction;
 use App\Models\User;
 use App\Services\ActivityLogs\ActivityLogger;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Deactivates an account, by its owner (AC-05) or by an admin (AC-10, FR34): the profile is hidden at once by the
  * status (SEC-PRIV-05), a human stops being Open to Adopt, open requests are closed (proposal §5.3) and every
- * session ends. Nothing is deleted: adoption history and logs keep their records (proposal §5.1). Call it inside a
+ * session and remember-me cookie ends. Nothing is deleted: adoption history and logs keep their records (proposal §5.1). Call it inside a
  * transaction.
  */
 class DeactivateAccount
@@ -33,6 +34,8 @@ class DeactivateAccount
         $before = $account->getStatus()->value;
 
         $account->status = AccountStatus::Deactivated;
+        // A new token voids every "Keep me signed in" cookie, which would otherwise start a new session.
+        $account->setRememberToken(Str::random(60));
         $account->save();
 
         $record = new AccountAction;
