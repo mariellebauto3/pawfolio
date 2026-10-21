@@ -118,6 +118,8 @@ Invites to Apply (`RQ-02`): the invites the pet received and hasn't dismissed, n
   | `open_request_id` | The pet's open request with this home, when there is one: the card offers "View my request" instead of Apply |
   | `cooldown_until` | When the pet may apply to this home again: 30 days after its last Declined or Not Adopted result there (`RQ-06`). `null` when that has passed or never happened |
 
+- **`meta.reason`:** `"already_adopted"` when the pet is Hired, otherwise `null`. The page then says the pet has
+  been Hired instead of suggesting it apply elsewhere.
 - **Apply is offered** when `open_request_id` and `cooldown_until` are both `null` and `home_profile.is_open_to_adopt`
   is true. `POST /adoption-requests` enforces all three whatever the card shows (SEC-FE-05).
 - An invite from an account that isn't Active any more is left out (SEC-PRIV-05, SEC-ABUSE-04).
@@ -168,7 +170,8 @@ All fixed in the same PR (2026-10-08), with tests in `backend/tests/Feature/Book
 - **A Hired pet kept its invites.** Adopting closes the pet's other requests but left its invites live, so the feed
   still said "1 home invited you to apply", and Invites to Apply still offered Apply, which answered 409
   `already_adopted`. A Hired pet's invites now stop counting everywhere, with a test
-  (`InvitesTest::test_a_hired_pet_has_no_live_invites`).
+  (`InvitesTest::test_a_hired_pet_has_no_live_invites`). Its empty Invites to Apply page also said it could apply
+  to any home that is Open to Adopt; `meta.reason` now lets the page say it has been Hired.
 
 **Left as it is, to decide:** after a pet dismisses an invite the same human may send another straight away. Only
 the general write limit (60 a minute per account) stands in the way of asking again and again. A wait after a

@@ -1,4 +1,4 @@
-import type { IsoDateTime } from "@/types/api";
+import type { IsoDateTime, Paginated } from "@/types/api";
 import type { HomeProfile } from "@/types/home-profile";
 
 // What the Invite to Apply endpoints answer (docs/api/bookmarks-and-invites.md, RQ-01, RQ-02).
@@ -16,6 +16,9 @@ export type Invite = {
   /** The home that invited, public details only (SEC-PRIV-03), with the pet's match when there is one. */
   home_profile: HomeProfile & { match_score?: number; is_bookmarked?: boolean };
 };
+
+/** A page of Invites to Apply, and whether the pet is Hired: it then has none and can't apply anywhere (§5.5). */
+export type InvitesPage = Paginated<Invite> & { hired: boolean };
 
 /** The invite a human just sent (RQ-01). */
 export type SentInvite = {

@@ -75,7 +75,9 @@ export const inviteRoutes: MockRoute[] = [
         ];
       });
 
-    return { status: 200, body: paginate(rows, query, "/api/v1/invites") };
+    const page = paginate(rows, query, "/api/v1/invites");
+    const hired = PETS.find((pet) => pet.id === petId)?.status === "adopted_hired";
+    return { status: 200, body: { ...page, meta: { ...page.meta, reason: hired ? "already_adopted" : null } } };
   }),
 
   route("POST", "/pets/:petId/invites", ({ params, body, account }) => {

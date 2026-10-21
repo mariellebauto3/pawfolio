@@ -93,6 +93,10 @@ describe("Invites to Apply (RQ-02)", () => {
     const page = await getInvites(answering({ data: rows, meta }).client);
     // The first row's odd values are "not there"; the other two aren't invites at all.
     expect(page.data).toEqual([{ id: 1, note: null, created_at: null, open_request_id: null, cooldown_until: null, home_profile: HOME_PROFILES[0] }]);
+    // Hired only when the API says so in those words.
+    expect(page.hired).toBe(false);
+    expect((await getInvites(answering({ data: [], meta: { ...meta, total: 0, reason: "already_adopted" } }).client)).hired).toBe(true);
+    expect((await getInvites(answering({ data: [], meta: { ...meta, total: 0, reason: true } }).client)).hired).toBe(false);
     await expect(getInvites(answering({ data: [] }).client)).rejects.toMatchObject({ kind: "server" });
   });
 
@@ -107,11 +111,13 @@ describe("Invites to Apply (RQ-02)", () => {
     const before = mochi.status;
     try {
       mochi.status = "adopted_hired";
-      expect((await getInvites(as("pet"))).meta.total).toBe(0);
+      const hired = await getInvites(as("pet"));
+      expect([hired.meta.total, hired.hired]).toEqual([0, true]);
     } finally {
       mochi.status = before;
     }
-    expect((await getInvites(as("pet"))).meta.total).toBe(2);
+    const looking = await getInvites(as("pet"));
+    expect([looking.meta.total, looking.hired]).toEqual([2, false]);
   });
 });
 
